@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Serviços - Clinic Pro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#3a485c",
+                        "surface-container": "#eceef0",
+                        "surface": "#f7f9fb",
+                        "surface-tint": "#006a63",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#d8dadc",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-surface": "#191c1e",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#9cf2e8",
+                        "on-tertiary-container": "#91fdef",
+                        "inverse-primary": "#80d5cb",
+                        "on-secondary-fixed": "#0d1c2f",
+                        "secondary": "#515f74",
+                        "outline-variant": "#bdc9c6",
+                        "on-error": "#ffffff",
+                        "outline": "#6e7977",
+                        "primary-fixed-dim": "#80d5cb",
+                        "tertiary-fixed": "#89f5e7",
+                        "error": "#ba1a1a",
+                        "primary-container": "#0f766e",
+                        "primary": "#005c55",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed-variant": "#00504a",
+                        "on-tertiary-fixed": "#00201d",
+                        "on-secondary-container": "#57657b",
+                        "on-error-container": "#93000a",
+                        "tertiary-container": "#00776d",
+                        "on-tertiary-fixed-variant": "#005049",
+                        "on-surface-variant": "#3e4947",
+                        "secondary-container": "#d5e3fd",
+                        "on-primary-container": "#a3faef",
+                        "surface-bright": "#f7f9fb",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#005c54",
+                        "background": "#f7f9fb",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-container-high": "#e6e8ea",
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#b9c7e0",
+                        "on-primary-fixed": "#00201d",
+                        "tertiary-fixed-dim": "#6bd8cb",
+                        "surface-variant": "#e0e3e5",
+                        "secondary-fixed": "#d5e3fd",
+                        "on-background": "#191c1e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "gutter": "20px",
+                        "container-max": "1440px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "base": "4px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Inter"],
+                        "h1": ["Inter"],
+                        "h3": ["Inter"],
+                        "body-md": ["Inter"],
+                        "button": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "h2": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "h1": ["36px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "h3": ["20px", { "lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "button": ["14px", { "lineHeight": "1", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "h2": ["24px", { "lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "1.5", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen">
+<!-- SideNavBar (Shared Component) -->
+<nav class="bg-white dark:bg-slate-900 font-sans antialiased text-sm font-medium w-[280px] h-screen border-r border-slate-200 dark:border-slate-800 flat no shadows fixed left-0 top-0 h-full flex flex-col py-6 z-50">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-teal-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-700 text-xl" data-icon="local_hospital">local_hospital</span>
+</div>
+<div>
+<h1 class="text-teal-700 dark:text-teal-500 font-bold text-lg tracking-tight leading-tight">Clinic Pro</h1>
+<p class="text-[11px] text-slate-500 uppercase tracking-wider">Administração Clínica</p>
+</div>
+</div>
+<ul class="flex flex-col gap-1 w-full">
+<li>
+<a class="flex items-center gap-3 px-6 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="dashboard">dashboard</span>
+                    Painel
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-6 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="calendar_today">calendar_today</span>
+                    Agendamentos
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-6 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="group">group</span>
+                    Pacientes
+                </a>
+</li>
+<!-- Active Tab -->
+<li>
+<a class="flex items-center gap-3 px-6 py-3 text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border-r-4 border-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200 opacity-90 transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="medical_services">medical_services</span>
+                    Serviços
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-6 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="settings">settings</span>
+                    Configurações
+                </a>
+</li>
+</ul>
+</nav>
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md font-sans text-sm tracking-wide w-full h-16 border-b border-slate-200 dark:border-slate-800 flat no shadows sticky top-0 z-40 flex items-center justify-between px-8 ml-[280px] w-[calc(100%-280px)]">
+<div class="flex items-center flex-1">
+<div class="relative w-64 Focus: ring-2 ring-teal-500/20 outline-none">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" data-icon="search">search</span>
+<input class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-teal-500 transition-colors" placeholder="Buscar..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors p-2 rounded-full hover:bg-slate-100">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors p-2 rounded-full hover:bg-slate-100">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200 ml-2">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="close-up portrait of female healthcare professional smiling softly against neutral white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvhWuBKs1AilQi_i4isjHlAt6PWczkhBNGRuUflu8LKlstixGZ1FX4W_GkR0R3IxILnDnxF8SJ2znFtie25wLVaNdoNPk_ugvm-sk1Tg4-Qkih8peXQsoRlKJzlkZDGwaTaqJCjYvxby0TE61NMGQroNxH594n4DumvlSWYP3sAmgVL399iW_HQ_e5brST7UNzOpL5Z6p7vB0pJ8_9ImiaK4iDYS9A-K9S2DO4I8sj7--VaDEkmM_2N6YOQpVnt5XemQpFD-oEqIw"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[280px] p-xl max-w-container-max mx-auto">
+<!-- Page Header -->
+<div class="flex justify-between items-center mb-xl">
+<div>
+<h2 class="font-h2 text-h2 text-on-background">Serviços</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Gerencie os procedimentos e consultas oferecidos pela clínica.</p>
+</div>
+<button class="flex items-center gap-2 bg-primary-container text-on-primary h-[40px] px-md rounded font-button text-button hover:brightness-90 active:scale-95 transition-all duration-200 shadow-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
+                Adicionar Serviço
+            </button>
+</div>
+<!-- Refined Table -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="font-label-caps text-label-caps text-on-surface-variant py-md px-lg uppercase tracking-wider">Serviço</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant py-md px-lg uppercase tracking-wider">Profissional Vinculado</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant py-md px-lg uppercase tracking-wider">Duração</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant py-md px-lg uppercase tracking-wider text-right">Preço</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant py-md px-lg uppercase tracking-wider text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md">
+<!-- Row 1 -->
+<tr class="border-b border-surface-variant hover:bg-[#f0fdfa] transition-colors duration-150 group">
+<td class="py-md px-lg text-on-surface font-medium">Consulta Geral</td>
+<td class="py-md px-lg">
+<div class="flex items-center gap-3">
+<img alt="Dr. Carlos Silva" class="w-6 h-6 rounded-full object-cover" data-alt="professional headshot of male doctor in white coat with stethoscope" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl-0LYRBz89Pq60oFjRolDPeSz8LMFLOzJZ8OLLJaeoy6JTPxoAa3vLY0vMJcRUlxqnDNUOpqMx5ej1J0nh0FFyOFOC_6I4i_tzVFPBk1-OYgEYlT1DumlvnSl0mvPZR7VZou0cXRkSn2EHRnzIkxUDtFbbA1B9i0Bwr84GRaZoj2l_Z0FfZXzsKgf5-78USQWl5k0Y_gaub72aRJEIxidXDvaW2Vn1OQG_HdfGbgfcOCVkadaZZkNXXvRzWVqyxZy62ENtuPH_nQ"/>
+<span class="text-on-surface-variant">Dr. Carlos Silva</span>
+</div>
+</td>
+<td class="py-md px-lg text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+                                30 min
+                            </div>
+</td>
+<td class="py-md px-lg text-right text-on-surface font-medium">R$ 150,00</td>
+<td class="py-md px-lg text-right">
+<button class="text-outline hover:text-primary transition-colors p-1" title="Editar">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+</button>
+<button class="text-outline hover:text-error transition-colors p-1 ml-2" title="Excluir">
+<span class="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="border-b border-surface-variant hover:bg-[#f0fdfa] transition-colors duration-150 group">
+<td class="py-md px-lg text-on-surface font-medium">Limpeza Dental</td>
+<td class="py-md px-lg">
+<div class="flex items-center gap-3">
+<img alt="Dra. Ana Souza" class="w-6 h-6 rounded-full object-cover" data-alt="professional headshot of female dentist smiling softly" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzTzDtBs92W82ffIAB_XFUciIeW8pMsf_7VaDEfjq3a9-p0ArIEGbsU_Kx4iPY9uMop0jkzpTX0pqTqFav7z3072Nv47XlVB2sRjoxNK3zD9-rY_61V2C5OJ2b9J8mMqg6U83PD-kv6MxPWbtuW7D6k8fuFXjHWuIRspNrYZXE8CZwy6AWRC3KpFfQ-2PryAx7VpkCrIOCTXiASaUViEUfwv88ZpFRuNeqBrMSl-Beq4cApOTNqZO5CSEgM4bC69d0jRpzEPWeOdI"/>
+<span class="text-on-surface-variant">Dra. Ana Souza</span>
+</div>
+</td>
+<td class="py-md px-lg text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+                                45 min
+                            </div>
+</td>
+<td class="py-md px-lg text-right text-on-surface font-medium">R$ 200,00</td>
+<td class="py-md px-lg text-right">
+<button class="text-outline hover:text-primary transition-colors p-1" title="Editar">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+</button>
+<button class="text-outline hover:text-error transition-colors p-1 ml-2" title="Excluir">
+<span class="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="border-b border-surface-variant hover:bg-[#f0fdfa] transition-colors duration-150 group">
+<td class="py-md px-lg text-on-surface font-medium">Fisioterapia Motora</td>
+<td class="py-md px-lg">
+<div class="flex items-center gap-3">
+<img alt="Dr. Roberto Mendes" class="w-6 h-6 rounded-full object-cover" data-alt="professional headshot of male physiotherapist in blue scrubs" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCm0_2M7kZZs9aTrh8wGd7UMEBX75JU877fifbwMe23cEf2lmhVRF5Jfp2xDL1SQEXMr1Pb6Y8trEc00oXbap448bqYrBWfO7yTIV9um9jezfeliISZENhBimlqb8mxfwpmO9LcxLz0xmrKidEZDS9aq-LyAoFaH9mLROBCQxIVDets4F9SxRSHyO5eCbAA4GPcjkU7U3NUl0iPdYBkzRCZD-bbNLQw8ObnC3uKcwRodh4YUe5HO3427P7BIBqozuCmJUYW4q4TY2U"/>
+<span class="text-on-surface-variant">Dr. Roberto Mendes</span>
+</div>
+</td>
+<td class="py-md px-lg text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+                                60 min
+                            </div>
+</td>
+<td class="py-md px-lg text-right text-on-surface font-medium">R$ 180,00</td>
+<td class="py-md px-lg text-right">
+<button class="text-outline hover:text-primary transition-colors p-1" title="Editar">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+</button>
+<button class="text-outline hover:text-error transition-colors p-1 ml-2" title="Excluir">
+<span class="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="border-b border-surface-variant hover:bg-[#f0fdfa] transition-colors duration-150 group">
+<td class="py-md px-lg text-on-surface font-medium">Exame de Sangue de Rotina</td>
+<td class="py-md px-lg">
+<div class="flex items-center gap-3">
+<img alt="Enf. Juliana Lima" class="w-6 h-6 rounded-full object-cover" data-alt="professional headshot of female nurse looking attentive" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6iGy-KgB7fH6HhbNf8Suy9aztMnxUjOUujp2sgVW-dAAJHKg1233wJcem38LvRqeasAP2YD02t_Z5qDiWmCbtGumFRF22-l0NinfZgPwLeXqan5mTBjVTtmPVDSSiGbGsktTpkLuzflOgi3JRiJy3uwiCQe1FKlFbO45AR55IG_e_jW554Wnx0fnPYD4f463yZRyobRH8X6XFar8Bu-H8Nrw8MVyU4KD33UeMYvnMtfrqSmbU_DK__cgIVI29VWNX2uijZLJWsUs"/>
+<span class="text-on-surface-variant">Enf. Juliana Lima</span>
+</div>
+</td>
+<td class="py-md px-lg text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+                                15 min
+                            </div>
+</td>
+<td class="py-md px-lg text-right text-on-surface font-medium">R$ 80,00</td>
+<td class="py-md px-lg text-right">
+<button class="text-outline hover:text-primary transition-colors p-1" title="Editar">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+</button>
+<button class="text-outline hover:text-error transition-colors p-1 ml-2" title="Excluir">
+<span class="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-[#f0fdfa] transition-colors duration-150 group">
+<td class="py-md px-lg text-on-surface font-medium">Terapia Ocupacional</td>
+<td class="py-md px-lg">
+<div class="flex items-center gap-3">
+<img alt="Dra. Mariana Costa" class="w-6 h-6 rounded-full object-cover" data-alt="professional headshot of female occupational therapist" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHdht5nUvaOtS1Kz8W9UdMTCRoDjwXB9Vqh82w26NxaGYI2YxBw0IPlul0HhHUbPumJ4-f4JKvqFGWVC9CWaJr007QCn3ih0vrnXywLadeGLz0grzWMiew3rV6_4EKERpY4s6vQ6ZTOO5SiA37_mT1oqDVc07DIqU9HgrTU0oqgxKnir9Cq6zeckxhdlA8Jh3M9kFR1J3_BAeaNjZuaZdsUqwf1gPqcDoZanwRms4kRCkIK2L84qjdpAohOHb-qjioKZl22LyMrU0"/>
+<span class="text-on-surface-variant">Dra. Mariana Costa</span>
+</div>
+</td>
+<td class="py-md px-lg text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+                                50 min
+                            </div>
+</td>
+<td class="py-md px-lg text-right text-on-surface font-medium">R$ 220,00</td>
+<td class="py-md px-lg text-right">
+<button class="text-outline hover:text-primary transition-colors p-1" title="Editar">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+</button>
+<button class="text-outline hover:text-error transition-colors p-1 ml-2" title="Excluir">
+<span class="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</main>
+</body></html>

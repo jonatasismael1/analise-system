@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login - Clinic Pro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#e0e3e5",
+                    "surface-tint": "#006a63",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-surface": "#191c1e",
+                    "surface": "#f7f9fb",
+                    "surface-bright": "#f7f9fb",
+                    "outline-variant": "#bdc9c6",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#a3faef",
+                    "primary-fixed": "#9cf2e8",
+                    "surface-container-lowest": "#ffffff",
+                    "error": "#ba1a1a",
+                    "tertiary-container": "#00776d",
+                    "on-secondary-container": "#57657b",
+                    "primary": "#005c55",
+                    "primary-fixed-dim": "#80d5cb",
+                    "on-surface-variant": "#3e4947",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "on-tertiary-fixed": "#00201d",
+                    "on-primary-fixed": "#00201d",
+                    "surface-container": "#eceef0",
+                    "on-error-container": "#93000a",
+                    "on-primary-fixed-variant": "#00504a",
+                    "inverse-on-surface": "#eff1f3",
+                    "tertiary-fixed-dim": "#6bd8cb",
+                    "outline": "#6e7977",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-container": "#91fdef",
+                    "tertiary-fixed": "#89f5e7",
+                    "secondary-container": "#d5e3fd",
+                    "on-tertiary-fixed-variant": "#005049",
+                    "surface-container-low": "#f2f4f6",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "primary-container": "#0f766e",
+                    "on-background": "#191c1e",
+                    "inverse-primary": "#80d5cb",
+                    "secondary-fixed": "#d5e3fd",
+                    "surface-container-high": "#e6e8ea",
+                    "surface-dim": "#d8dadc",
+                    "secondary": "#515f74",
+                    "background": "#f7f9fb",
+                    "tertiary": "#005c54",
+                    "inverse-surface": "#2d3133"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "sm": "8px",
+                    "base": "4px",
+                    "container-max": "1440px",
+                    "gutter": "20px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "xl": "32px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "h1": ["Inter"],
+                    "button": ["Inter"],
+                    "h2": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "h3": ["Inter"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "h1": ["36px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "h3": ["20px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background min-h-screen flex flex-col font-body-md text-body-md text-on-surface antialiased relative">
+<!-- Background Medical/Geometric Overlay -->
+<div class="fixed inset-0 pointer-events-none z-0 opacity-10">
+<img alt="Background" class="w-full h-full object-cover grayscale" data-alt="abstract soft geometric pattern in white and pale blue resembling clean medical surfaces or modern clinic architecture with very subtle lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrLbFnjHRN213bA0Dy0UhEdnRWlFWvacLjYj7I0e6GvbNjds7GKFDdVlfhG0Jnu2pYpczlqvfOzTy_eZIbDcf1qZsjHDncfpkeksPOun9NQaV8_e7PJE84JSnrfOVo0YYu3zAt9QFNk8T8c2EylSO_Mjn5aP1w1-Q1yKpuCk6CXYJqTa0qam6nPim1T6o8agbNMwwegGTAJYb7KPRmwrPpDJGWa_4apOPO5WGkZCrfmTeprA88ZTGboBBecRMXdyjr5ZieA-3W1Gs"/>
+</div>
+<!-- Main Content Area -->
+<main class="flex-grow flex items-center justify-center p-lg relative z-10 w-full">
+<!-- Login Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-xl w-full max-w-[420px] shadow-[0_4px_12px_rgba(15,118,110,0.05)] flex flex-col gap-xl">
+<!-- Header & Logo -->
+<div class="flex flex-col items-center gap-sm">
+<img alt="Clinic Pro Logo" class="h-10 w-auto object-contain" data-alt="Clean, modern brand logo for Clinic Pro featuring sharp typography and a subtle medical cross motif in teal" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3ZW-8ssxfluMScdgvMZUFQ9mHTyewjo7eZsFepidn0sQnWSRP5aTb2TNCf9tTjxJkrXnUFVIeOGfo3c3cPaD5EdHE6C_R3CP-tIsxu7T82rRSxSiC-H2CaAZAQ44Jd5HFYfAn9Jlu-EyuPazlRkTevuhIKy-ny0orqrIGdvXA87823KecyzVVVPACIg661ZRGly4jak066j9-4siLX7GOLdOG13m6pktjCRzTxsYn3PKs9Csj3wWMwrVcIZQbWOwgC493uv3g0cs"/>
+<h1 class="font-h3 text-h3 text-on-surface mt-sm">Acesso Clínico</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-center">Insira suas credenciais para acessar o painel de precisão médica.</p>
+</div>
+<!-- Login Form -->
+<form class="flex flex-col gap-lg">
+<!-- Email Field -->
+<div class="flex flex-col gap-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant uppercase" for="email">E-mail Corporativo</label>
+<input class="w-full border border-outline rounded bg-surface-container-lowest px-md py-sm font-body-md text-body-md text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all" id="email" placeholder="seu@email.com" type="email"/>
+</div>
+<!-- Password Field -->
+<div class="flex flex-col gap-xs">
+<div class="flex justify-between items-end">
+<label class="font-label-caps text-label-caps text-on-surface-variant uppercase" for="password">Senha</label>
+<a class="font-body-sm text-body-sm text-primary-container hover:text-tertiary-container hover:underline transition-colors" href="#">Esqueci minha senha</a>
+</div>
+<input class="w-full border border-outline rounded bg-surface-container-lowest px-md py-sm font-body-md text-body-md text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all" id="password" placeholder="••••••••" type="password"/>
+</div>
+<!-- Primary Action Button -->
+<button class="w-full h-[40px] bg-primary-container text-on-primary font-button text-button rounded hover:brightness-90 active:scale-95 transition-all mt-sm flex items-center justify-center gap-sm" type="submit">
+<span>Acessar Painel</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</form>
+<!-- Secondary Action / Signup -->
+<div class="pt-lg border-t border-surface-variant text-center">
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                    Não tem uma conta? <br/>
+<a class="text-primary-container font-medium hover:text-tertiary-container hover:underline transition-colors mt-xs inline-block" href="#">Solicite uma demonstração</a>
+</p>
+</div>
+</div>
+</main>
+<!-- Shared Component: Footer -->
+<footer class="w-full relative z-10 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center px-6 py-8 gap-4">
+<div class="text-sm font-bold text-slate-900 dark:text-slate-100">
+            © 2024 Clinic Pro. Medical Precision Guaranteed.
+        </div>
+<div class="flex gap-6">
+<a class="text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-300 transition-colors active:scale-98 transition-transform text-xs font-medium uppercase tracking-wider" href="#">Privacy Policy</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-300 transition-colors active:scale-98 transition-transform text-xs font-medium uppercase tracking-wider" href="#">Terms of Service</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-300 transition-colors active:scale-98 transition-transform text-xs font-medium uppercase tracking-wider" href="#">Contact Support</a>
+</div>
+</footer>
+</body></html>

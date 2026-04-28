@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Clinic Pro - Relatórios</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#a3faef",
+                        "on-surface": "#191c1e",
+                        "on-secondary-fixed-variant": "#3a485c",
+                        "on-secondary-fixed": "#0d1c2f",
+                        "surface-container-high": "#e6e8ea",
+                        "error-container": "#ffdad6",
+                        "inverse-on-surface": "#eff1f3",
+                        "primary": "#005c55",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#6bd8cb",
+                        "on-background": "#191c1e",
+                        "on-secondary-container": "#57657b",
+                        "primary-fixed": "#9cf2e8",
+                        "on-primary-fixed": "#00201d",
+                        "on-tertiary-container": "#91fdef",
+                        "background": "#f7f9fb",
+                        "on-tertiary-fixed-variant": "#005049",
+                        "outline": "#6e7977",
+                        "inverse-primary": "#80d5cb",
+                        "secondary-fixed-dim": "#b9c7e0",
+                        "surface": "#f7f9fb",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-tint": "#006a63",
+                        "secondary": "#515f74",
+                        "on-secondary": "#ffffff",
+                        "inverse-surface": "#2d3133",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#89f5e7",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed-variant": "#00504a",
+                        "on-tertiary-fixed": "#00201d",
+                        "surface-bright": "#f7f9fb",
+                        "outline-variant": "#bdc9c6",
+                        "primary-fixed-dim": "#80d5cb",
+                        "surface-container": "#eceef0",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#d5e3fd",
+                        "tertiary-container": "#00776d",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#3e4947",
+                        "primary-container": "#0f766e",
+                        "surface-dim": "#d8dadc",
+                        "surface-variant": "#e0e3e5",
+                        "tertiary": "#005c54",
+                        "secondary-container": "#d5e3fd"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "gutter": "20px",
+                        "base": "4px",
+                        "container-max": "1440px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Inter"],
+                        "h1": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "button": ["Inter"],
+                        "h3": ["Inter"],
+                        "h2": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "h1": ["36px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                        "h3": ["20px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md antialiased min-h-screen flex">
+<!-- SideNavBar -->
+<nav class="bg-white dark:bg-slate-900 w-[280px] h-screen border-r border-slate-200 dark:border-slate-800 fixed left-0 top-0 h-full flex flex-col py-6 z-50">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-teal-700" style="font-variation-settings: 'FILL' 1;">medical_services</span>
+</div>
+<div>
+<h1 class="text-teal-700 dark:text-teal-500 font-bold text-lg tracking-tight">Clinic Pro</h1>
+<p class="text-xs text-slate-500 mt-0.5">Administração Clínica</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto font-sans antialiased text-sm font-medium">
+<ul class="flex flex-col gap-1 px-3">
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                        Painel
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">group</span>
+                        Pacientes
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+                        Pacotes e Sessões
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">payments</span>
+                        Financeiro
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border-r-4 border-teal-700 opacity-90 transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assessment</span>
+                        Relatórios
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">psychology</span>
+                        Motor de Crescimento com IA
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">badge</span>
+                        Profissionais
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">medical_services</span>
+                        Serviços
+                    </a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- Main Content Area Wrapper -->
+<div class="flex-1 flex flex-col ml-[280px] min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md w-full h-16 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 flex items-center justify-between px-8 font-sans text-sm tracking-wide">
+<div class="flex items-center gap-4 text-teal-700 dark:text-teal-500 font-semibold border-b-2 border-teal-700 h-full pt-0.5">
+                Visão Geral
+            </div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4 text-slate-500 dark:text-slate-400">
+<button class="hover:text-teal-600 dark:hover:text-teal-400 transition-colors Focus: ring-2 ring-teal-500/20 outline-none rounded-full p-1">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="hover:text-teal-600 dark:hover:text-teal-400 transition-colors Focus: ring-2 ring-teal-500/20 outline-none rounded-full p-1">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+<div class="w-8 h-8 rounded-full bg-slate-200 overflow-hidden border border-slate-300">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="Corporate headshot of a female medical administrator with neat hair and a subtle smile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvC8-bZ-ziSEopqGGCxWFuA8-8LI6gjKZYGZIHfeBenz-7sjiNbcJEp-ZTU1PlAk_CiJDS1sy9aH20ejS75ppDg3yVhz4-MzaH76egXllMRsVHsHvhTH4x9AqW3bgHAktDXxEn0YFqSiu3xoay94L5MKoEaj7oZQfxurih095nf95hcRoigt5ZkXct2ELIL8depIMnYFx8MTi0bTOOE5ty-83J5kOWtt-6U3GzYP1bXFuBL_Q95tHHokDf-qyZ-Cen1GYsJ2RpJf8"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 p-lg flex flex-col gap-xl max-w-container-max mx-auto w-full">
+<!-- Page Header & Filters -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div>
+<h2 class="font-h2 text-h2 text-on-surface">Relatórios de Desempenho</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Visão abrangente das operações e saúde financeira da clínica.</p>
+</div>
+<div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded p-1">
+<button class="px-4 py-1.5 rounded font-button text-button text-on-surface-variant hover:bg-surface-container-low transition-colors">Hoje</button>
+<button class="px-4 py-1.5 rounded font-button text-button text-on-surface-variant hover:bg-surface-container-low transition-colors">Semana</button>
+<button class="px-4 py-1.5 rounded font-button text-button bg-primary-container text-on-primary-container shadow-sm transition-colors">Mês</button>
+<button class="px-4 py-1.5 rounded font-button text-button text-on-surface-variant hover:bg-surface-container-low transition-colors flex items-center gap-2">
+                        Personalizado <span class="material-symbols-outlined text-[16px]">calendar_today</span>
+</button>
+</div>
+</div>
+<!-- KPI Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md hover:shadow-[0px_4px_12px_rgba(15,118,110,0.05)] transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Receita Total</span>
+<span class="material-symbols-outlined text-outline">payments</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-h1 text-h1 text-on-surface">$124,500</span>
+</div>
+<div class="mt-2 flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-body-sm text-body-sm font-medium">+12.5% em relação ao mês passado</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md hover:shadow-[0px_4px_12px_rgba(15,118,110,0.05)] transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Ocupação Média</span>
+<span class="material-symbols-outlined text-outline">event_available</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-h1 text-h1 text-on-surface">78%</span>
+</div>
+<div class="mt-2 flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-body-sm text-body-sm font-medium">+4.2% em relação ao mês passado</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md hover:shadow-[0px_4px_12px_rgba(15,118,110,0.05)] transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Ticket Médio</span>
+<span class="material-symbols-outlined text-outline">receipt_long</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-h1 text-h1 text-on-surface">$185</span>
+</div>
+<div class="mt-2 flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">trending_flat</span>
+<span class="font-body-sm text-body-sm">Estável em relação ao mês passado</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md hover:shadow-[0px_4px_12px_rgba(15,118,110,0.05)] transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Taxa de Não Comparecimento</span>
+<span class="material-symbols-outlined text-outline">event_busy</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-h1 text-h1 text-on-surface">8.4%</span>
+</div>
+<div class="mt-2 flex items-center gap-1 text-error">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-body-sm text-body-sm font-medium">+1.1% em relação ao mês passado</span>
+</div>
+</div>
+</div>
+<!-- Bento Grid Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-md">
+<!-- Occupancy per Professional (Bar Chart) - spans 2 cols -->
+<div class="col-span-1 lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col">
+<div class="p-md border-b border-surface-container-low flex justify-between items-center">
+<h3 class="font-h3 text-h3 text-on-surface">Ocupação por Profissional</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors">more_horiz</button>
+</div>
+<div class="p-md flex-1 flex flex-col justify-end min-h-[300px]">
+<!-- Abstracted Bar Chart CSS layout -->
+<div class="flex items-end justify-around h-[240px] w-full mt-auto border-b border-outline-variant pb-2">
+<div class="w-12 h-[85%] bg-primary rounded-t flex flex-col justify-end group relative cursor-pointer">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface font-body-sm text-body-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">85%</div>
+</div>
+<div class="w-12 h-[60%] bg-primary-fixed-dim rounded-t flex flex-col justify-end group relative cursor-pointer">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface font-body-sm text-body-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">60%</div>
+</div>
+<div class="w-12 h-[92%] bg-primary rounded-t flex flex-col justify-end group relative cursor-pointer">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface font-body-sm text-body-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">92%</div>
+</div>
+<div class="w-12 h-[45%] bg-outline-variant rounded-t flex flex-col justify-end group relative cursor-pointer">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface font-body-sm text-body-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">45%</div>
+</div>
+<div class="w-12 h-[78%] bg-primary rounded-t flex flex-col justify-end group relative cursor-pointer">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface font-body-sm text-body-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">78%</div>
+</div>
+</div>
+<!-- X Axis Labels -->
+<div class="flex justify-around w-full mt-3 font-body-sm text-body-sm text-on-surface-variant">
+<span class="w-12 text-center truncate">Dr. A</span>
+<span class="w-12 text-center truncate">Dr. B</span>
+<span class="w-12 text-center truncate">Dr. C</span>
+<span class="w-12 text-center truncate">Dr. D</span>
+<span class="w-12 text-center truncate">Dr. E</span>
+</div>
+</div>
+</div>
+<!-- Top Services by Sales (Horizontal Bars) - spans 1 col -->
+<div class="col-span-1 bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col">
+<div class="p-md border-b border-surface-container-low flex justify-between items-center">
+<h3 class="font-h3 text-h3 text-on-surface">Receita dos Principais Serviços</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors">more_horiz</button>
+</div>
+<div class="p-md flex-1 flex flex-col gap-4">
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface">
+<span>Consulta Inicial</span>
+<span class="font-medium">$42k</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 85%"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface">
+<span>Consulta de Retorno</span>
+<span class="font-medium">$28k</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-tertiary-fixed-dim h-full rounded-full" style="width: 60%"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface">
+<span>Exames de Imagem</span>
+<span class="font-medium">$22k</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-secondary-fixed-dim h-full rounded-full" style="width: 45%"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface">
+<span>Sessão de Terapia</span>
+<span class="font-medium">$18k</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-outline-variant h-full rounded-full" style="width: 30%"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface">
+<span>Exames Laboratoriais</span>
+<span class="font-medium">$14k</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-surface-dim h-full rounded-full" style="width: 20%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Ranking of Professionals by Revenue (Refined Table) - spans 3 cols -->
+<div class="col-span-1 lg:col-span-3 bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden">
+<div class="p-md border-b border-surface-container-low flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-h3 text-h3 text-on-surface">Ranking de Desempenho dos Profissionais</h3>
+<button class="flex items-center gap-2 font-button text-button text-primary hover:text-primary-container transition-colors">
+                            Exportar CSV <span class="material-symbols-outlined text-[18px]">download</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low font-label-caps text-label-caps text-on-surface-variant uppercase border-b border-surface-container-low">
+<th class="p-3 font-semibold">Posição</th>
+<th class="p-3 font-semibold">Profissional</th>
+<th class="p-3 font-semibold">Especialidade</th>
+<th class="p-3 font-semibold text-right">Consultas</th>
+<th class="p-3 font-semibold text-right">Receita Total</th>
+<th class="p-3 font-semibold text-right">Tendência</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md text-on-surface">
+<tr class="border-b border-surface-container-low hover:bg-surface-bright transition-colors group">
+<td class="p-3 font-medium text-primary py-3">#1</td>
+<td class="p-3 py-3 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant font-label-caps text-label-caps">CW</div>
+<span>Dr. Chloe Weaver</span>
+</td>
+<td class="p-3 text-on-surface-variant py-3">Cardiologia</td>
+<td class="p-3 text-right py-3">142</td>
+<td class="p-3 text-right font-medium py-3">$45,200</td>
+<td class="p-3 text-right text-primary py-3 flex justify-end items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span> 8%
+                                    </td>
+</tr>
+<tr class="border-b border-surface-container-low hover:bg-surface-bright transition-colors group">
+<td class="p-3 font-medium text-on-surface-variant py-3">#2</td>
+<td class="p-3 py-3 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant font-label-caps text-label-caps">MR</div>
+<span>Dr. Marcus Reed</span>
+</td>
+<td class="p-3 text-on-surface-variant py-3">Ortopedia</td>
+<td class="p-3 text-right py-3">118</td>
+<td class="p-3 text-right font-medium py-3">$38,500</td>
+<td class="p-3 text-right text-primary py-3 flex justify-end items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span> 5%
+                                    </td>
+</tr>
+<tr class="border-b border-surface-container-low hover:bg-surface-bright transition-colors group">
+<td class="p-3 font-medium text-on-surface-variant py-3">#3</td>
+<td class="p-3 py-3 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant font-label-caps text-label-caps">SJ</div>
+<span>Dr. Sarah Jenkins</span>
+</td>
+<td class="p-3 text-on-surface-variant py-3">Pediatria</td>
+<td class="p-3 text-right py-3">165</td>
+<td class="p-3 text-right font-medium py-3">$32,100</td>
+<td class="p-3 text-right text-on-surface-variant py-3 flex justify-end items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">horizontal_rule</span> 0%
+                                    </td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="p-3 font-medium text-on-surface-variant py-3">#4</td>
+<td class="p-3 py-3 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant font-label-caps text-label-caps">AT</div>
+<span>Dr. Alan Turing</span>
+</td>
+<td class="p-3 text-on-surface-variant py-3">Neurologia</td>
+<td class="p-3 text-right py-3">85</td>
+<td class="p-3 text-right font-medium py-3">$28,700</td>
+<td class="p-3 text-right text-error py-3 flex justify-end items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">arrow_downward</span> 2%
+                                    </td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+.env.local
+.mcp.json
+vite-dev*.log
+.DS_Store
