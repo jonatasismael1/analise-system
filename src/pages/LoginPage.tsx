@@ -4,6 +4,8 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export function LoginPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [clinicName, setClinicName] = useState("");
@@ -42,7 +44,7 @@ export function LoginPage() {
       }
     }
 
-    const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/admin";
+    const from = (location.state as any)?.from?.pathname ?? "/admin";
     navigate(from, { replace: true });
   }
 
