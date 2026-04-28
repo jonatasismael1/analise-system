@@ -13,34 +13,40 @@ export interface GrowthInsight {
 }
 
 export function calculateGrowthInsights(input: {
-  professionals: Professional[];
-  appointments: Appointment[];
-  patients: Patient[];
-  financeEntries: FinanceEntry[];
-  services: Service[];
+  professionals?: Professional[];
+  appointments?: Appointment[];
+  patients?: Patient[];
+  financeEntries?: FinanceEntry[];
+  services?: Service[];
 }): GrowthInsight[] {
   const insights: GrowthInsight[] = [];
-  const confirmed = input.appointments.filter((item) => item.status === "confirmado" || item.status === "concluido");
-  const missed = input.appointments.filter((item) => item.status === "faltou");
-  const overdue = input.financeEntries.filter((item) => item.status === "atrasado");
-  const avgServicePrice = input.services.length ? input.services.reduce((sum, item) => sum + item.preco, 0) / input.services.length : 180;
+  const professionals = input.professionals ?? [];
+  const appointments = input.appointments ?? [];
+  const patients = input.patients ?? [];
+  const financeEntries = input.financeEntries ?? [];
+  const services = input.services ?? [];
 
-  input.professionals.forEach((professional) => {
-    const appointments = confirmed.filter((item) => item.profissional === professional.nome).length;
-    const occupancy = Math.round((appointments / 40) * 100);
+  const confirmed = appointments.filter((item) => item.status === "confirmado" || item.status === "concluido");
+  const missed = appointments.filter((item) => item.status === "faltou");
+  const overdue = financeEntries.filter((item) => item.status === "atrasado");
+  const avgServicePrice = services.length ? services.reduce((sum, item) => sum + item.preco, 0) / services.length : 180;
+
+  professionals.forEach((professional) => {
+    const profApps = confirmed.filter((item) => item.profissional === professional.nome).length;
+    const occupancy = Math.round((profApps / 40) * 100);
     if (occupancy < 60) {
       insights.push({
         id: `idle-${professional.id}`,
         type: "ociosidade",
         title: `${professional.nome} com ocupação baixa`,
         description: `Ocupação semanal estimada em ${occupancy}%. Sugestão: campanha de retorno para horários de menor demanda.`,
-        value: Math.round((40 - appointments) * avgServicePrice),
+        value: Math.round((40 - profApps) * avgServicePrice),
         professional: professional.nome
       });
     }
   });
 
-  input.patients.filter((patient) => patient.status !== "ativo").forEach((patient) => {
+  patients.filter((patient) => patient.status !== "ativo").forEach((patient) => {
     insights.push({
       id: `inactive-${patient.id}`,
       type: patient.status === "retorno_pendente" ? "retorno" : "inativo",

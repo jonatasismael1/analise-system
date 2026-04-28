@@ -59,10 +59,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (owner.error || access.error) {
       setClinic(null);
       setProfile(null);
-      return;
+    } else {
+      setClinic(null);
+      setProfile(null);
     }
-    setClinic(null);
-    setProfile(null);
   }
 
   async function refreshClinic() {
@@ -80,12 +80,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
       if (nextSession?.user) {
-        void loadClinic(nextSession.user.id);
+        setLoading(true);
+        await loadClinic(nextSession.user.id);
+        setLoading(false);
       } else {
         setClinic(null);
+        setProfile(null);
+        setLoading(false);
       }
     });
 
