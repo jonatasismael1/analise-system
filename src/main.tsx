@@ -4,7 +4,10 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthProvider } from "./contexts/AuthContext";
+import { cleanupLegacyServiceWorker } from "./lib/serviceWorkerCleanup";
 import "./styles/global.css";
+
+cleanupLegacyServiceWorker();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
