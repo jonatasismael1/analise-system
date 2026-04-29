@@ -5,6 +5,12 @@ import type { Database } from "../types/database";
 import type { ClinicUser, UserRole } from "../types/clinic";
 
 type Clinic = Database["public"]["Tables"]["clinicas"]["Row"];
+type UserRow = Database["public"]["Tables"]["usuarios"]["Row"];
+
+interface ClinicContextPayload {
+  clinic: Clinic | null;
+  profile: UserRow | null;
+}
 
 interface AuthContextValue {
   session: Session | null;
@@ -32,52 +38,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
   const isInitialLoad = useRef(true);
 
-  const loadClinicData = async (userId: string) => {
+  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs = 12000): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("Tempo excedido ao carregar dados da clinica.")), timeoutMs);
+    });
+
     try {
-      // 1. Check if user is an owner
-      const { data: owner, error: ownerError } = await supabase
-        .from("clinicas")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
 
-      if (owner) {
-        setClinic(owner);
-        setProfile(null);
-        return;
-      }
-
-      // 2. Check if user is a staff member
-      const { data: access, error: accessError } = await supabase
-        .from("usuarios")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("ativo", true)
-        .maybeSingle();
-
-      if (access) {
-        const { data: clinicRes } = await supabase
-          .from("clinicas")
-          .select("*")
-          .eq("id", access.clinica_id)
-          .maybeSingle();
-
-        setClinic(clinicRes ?? null);
-        setProfile({
-          id: access.id,
-          clinicaId: access.clinica_id,
-          userId: access.user_id,
-          profissionalId: access.profissional_id,
-          nome: access.nome,
-          email: access.email,
-          role: access.role as UserRole,
-          ativo: access.ativo
-        });
-        return;
-      }
-
+  const applyClinicContext = (payload: ClinicContextPayload | null) => {
+    if (!payload?.clinic) {
       setClinic(null);
       setProfile(null);
+      return;
+    }
+
+    setClinic(payload.clinic);
+    if (!payload.profile) {
+      setProfile(null);
+      return;
+    }
+
+    setProfile({
+      id: payload.profile.id,
+      clinicaId: payload.profile.clinica_id,
+      userId: payload.profile.user_id,
+      profissionalId: payload.profile.profissional_id,
+      nome: payload.profile.nome,
+      email: payload.profile.email,
+      role: payload.profile.role as UserRole,
+      ativo: payload.profile.ativo
+    });
+  };
+
+  const loadClinicData = async () => {
+    try {
+      const { data, error } = await withTimeout(Promise.resolve(supabase.rpc("get_my_clinic_context")));
+      if (error) throw error;
+      applyClinicContext(data as ClinicContextPayload | null);
     } catch (err) {
       console.error("Error loading clinic context:", err);
       setClinic(null);
@@ -95,7 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         setSession(initialSession);
         if (initialSession?.user) {
-          await loadClinicData(initialSession.user.id);
+          await loadClinicData();
         }
       } catch (err) {
         console.error("Auth init error:", err);
@@ -109,17 +112,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     void initialize();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return;
 
       setSession(nextSession);
 
-      if (event === "SIGNED_IN") {
-        if (nextSession?.user) {
+      if (event === "SIGNED_IN" && nextSession?.user) {
+        setTimeout(() => {
+          if (!mounted) return;
           setLoading(true);
-          await loadClinicData(nextSession.user.id);
-          setLoading(false);
-        }
+          void loadClinicData().finally(() => {
+            if (mounted) setLoading(false);
+          });
+        }, 0);
       } else if (event === "SIGNED_OUT") {
         setClinic(null);
         setProfile(null);
@@ -146,7 +151,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { error: error.message };
         if (data.user) {
-          await loadClinicData(data.user.id);
+          await loadClinicData();
         }
         return {};
       } catch (err: any) {
@@ -192,7 +197,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (clinicError) return { error: clinicError.message };
 
         // 3. Load clinic data immediately
-        await loadClinicData(authData.user.id);
+        await loadClinicData();
         return {};
       } catch (err: any) {
         return { error: err.message };
@@ -203,7 +208,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async refreshClinic() {
       if (session?.user) {
         setLoading(true);
-        await loadClinicData(session.user.id);
+        await loadClinicData();
         setLoading(false);
       }
     }
