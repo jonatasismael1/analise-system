@@ -11,42 +11,39 @@ export function LoginPage() {
   const [clinicName, setClinicName] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const { login, registerClinic, session } = useAuth();
+  const [formLoading, setFormLoading] = useState(false);
+  const { login, registerClinic, session, clinic, loading: authLoading } = useAuth();
 
-  if (session) return <Navigate to="/admin" replace />;
+  // Se já tiver sessão E clínica carregada, vai para o admin
+  if (session && clinic && !authLoading) return <Navigate to="/admin" replace />;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
+    setFormLoading(true);
     setError(null);
-    
+
     if (isRegistering) {
       const result = await registerClinic(email, password, clinicName);
-      setLoading(false);
       if (result.error) {
         setError(result.error);
-        return;
-      }
-      // Se registrar com sucesso, tenta logar ou avisa para confirmar e-mail
-      const loginRes = await login(email, password);
-      if (loginRes.error) {
-        setError("Clínica criada! Por favor, faça login.");
-        setIsRegistering(false);
+        setFormLoading(false);
         return;
       }
     } else {
       const result = await login(email, password);
-      setLoading(false);
       if (result.error) {
         setError(result.error);
+        setFormLoading(false);
         return;
       }
     }
 
-    const from = (location.state as any)?.from?.pathname ?? "/admin";
-    navigate(from, { replace: true });
+    // O AuthContext vai atualizar o estado de 'clinic' e 'session'
+    // e o componente vai redirecionar automaticamente pelo if lá em cima
+    setFormLoading(false);
   }
+
+  const isLoading = formLoading || authLoading;
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-on-surface">
@@ -58,98 +55,111 @@ export function LoginPage() {
         />
       </div>
       <main className="relative z-10 flex flex-1 items-center justify-center p-6">
-        <section className="flex w-full max-w-[420px] flex-col gap-8 rounded-xl border border-outline-variant bg-white p-8 shadow-modal">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <img src="/logo-clinic-pro.png" alt="Clinic Pro" className="h-16 w-auto mb-2" />
-            <div>
-              <h1 className="text-xl font-bold text-on-surface">{isRegistering ? "Criar Nova Clínica" : "Acesso Clínico"}</h1>
-              <p className="mt-1 text-sm leading-6 text-secondary">
-                {isRegistering ? "Registre sua clínica para começar a gerenciar seus pacientes." : "Entre com suas credenciais para acessar o painel administrativo."}
-              </p>
+        <div className="w-full max-w-md">
+          <div className="mb-10 flex flex-col items-center text-center">
+            <div className="mb-6 flex items-center justify-center">
+              <img src="/logo-clinic-pro.png" alt="Clinic Pro" className="h-20 w-auto" />
+            </div>
+            <h1 className="text-4xl font-black tracking-tighter text-on-surface">
+              CLINIC PRO
+            </h1>
+            <p className="mt-2 text-sm font-medium text-secondary">
+              {isRegistering ? "Comece sua jornada digital agora" : "Acesse sua central de inteligência clínica"}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-surface-variant bg-white/80 p-8 shadow-clinical backdrop-blur-xl">
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              {isRegistering && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-secondary" htmlFor="clinicName">
+                    Nome da Clínica
+                  </label>
+                  <input
+                    className="w-full rounded-xl border border-outline-variant bg-white px-4 py-3 text-sm outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
+                    id="clinicName"
+                    onChange={(e) => setClinicName(e.target.value)}
+                    placeholder="Ex: Clínica Bem Estar"
+                    required
+                    type="text"
+                    value={clinicName}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-secondary" htmlFor="email">
+                  E-mail Profissional
+                </label>
+                <input
+                  className="w-full rounded-xl border border-outline-variant bg-white px-4 py-3 text-sm outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  id="email"
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  required
+                  type="email"
+                  value={email}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-secondary" htmlFor="password">
+                    Senha
+                  </label>
+                </div>
+                <input
+                  className="w-full rounded-xl border border-outline-variant bg-white px-4 py-3 text-sm outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  id="password"
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  type="password"
+                  value={password}
+                />
+              </div>
+
+              {error && (
+                <div className="rounded-xl bg-error/10 p-3 text-xs font-medium text-error">
+                  {error}
+                </div>
+              )}
+
+              <button
+                className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary py-4 text-sm font-bold text-white transition-all hover:bg-primary-dark disabled:opacity-70"
+                disabled={isLoading}
+                type="submit"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <span>{isRegistering ? "Criar Minha Clínica" : "Entrar no Sistema"}</span>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 text-center">
+              <button
+                className="text-xs font-semibold text-secondary transition hover:text-primary"
+                onClick={() => {
+                  setIsRegistering(!isRegistering);
+                  setError(null);
+                }}
+                type="button"
+              >
+                {isRegistering ? "Já tem uma conta? Faça login" : "Não tem conta? Registre sua clínica"}
+              </button>
             </div>
           </div>
 
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-            {isRegistering && (
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Nome da Clínica</span>
-                <input
-                  className="rounded-xl border border-outline-variant bg-white px-4 py-2.5 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  onChange={(event) => setClinicName(event.target.value)}
-                  placeholder="Ex: Clínica Sorriso"
-                  type="text"
-                  value={clinicName}
-                  required
-                />
-              </label>
-            )}
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">E-mail</span>
-              <input
-                className="rounded-xl border border-outline-variant bg-white px-4 py-2.5 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="seu@email.com"
-                type="email"
-                value={email}
-                required
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Senha</span>
-              <input
-                className="rounded-xl border border-outline-variant bg-white px-4 py-2.5 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="••••••••"
-                type="password"
-                value={password}
-                required
-              />
-            </label>
-
-            {error ? (
-              <p className="rounded-lg bg-error-container px-4 py-2.5 text-sm text-error">
-                {error}
-              </p>
-            ) : null}
-
-            <button
-              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold uppercase tracking-wide text-white transition hover:bg-primary-dark active:scale-[0.98] disabled:opacity-60"
-              disabled={loading}
-              type="submit"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {isRegistering ? "Criando..." : "Validando..."}
-                </>
-              ) : (
-                <>
-                  {isRegistering ? "Criar Minha Clínica" : "Acessar Painel"}
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="flex flex-col gap-3 text-center">
-            <button
-              onClick={() => { setIsRegistering(!isRegistering); setError(null); }}
-              className="text-xs font-semibold text-primary hover:underline"
-            >
-              {isRegistering ? "Já tenho uma conta? Entrar" : "Não tem conta? Cadastre sua clínica"}
-            </button>
-          </div>
-
-          <div className="border-t border-surface-variant pt-4 text-center text-xs text-secondary leading-relaxed">
-            Ao se cadastrar, você concorda com nossos Termos de Uso. O acesso é imediato após a criação da conta.
-          </div>
-        </section>
+          <p className="mt-10 text-center text-[10px] font-medium uppercase tracking-[0.2em] text-secondary">
+            Clinical Modernism Design System
+          </p>
+        </div>
       </main>
-
-      <footer className="relative z-10 flex flex-col items-center justify-between gap-3 border-t border-surface-variant bg-white px-6 py-5 text-xs font-medium uppercase tracking-wider text-secondary md:flex-row">
-        <span>© 2026 Clinic Pro</span>
-        <span className="text-primary">Gestão Clínica Profissional</span>
-      </footer>
     </div>
   );
 }

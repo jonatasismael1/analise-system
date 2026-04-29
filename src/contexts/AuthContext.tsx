@@ -32,61 +32,73 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   async function loadClinic(userId: string) {
-    const owner = await supabase.from("clinicas").select("*").eq("user_id", userId).maybeSingle();
-    if (owner.data) {
-      setClinic(owner.data);
-      setProfile(null);
-      return;
-    }
+    try {
+      const owner = await supabase.from("clinicas").select("*").eq("user_id", userId).maybeSingle();
+      if (owner.data) {
+        setClinic(owner.data);
+        setProfile(null);
+        return;
+      }
 
-    const access = await supabase.from("usuarios").select("*").eq("user_id", userId).eq("ativo", true).maybeSingle();
-    if (access.data) {
-      const clinicRes = await supabase.from("clinicas").select("*").eq("id", access.data.clinica_id).maybeSingle();
-      setClinic(clinicRes.data ?? null);
-      setProfile({
-        id: access.data.id,
-        clinicaId: access.data.clinica_id,
-        userId: access.data.user_id,
-        profissionalId: access.data.profissional_id,
-        nome: access.data.nome,
-        email: access.data.email,
-        role: access.data.role as UserRole,
-        ativo: access.data.ativo
-      });
-      return;
-    }
+      const access = await supabase.from("usuarios").select("*").eq("user_id", userId).eq("ativo", true).maybeSingle();
+      if (access.data) {
+        const clinicRes = await supabase.from("clinicas").select("*").eq("id", access.data.clinica_id).maybeSingle();
+        setClinic(clinicRes.data ?? null);
+        setProfile({
+          id: access.data.id,
+          clinicaId: access.data.clinica_id,
+          userId: access.data.user_id,
+          profissionalId: access.data.profissional_id,
+          nome: access.data.nome,
+          email: access.data.email,
+          role: access.data.role as UserRole,
+          ativo: access.data.ativo
+        });
+        return;
+      }
 
-    if (owner.error || access.error) {
       setClinic(null);
       setProfile(null);
-    } else {
+    } catch (e) {
+      console.error("Error loading clinic context:", e);
       setClinic(null);
       setProfile(null);
     }
   }
 
   async function refreshClinic() {
+    setLoading(true);
     const { data } = await supabase.auth.getUser();
     if (data.user) await loadClinic(data.user.id);
+    setLoading(false);
   }
 
   useEffect(() => {
     let mounted = true;
 
+    // Initial session check
     supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
       setSession(data.session);
-      if (data.session?.user) await loadClinic(data.session.user.id);
+      if (data.session?.user) {
+        await loadClinic(data.session.user.id);
+      }
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    // Listen for auth changes
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+      if (!mounted) return;
+      
       setSession(nextSession);
-      if (nextSession?.user) {
-        setLoading(true);
-        await loadClinic(nextSession.user.id);
-        setLoading(false);
-      } else {
+      
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (nextSession?.user) {
+          setLoading(true);
+          await loadClinic(nextSession.user.id);
+          setLoading(false);
+        }
+      } else if (event === "SIGNED_OUT") {
         setClinic(null);
         setProfile(null);
         setLoading(false);
@@ -107,32 +119,66 @@ export function AuthProvider({ children }: AuthProviderProps) {
     role: profile?.role ?? "admin",
     loading,
     async login(email, password) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { error: error.message };
-      return {};
+      setLoading(true);
+      try {
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          setLoading(false);
+          return { error: error.message };
+        }
+        if (data.user) {
+          await loadClinic(data.user.id);
+        }
+        setLoading(false);
+        return {};
+      } catch (err: any) {
+        setLoading(false);
+        return { error: err.message };
+      }
     },
     async logout() {
+      setLoading(true);
       await supabase.auth.signOut();
       setSession(null);
       setClinic(null);
       setProfile(null);
+      setLoading(false);
     },
     async registerClinic(email, password, clinicName) {
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-      if (authError) return { error: authError.message };
-      if (!authData.user) return { error: "Erro ao criar usuário." };
+      setLoading(true);
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+        if (authError) {
+          setLoading(false);
+          return { error: authError.message };
+        }
+        if (!authData.user) {
+          setLoading(false);
+          return { error: "Erro ao criar usuário." };
+        }
 
-      const slug = clinicName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
-      
-      const { error: clinicError } = await supabase.from("clinicas").insert({
-        nome: clinicName,
-        slug,
-        email,
-        user_id: authData.user.id
-      });
+        const slug = clinicName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
+        
+        const { error: clinicError } = await supabase.from("clinicas").insert({
+          nome: clinicName,
+          slug,
+          email,
+          user_id: authData.user.id
+        });
 
-      if (clinicError) return { error: clinicError.message };
-      return {};
+        if (clinicError) {
+          setLoading(false);
+          return { error: clinicError.message };
+        }
+
+        // Wait a bit and refresh to ensure DB consistency
+        await loadClinic(authData.user.id);
+        setLoading(false);
+        return {};
+      } catch (err: any) {
+        setLoading(false);
+        return { error: err.message };
+      }
     },
     refreshClinic
   }), [clinic, loading, profile, session]);
