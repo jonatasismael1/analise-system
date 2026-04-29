@@ -39,7 +39,7 @@ export function PatientKanbanPanel({ patients, appointments, professionals, onSa
     if (stage === "agendado") return "Confirmar presença 24h antes da consulta.";
     if (stage === "faltou") return "Enviar mensagem de recuperação e oferecer novo horário.";
     if (stage === "retorno") return `Entrar em contato para retorno${patient.proximoRetorno ? ` em ${patient.proximoRetorno}` : ""}.`;
-    if (stage === "atendido") return "Definir data de retorno e registrar observacoes.";
+    if (stage === "atendido") return "Definir data de retorno e registrar observações.";
     if (stage === "inativo") return "Campanha de reativação por WhatsApp.";
     return "Completar cadastro e conduzir para agendamento.";
   }

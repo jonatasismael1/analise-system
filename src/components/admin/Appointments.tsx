@@ -18,7 +18,7 @@ export function Appointments({ appointments = [] }: AppointmentsProps) {
               <tr>
                 <th className="py-2">Paciente</th>
                 <th>Profissional</th>
-                <th>Servico</th>
+                <th>Serviço</th>
                 <th>Data</th>
                 <th>Status</th>
               </tr>

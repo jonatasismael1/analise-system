@@ -8,8 +8,13 @@ import {
   mockServices
 } from "../data/mockData";
 import { isDemoMode, productionDataErrorMessage } from "../lib/appConfig";
-import { monthBounds, todayISO } from "../lib/formatters";
+import { monthBounds } from "../lib/formatters";
+import { getErrorMessage } from "../lib/getErrorMessage";
 import { supabase } from "../lib/supabaseClient";
+import { validateAppointment, validateFinance, validatePatient } from "../lib/validation";
+import { deleteAppointmentRecord, saveAppointmentRecord } from "../services/appointmentService";
+import { createExpenseRecord, createPaymentRecord, deleteExpenseRecord, deletePaymentRecord, updateExpenseRecord, updatePaymentRecord } from "../services/financeService";
+import { deletePatientRecord, importPatientRecords, savePatientRecord } from "../services/patientService";
 import type { Appointment, ClinicUser, FinanceEntry, Patient, Professional, Service, SessionPackage, UserRole } from "../types/clinic";
 import type { Database } from "../types/database";
 
@@ -191,142 +196,147 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
     const result = values.id
       ? await supabase.from("profissionais").update(payload).eq("id", values.id)
       : await supabase.from("profissionais").insert(payload);
-    if (result.error) setMessage(result.error.message);
+    if (result.error) setMessage(getErrorMessage(result.error));
     else setMessage("Profissional salvo.");
     await loadAll();
   }
 
   async function deleteProfessional(id: string) {
     const { error } = await supabase.from("profissionais").delete().eq("id", id);
-    setMessage(error ? error.message : "Profissional removido.");
+    setMessage(error ? getErrorMessage(error) : "Profissional removido.");
     await loadAll();
   }
 
   async function saveService(values: Pick<Service, "nome" | "duracaoMin" | "preco" | "profissionalId" | "ativo"> & { id?: string }) {
     if (!clinicId) return;
+    const validation = validateFinance({ valor: values.preco, descricao: values.nome });
+    if (!validation.valid) {
+      setMessage(validation.message ?? "Revise os dados do serviço.");
+      return;
+    }
     const payload = { clinica_id: clinicId, nome: values.nome, duracao_min: values.duracaoMin, preco: values.preco, profissional_id: values.profissionalId ?? null, ativo: values.ativo };
     const result = values.id ? await supabase.from("servicos").update(payload).eq("id", values.id) : await supabase.from("servicos").insert(payload);
-    setMessage(result.error ? result.error.message : "Serviço salvo.");
+    setMessage(result.error ? getErrorMessage(result.error) : "Serviço salvo.");
     await loadAll();
   }
 
   async function deleteService(id: string) {
     const { error } = await supabase.from("servicos").delete().eq("id", id);
-    setMessage(error ? error.message : "Serviço removido.");
+    setMessage(error ? getErrorMessage(error) : "Serviço removido.");
     await loadAll();
   }
 
   async function savePatient(values: Patient & { id?: string }) {
     if (!clinicId) return;
-    const payload = {
-      clinica_id: clinicId,
-      nome: values.nome,
-      whatsapp: values.whatsapp,
-      email: values.email ?? null,
-      cpf: values.cpf ?? null,
-      data_nascimento: values.dataNascimento ?? null,
-      endereco: values.endereco ?? null,
-      status: values.status,
-      profissional_id: values.profissionalId ?? null,
-      ultimo_atendimento: values.ultimoAtendimento ?? null,
-      proximo_retorno: values.proximoRetorno ?? null,
-      kanban_stage: values.kanbanStage ?? null,
-      valor_total_gasto: values.valorTotalGasto,
-      observacoes: values.observacoes ?? null
-    };
-    const result = values.id ? await supabase.from("pacientes").update(payload).eq("id", values.id) : await supabase.from("pacientes").insert(payload);
-    setMessage(result.error ? result.error.message : "Paciente salvo.");
+    const validation = validatePatient(values);
+    if (!validation.valid) {
+      setMessage(validation.message ?? "Revise os dados do paciente.");
+      return;
+    }
+    const result = await savePatientRecord(clinicId, values);
+    setMessage(result.error ? getErrorMessage(result.error) : "Paciente salvo.");
     await loadAll();
   }
 
   async function deletePatient(id: string) {
-    const { error } = await supabase.from("pacientes").delete().eq("id", id);
-    setMessage(error ? error.message : "Paciente removido.");
+    const { error } = await deletePatientRecord(id);
+    setMessage(error ? getErrorMessage(error) : "Paciente removido.");
     await loadAll();
   }
 
   async function importPatientsMassively(newPatients: Omit<Patient, "id" | "clinicaId">[]) {
     if (!clinicId) return;
     setLoading(true);
-    const payload = newPatients.map(p => ({
-      clinica_id: clinicId,
-      nome: p.nome,
-      whatsapp: p.whatsapp,
-      email: p.email ?? null,
-      cpf: p.cpf ?? null,
-      data_nascimento: p.dataNascimento ?? null,
-      endereco: p.endereco ?? null,
-      status: p.status,
-      profissional_id: p.profissionalId ?? null,
-      kanban_stage: p.kanbanStage ?? null,
-      valor_total_gasto: p.valorTotalGasto,
-      observacoes: p.observacoes ?? null
-    }));
-    
-    // Insert in batches of 100 to avoid limits
-    for (let i = 0; i < payload.length; i += 100) {
-      const batch = payload.slice(i, i + 100);
-      const { error } = await supabase.from("pacientes").insert(batch);
-      if (error) {
-        setMessage(`Erro na importação (lote ${i}): ${error.message}`);
-        setLoading(false);
-        return;
-      }
+    const invalidPatient = newPatients.find((patient) => !validatePatient(patient).valid);
+    if (invalidPatient) {
+      setMessage(`Importação interrompida: revise nome e WhatsApp de ${invalidPatient.nome || "um paciente"}.`);
+      setLoading(false);
+      return;
     }
-    
+    const { error, failedBatchStart } = await importPatientRecords(clinicId, newPatients);
+    if (error) {
+      setMessage(`Erro na importação (lote ${failedBatchStart}): ${getErrorMessage(error)}`);
+      setLoading(false);
+      return;
+    }
+
     setMessage(`${newPatients.length} pacientes importados com sucesso!`);
     await loadAll();
   }
 
   async function saveAppointment(values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"] }) {
     if (!clinicId) return;
-    const payload = { clinica_id: clinicId, profissional_id: values.profissionalId, servico_id: values.servicoId ?? null, paciente_id: values.pacienteId ?? null, paciente_nome: values.pacienteNome, paciente_whatsapp: values.pacienteWhatsapp, data: values.data, horario: values.horario, status: values.status };
-    const result = values.id ? await supabase.from("agendamentos").update(payload).eq("id", values.id) : await supabase.from("agendamentos").insert(payload);
-    setMessage(result.error ? result.error.message : "Agendamento salvo.");
+    const validation = validateAppointment(values);
+    if (!validation.valid) {
+      setMessage(validation.message ?? "Revise os dados do agendamento.");
+      return;
+    }
+    const result = await saveAppointmentRecord(clinicId, values);
+    setMessage(result.error ? getErrorMessage(result.error) : "Agendamento salvo.");
     await loadAll();
   }
 
   async function deleteAppointment(id: string) {
-    const { error } = await supabase.from("agendamentos").delete().eq("id", id);
-    setMessage(error ? error.message : "Agendamento removido.");
+    const { error } = await deleteAppointmentRecord(id);
+    setMessage(error ? getErrorMessage(error) : "Agendamento removido.");
     await loadAll();
   }
 
-  async function savePayment(values: { valor: number; status: FinanceEntry["status"]; formaPagamento?: string; pacienteId?: string | null; servicoId?: string | null; profissionalId?: string | null; descricao?: string }) {
+  async function savePayment(values: { valor: number; status: FinanceEntry["status"]; formaPagamento?: string; pacienteId?: string | null; servicoId?: string | null; profissionalId?: string | null; descricao?: string; data?: string | null }) {
     if (!clinicId) return;
-    const { error } = await supabase.from("pagamentos").insert({ clinica_id: clinicId, valor: values.valor, status: values.status, forma_pagamento: values.formaPagamento ?? "manual", paciente_id: values.pacienteId ?? null, servico_id: values.servicoId ?? null, profissional_id: values.profissionalId ?? null, data_vencimento: todayISO(), descricao: values.descricao ?? null });
-    setMessage(error ? error.message : "Pagamento criado.");
+    const validation = validateFinance(values);
+    if (!validation.valid) {
+      setMessage(validation.message ?? "Revise os dados financeiros.");
+      return;
+    }
+    const { error } = await createPaymentRecord(clinicId, values);
+    setMessage(error ? getErrorMessage(error) : "Pagamento criado.");
     await loadAll();
   }
 
   async function updatePayment(id: string, values: { valor: number; status: FinanceEntry["status"]; formaPagamento?: string | null; pacienteId?: string | null; servicoId?: string | null; profissionalId?: string | null; data?: string | null; descricao?: string }) {
-    const { error } = await supabase.from("pagamentos").update({ valor: values.valor, status: values.status, forma_pagamento: values.formaPagamento ?? null, paciente_id: values.pacienteId ?? null, servico_id: values.servicoId ?? null, profissional_id: values.profissionalId ?? null, data_vencimento: values.data ?? null, descricao: values.descricao ?? null }).eq("id", id);
-    setMessage(error ? error.message : "Pagamento atualizado.");
+    const validation = validateFinance(values);
+    if (!validation.valid) {
+      setMessage(validation.message ?? "Revise os dados financeiros.");
+      return;
+    }
+    const { error } = await updatePaymentRecord(id, values);
+    setMessage(error ? getErrorMessage(error) : "Pagamento atualizado.");
     await loadAll();
   }
 
   async function deletePayment(id: string) {
-    const { error } = await supabase.from("pagamentos").delete().eq("id", id);
-    setMessage(error ? error.message : "Pagamento removido.");
+    const { error } = await deletePaymentRecord(id);
+    setMessage(error ? getErrorMessage(error) : "Pagamento removido.");
     await loadAll();
   }
 
-  async function saveExpense(values: { descricao: string; categoria?: string; valor: number; status: FinanceEntry["status"] }) {
+  async function saveExpense(values: { descricao: string; categoria?: string; valor: number; status: FinanceEntry["status"]; data?: string | null }) {
     if (!clinicId) return;
-    const { error } = await supabase.from("despesas").insert({ clinica_id: clinicId, descricao: values.descricao, categoria: values.categoria ?? null, valor: values.valor, status: values.status, data: todayISO() });
-    setMessage(error ? error.message : "Despesa criada.");
+    const validation = validateFinance(values);
+    if (!validation.valid) {
+      setMessage(validation.message ?? "Revise os dados da despesa.");
+      return;
+    }
+    const { error } = await createExpenseRecord(clinicId, values);
+    setMessage(error ? getErrorMessage(error) : "Despesa criada.");
     await loadAll();
   }
 
   async function updateExpense(id: string, values: { descricao: string; categoria?: string | null; valor: number; status: FinanceEntry["status"]; data?: string | null }) {
-    const { error } = await supabase.from("despesas").update({ descricao: values.descricao, categoria: values.categoria ?? null, valor: values.valor, status: values.status, data: values.data ?? todayISO() }).eq("id", id);
-    setMessage(error ? error.message : "Despesa atualizada.");
+    const validation = validateFinance(values);
+    if (!validation.valid) {
+      setMessage(validation.message ?? "Revise os dados da despesa.");
+      return;
+    }
+    const { error } = await updateExpenseRecord(id, values);
+    setMessage(error ? getErrorMessage(error) : "Despesa atualizada.");
     await loadAll();
   }
 
   async function deleteExpense(id: string) {
-    const { error } = await supabase.from("despesas").delete().eq("id", id);
-    setMessage(error ? error.message : "Despesa removida.");
+    const { error } = await deleteExpenseRecord(id);
+    setMessage(error ? getErrorMessage(error) : "Despesa removida.");
     await loadAll();
   }
 
@@ -335,19 +345,19 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
     const done = values.sessoesRealizadas ?? 0;
     const status = done >= values.totalSessoes ? "finalizado" : values.status ?? "ativo";
     const { error } = await supabase.from("pacotes_sessoes").insert({ clinica_id: clinicId, paciente_id: values.pacienteId ?? null, servico_id: values.servicoId ?? null, total_sessoes: values.totalSessoes, sessoes_realizadas: done, validade: values.validade ?? null, status });
-    setMessage(error ? error.message : "Pacote criado.");
+    setMessage(error ? getErrorMessage(error) : "Pacote criado.");
     await loadAll();
   }
 
   async function updatePackage(id: string, values: { pacienteId?: string | null; servicoId?: string | null; totalSessoes: number; sessoesRealizadas: number; validade?: string | null; status: SessionPackage["status"] }) {
     const { error } = await supabase.from("pacotes_sessoes").update({ paciente_id: values.pacienteId ?? null, servico_id: values.servicoId ?? null, total_sessoes: values.totalSessoes, sessoes_realizadas: values.sessoesRealizadas, validade: values.validade ?? null, status: values.status }).eq("id", id);
-    setMessage(error ? error.message : "Pacote atualizado.");
+    setMessage(error ? getErrorMessage(error) : "Pacote atualizado.");
     await loadAll();
   }
 
   async function deletePackage(id: string) {
     const { error } = await supabase.from("pacotes_sessoes").delete().eq("id", id);
-    setMessage(error ? error.message : "Pacote removido.");
+    setMessage(error ? getErrorMessage(error) : "Pacote removido.");
     await loadAll();
   }
 
@@ -355,13 +365,13 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
     if (!clinicId) return;
     const payload = { clinica_id: clinicId, user_id: values.userId || null, profissional_id: values.profissionalId || null, nome: values.nome, email: values.email, role: values.role, ativo: values.ativo };
     const result = values.id ? await supabase.from("usuarios").update(payload).eq("id", values.id) : await supabase.from("usuarios").insert(payload);
-    setMessage(result.error ? result.error.message : "Acesso salvo. Crie o usuário no Supabase Auth e cole o UID aqui para liberar login.");
+    setMessage(result.error ? getErrorMessage(result.error) : "Acesso salvo. Crie o usuário no Supabase Auth e cole o UID aqui para liberar login.");
     await loadAll();
   }
 
   async function deleteUser(id: string) {
     const { error } = await supabase.from("usuarios").delete().eq("id", id);
-    setMessage(error ? error.message : "Acesso removido.");
+    setMessage(error ? getErrorMessage(error) : "Acesso removido.");
     await loadAll();
   }
 
@@ -391,7 +401,7 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
         professional: values.professional ?? null
       }
     });
-    setMessage(error ? error.message : data?.message ?? "Usuário criado com acesso ao SaaS.");
+    setMessage(error ? getErrorMessage(error) : data?.message ?? "Usuário criado com acesso ao SaaS.");
     await loadAll();
   }
 
@@ -399,7 +409,7 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
     const nextDone = Math.min(pkg.totalSessoes, pkg.sessoesRealizadas + 1);
     const status = nextDone >= pkg.totalSessoes ? "finalizado" : pkg.status;
     const { error } = await supabase.from("pacotes_sessoes").update({ sessoes_realizadas: nextDone, status }).eq("id", pkg.id);
-    setMessage(error ? error.message : "Sessão registrada.");
+    setMessage(error ? getErrorMessage(error) : "Sessão registrada.");
     await loadAll();
   }
 

@@ -8,7 +8,7 @@ export interface ServicesProps {
 
 export function Services({ services = [] }: ServicesProps) {
   return (
-    <SectionCard title="Servicos">
+    <SectionCard title="Serviços">
       {services.length === 0 ? (
         <EmptyState title="Nenhum serviço" message="Os serviços ativos aparecerão aqui." />
       ) : (

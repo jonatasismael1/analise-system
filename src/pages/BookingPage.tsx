@@ -182,7 +182,7 @@ export function BookingPage() {
                   ))}
                 </div>
               </Step>
-              <Step title="Selecionar Servico" number={2} disabled={!selectedProfessional}>
+              <Step title="Selecionar Serviço" number={2} disabled={!selectedProfessional}>
                 <div className="grid gap-3 md:grid-cols-2">
                   {filteredServices.map((item) => (
                     <button className={`rounded-lg border p-4 text-left ${selectedService === item.id ? "border-2 border-primary bg-primary/5" : "border-surface-variant"}`} key={item.id} onClick={() => setSelectedService(item.id)} type="button">

@@ -1,12 +1,10 @@
 import { FormEvent, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { allowPublicSignup } from "../lib/appConfig";
 
 export function LoginPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [clinicName, setClinicName] = useState("");

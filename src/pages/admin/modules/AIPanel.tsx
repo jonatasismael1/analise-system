@@ -11,6 +11,16 @@ export function AIPanel({ insights, clinicName }: { readonly insights: ReturnTyp
   const [copied, setCopied] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState("Retenção");
+  const patientRiskInsights = insights.filter((insight) => insight.patientName);
+  const averageTicket = patientRiskInsights.length ? patientRiskInsights.reduce((sum, insight) => sum + insight.value, 0) / patientRiskInsights.length : 0;
+  const recoveryRate = 0.35;
+  const expectedRecovery = patientRiskInsights.length * averageTicket * recoveryRate;
+  const opportunityCards = [
+    { label: "Retornos vencidos", value: insights.filter((insight) => insight.type === "retorno").length },
+    { label: "Faltas", value: insights.filter((insight) => insight.type === "falta").length },
+    { label: "Inativos", value: insights.filter((insight) => insight.type === "inativo").length },
+    { label: "Atraso financeiro", value: insights.filter((insight) => insight.type === "financeiro").length }
+  ];
 
   const handleSimulate = () => {
     setIsThinking(true);
@@ -86,6 +96,25 @@ export function AIPanel({ insights, clinicName }: { readonly insights: ReturnTyp
             <EmptyState title="Tudo em dia!" message="Sua clínica está operando com alta eficiência. Quando houver ociosidade ou inadimplência, as sugestões aparecerão aqui." />
           ) : (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary">Recuperação prevista</p>
+                <p className="mt-2 text-2xl font-bold text-on-surface">
+                  Você pode recuperar {brl.format(expectedRecovery)} com {patientRiskInsights.length} pacientes
+                </p>
+                <p className="mt-1 text-sm text-secondary">
+                  Cálculo: {patientRiskInsights.length} pacientes em risco × {brl.format(averageTicket)} de ticket médio × 35% de taxa de recuperação.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-4">
+                {opportunityCards.map((card) => (
+                  <div className="rounded-xl border border-surface-variant bg-white p-4" key={card.label}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-secondary">{card.label}</p>
+                    <p className="mt-1 text-xl font-bold text-on-surface">{card.value}</p>
+                  </div>
+                ))}
+              </div>
+
               {/* Métricas de Impacto */}
               <div className="grid gap-3 sm:grid-cols-3 mb-6">
                 <div className="rounded-xl border border-surface-variant bg-surface-container-lowest p-4">
@@ -124,7 +153,7 @@ export function AIPanel({ insights, clinicName }: { readonly insights: ReturnTyp
                           type="button"
                         >
                           {copied === insight.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          {copied === insight.id ? "Copiado!" : "Copiar"}
+                          {copied === insight.id ? "Copiado!" : "Copiar mensagem"}
                         </button>
                         {insight.whatsapp ? (
                           <a
@@ -151,6 +180,34 @@ export function AIPanel({ insights, clinicName }: { readonly insights: ReturnTyp
                   </article>
                 );
               })}
+
+              {patientRiskInsights.length > 0 ? (
+                <div className="rounded-xl border border-surface-variant bg-white p-5">
+                  <h4 className="text-sm font-bold text-on-surface">Pacientes em risco</h4>
+                  <div className="mt-4 space-y-3">
+                    {patientRiskInsights.map((insight) => {
+                      const message = buildWhatsAppMessage(insight, clinicName);
+                      return (
+                        <div className="flex flex-col justify-between gap-3 rounded-lg border border-surface-variant p-3 md:flex-row md:items-center" key={`risk-${insight.id}`}>
+                          <div>
+                            <p className="font-semibold">{insight.patientName}</p>
+                            <p className="text-sm text-secondary">{insight.whatsapp ?? "WhatsApp não informado"} · {insight.description}</p>
+                            <p className="mt-1 text-xs font-semibold text-primary">Valor potencial: {brl.format(insight.value)} · Ação recomendada: contato ativo por WhatsApp</p>
+                          </div>
+                          <button
+                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium hover:border-primary hover:text-primary transition"
+                            onClick={() => { void navigator.clipboard.writeText(message); setCopied(`risk-${insight.id}`); }}
+                            type="button"
+                          >
+                            {copied === `risk-${insight.id}` ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            {copied === `risk-${insight.id}` ? "Copiado!" : "Copiar mensagem"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
               {/* Checklist de Implementação */}
               <div className="mt-8 rounded-xl border border-dashed border-outline-variant p-6 bg-white">
