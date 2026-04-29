@@ -1,12 +1,12 @@
-import { mockPatients } from "../../data/mockData";
+import type { Patient } from "../../types/clinic";
 import { EmptyState } from "../ui/EmptyState";
 import { SectionCard } from "../ui/SectionCard";
 
 export interface PatientsProps {
-  readonly patients?: typeof mockPatients;
+  readonly patients?: Patient[];
 }
 
-export function Patients({ patients = mockPatients }: PatientsProps) {
+export function Patients({ patients = [] }: PatientsProps) {
   return (
     <SectionCard title="Pacientes">
       {patients.length === 0 ? (

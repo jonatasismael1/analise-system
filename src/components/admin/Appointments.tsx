@@ -1,12 +1,12 @@
-import { mockAppointments } from "../../data/mockData";
+import type { Appointment as AppointmentItem } from "../../types/clinic";
 import { EmptyState } from "../ui/EmptyState";
 import { SectionCard } from "../ui/SectionCard";
 
 export interface AppointmentsProps {
-  readonly appointments?: typeof mockAppointments;
+  readonly appointments?: AppointmentItem[];
 }
 
-export function Appointments({ appointments = mockAppointments }: AppointmentsProps) {
+export function Appointments({ appointments = [] }: AppointmentsProps) {
   return (
     <SectionCard title="Agendamentos">
       {appointments.length === 0 ? (

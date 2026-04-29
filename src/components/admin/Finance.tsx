@@ -1,12 +1,12 @@
-import { mockFinanceEntries } from "../../data/mockData";
+import type { FinanceEntry } from "../../types/clinic";
 import { EmptyState } from "../ui/EmptyState";
 import { SectionCard } from "../ui/SectionCard";
 
 export interface FinanceProps {
-  readonly entries?: typeof mockFinanceEntries;
+  readonly entries?: FinanceEntry[];
 }
 
-export function Finance({ entries = mockFinanceEntries }: FinanceProps) {
+export function Finance({ entries = [] }: FinanceProps) {
   return (
     <SectionCard title="Financeiro">
       {entries.length === 0 ? (

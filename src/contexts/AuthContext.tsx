@@ -41,7 +41,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const withTimeout = async <T,>(promise: Promise<T>, timeoutMs = 12000): Promise<T> => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("Tempo excedido ao carregar dados da clinica.")), timeoutMs);
+      timeoutId = setTimeout(() => reject(new Error("Tempo excedido ao carregar dados da clínica.")), timeoutMs);
     });
 
     try {

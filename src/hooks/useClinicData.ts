@@ -7,6 +7,7 @@ import {
   mockProfessionals,
   mockServices
 } from "../data/mockData";
+import { isDemoMode, productionDataErrorMessage } from "../lib/appConfig";
 import { monthBounds, todayISO } from "../lib/formatters";
 import { supabase } from "../lib/supabaseClient";
 import type { Appointment, ClinicUser, FinanceEntry, Patient, Professional, Service, SessionPackage, UserRole } from "../types/clinic";
@@ -59,12 +60,12 @@ function statusAsFinance(value: string): FinanceEntry["status"] {
 }
 
 export function useClinicData(clinicId?: string, role: UserRole = "admin", profileProfessionalId?: string | null) {
-  const [professionals, setProfessionals] = useState<Professional[]>(mockProfessionals);
-  const [services, setServices] = useState<Service[]>(mockServices);
-  const [patients, setPatients] = useState<Patient[]>(mockPatients);
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
-  const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>(mockFinanceEntries);
-  const [packages, setPackages] = useState<SessionPackage[]>(mockPackages);
+  const [professionals, setProfessionals] = useState<Professional[]>(() => isDemoMode ? mockProfessionals : []);
+  const [services, setServices] = useState<Service[]>(() => isDemoMode ? mockServices : []);
+  const [patients, setPatients] = useState<Patient[]>(() => isDemoMode ? mockPatients : []);
+  const [appointments, setAppointments] = useState<Appointment[]>(() => isDemoMode ? mockAppointments : []);
+  const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>(() => isDemoMode ? mockFinanceEntries : []);
+  const [packages, setPackages] = useState<SessionPackage[]>(() => isDemoMode ? mockPackages : []);
   const [users, setUsers] = useState<ClinicUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -105,7 +106,7 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
         id: row.id,
         pacienteNome: row.paciente_nome,
         profissional: professionalsById.get(row.profissional_id) ?? "Profissional",
-        servico: row.servico_id ? servicesById.get(row.servico_id) ?? "Servico" : "Servico",
+        servico: row.servico_id ? servicesById.get(row.servico_id) ?? "Serviço" : "Serviço",
         data: row.data,
         horario: row.horario.slice(0, 5),
         status: statusAsAppointment(row.status)
@@ -116,7 +117,7 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
         pacienteId: row.paciente_id,
         servicoId: row.servico_id,
         paciente: row.paciente_id ? patientsById.get(row.paciente_id) ?? "Paciente" : "Paciente",
-        servico: row.servico_id ? servicesById.get(row.servico_id) ?? "Servico" : "Servico",
+        servico: row.servico_id ? servicesById.get(row.servico_id) ?? "Serviço" : "Serviço",
         totalSessoes: row.total_sessoes,
         sessoesRealizadas: row.sessoes_realizadas,
         validade: row.validade,
@@ -156,7 +157,25 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
         ativo: row.ativo
       })));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Não foi possível carregar dados do Supabase. Exibindo fallback visual.");
+      console.error("Erro ao carregar dados da clínica:", error);
+      if (isDemoMode) {
+        setProfessionals(mockProfessionals);
+        setServices(mockServices);
+        setPatients(mockPatients);
+        setAppointments(mockAppointments);
+        setFinanceEntries(mockFinanceEntries);
+        setPackages(mockPackages);
+        setMessage("Modo demonstração: usando dados fictícios porque o Supabase não respondeu.");
+      } else {
+        setProfessionals([]);
+        setServices([]);
+        setPatients([]);
+        setAppointments([]);
+        setFinanceEntries([]);
+        setPackages([]);
+        setUsers([]);
+        setMessage(productionDataErrorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -380,7 +399,7 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
     const nextDone = Math.min(pkg.totalSessoes, pkg.sessoesRealizadas + 1);
     const status = nextDone >= pkg.totalSessoes ? "finalizado" : pkg.status;
     const { error } = await supabase.from("pacotes_sessoes").update({ sessoes_realizadas: nextDone, status }).eq("id", pkg.id);
-    setMessage(error ? error.message : "Sessao registrada.");
+    setMessage(error ? error.message : "Sessão registrada.");
     await loadAll();
   }
 

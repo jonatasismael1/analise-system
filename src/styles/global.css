@@ -15,7 +15,12 @@ body {
   margin: 0;
   min-width: 320px;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  background: linear-gradient(180deg, #f8fbfb 0%, #f3f6f8 100%);
+  background: linear-gradient(180deg, #f8fbfb 0%, #eef4f2 48%, #f7f9fb 100%);
+}
+
+:focus-visible {
+  outline: 3px solid rgb(0 137 123 / 0.28);
+  outline-offset: 2px;
 }
 
 * {

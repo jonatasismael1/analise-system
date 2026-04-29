@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { allowPublicSignup } from "../lib/appConfig";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -24,6 +25,11 @@ export function LoginPage() {
 
     try {
       if (isRegistering) {
+        if (!allowPublicSignup) {
+          setError("Acesso exclusivo para clínicas cadastradas.");
+          setFormLoading(false);
+          return;
+        }
         const result = await registerClinic(email, password, clinicName);
         if (result.error) {
           setError(result.error);
@@ -52,13 +58,6 @@ export function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-on-surface">
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.06]">
-        <img
-          alt=""
-          className="h-full w-full object-cover grayscale"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrLbFnjHRN213bA0Dy0UhEdnRWlFWvacLjYj7I0e6GvbNjds7GKFDdVlfhG0Jnu2pYpczlqvfOzTy_eZIbDcf1qZsjHDncfpkeksPOun9NQaV8_e7PJE84JSnrfOVo0YYu3zAt9QFNk8T8c2EylSO_Mjn5aP1w1-Q1yKpuCk6CXYJqTa0qam6nPim1T6o8agbNMwwegGTAJYb7KPRmwrPpDJGWa_4apOPO5WGkZCrfmTeprA88ZTGboBBecRMXdyjr5ZieA-3W1Gs"
-        />
-      </div>
       <main className="relative z-10 flex flex-1 items-center justify-center p-6">
         <div className="w-full max-w-md">
           <div className="mb-10 flex flex-col items-center text-center">
@@ -73,9 +72,9 @@ export function LoginPage() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-surface-variant bg-white/80 p-8 shadow-clinical backdrop-blur-xl">
+          <div className="rounded-lg border border-surface-variant bg-white/95 p-8 shadow-clinical">
             <form className="space-y-5" onSubmit={handleSubmit}>
-              {isRegistering && (
+              {isRegistering && allowPublicSignup && (
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-secondary" htmlFor="clinicName">
                     Nome da Clínica
@@ -132,7 +131,13 @@ export function LoginPage() {
 
               {showNoClinicError && (
                 <div className="rounded-xl bg-amber-50 p-3 text-xs font-medium text-amber-700 border border-amber-200">
-                  Usuário autenticado, mas nenhuma clínica encontrada. Entre em contato com o suporte ou tente registrar uma nova clínica.
+                  Usuário autenticado, mas nenhuma clínica encontrada. Entre em contato com o suporte.
+                </div>
+              )}
+
+              {!allowPublicSignup && (
+                <div className="rounded-xl border border-surface-variant bg-surface-container-low p-3 text-xs font-medium text-secondary">
+                  Acesso exclusivo para clínicas cadastradas.
                 </div>
               )}
 
@@ -145,14 +150,14 @@ export function LoginPage() {
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <>
-                    <span>{isRegistering ? "Criar Minha Clínica" : "Entrar no Sistema"}</span>
+                    <span>{isRegistering && allowPublicSignup ? "Criar Minha Clínica" : "Entrar no Sistema"}</span>
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </>
                 )}
               </button>
             </form>
 
-            <div className="mt-8 text-center">
+            {allowPublicSignup ? <div className="mt-8 text-center">
               <button
                 className="text-xs font-semibold text-secondary transition hover:text-primary"
                 onClick={() => {
@@ -163,7 +168,7 @@ export function LoginPage() {
               >
                 {isRegistering ? "Já tem uma conta? Faça login" : "Não tem conta? Registre sua clínica"}
               </button>
-            </div>
+            </div> : null}
           </div>
 
           <p className="mt-10 text-center text-[10px] font-medium uppercase tracking-[0.2em] text-secondary">

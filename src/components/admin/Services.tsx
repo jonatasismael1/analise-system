@@ -1,16 +1,16 @@
-import { mockServices } from "../../data/mockData";
+import type { Service } from "../../types/clinic";
 import { EmptyState } from "../ui/EmptyState";
 import { SectionCard } from "../ui/SectionCard";
 
 export interface ServicesProps {
-  readonly services?: typeof mockServices;
+  readonly services?: Service[];
 }
 
-export function Services({ services = mockServices }: ServicesProps) {
+export function Services({ services = [] }: ServicesProps) {
   return (
     <SectionCard title="Servicos">
       {services.length === 0 ? (
-        <EmptyState title="Nenhum servico" message="Os servicos ativos aparecerao aqui." />
+        <EmptyState title="Nenhum serviço" message="Os serviços ativos aparecerão aqui." />
       ) : (
         <div className="divide-y divide-slate-200">
           {services.map((service) => (

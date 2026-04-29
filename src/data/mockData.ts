@@ -14,7 +14,7 @@ export const mockProfessionals: Professional[] = [
 
 export const mockServices: Service[] = [
   { id: "serv-1", nome: "Consulta inicial", duracaoMin: 50, preco: 280, profissionalId: "prof-1", ativo: true },
-  { id: "serv-2", nome: "Sessao de retorno", duracaoMin: 30, preco: 180, profissionalId: "prof-2", ativo: true }
+  { id: "serv-2", nome: "Sessão de retorno", duracaoMin: 30, preco: 180, profissionalId: "prof-2", ativo: true }
 ];
 
 export const mockAppointments: Appointment[] = [

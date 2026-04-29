@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { CheckCircle } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { buildSlots } from "../lib/bookingSlots";
+import { isDemoMode, productionDataErrorMessage } from "../lib/appConfig";
 import { brl, onlyDigits, todayISO } from "../lib/formatters";
 import { supabase } from "../lib/supabaseClient";
 import { mockProfessionals, mockServices } from "../data/mockData";
@@ -35,8 +36,8 @@ interface PublicBookingData {
 export function BookingPage() {
   const { slug } = useParams();
   const [clinic, setClinic] = useState<Clinic | null>(null);
-  const [professionals, setProfessionals] = useState<Professional[]>(mockProfessionals);
-  const [services, setServices] = useState<Service[]>(mockServices);
+  const [professionals, setProfessionals] = useState<Professional[]>(() => isDemoMode ? mockProfessionals : []);
+  const [services, setServices] = useState<Service[]>(() => isDemoMode ? mockServices : []);
   const [selectedProfessional, setSelectedProfessional] = useState("");
   const [selectedService, setSelectedService] = useState("");
   const [date, setDate] = useState(todayISO());
@@ -79,10 +80,18 @@ export function BookingPage() {
         setServices(mappedServices);
         setSelectedProfessional(mappedProfessionals[0]?.id ?? "");
         setSelectedService(mappedServices[0]?.id ?? "");
-      } else {
-        setMessage("Nao foi possivel carregar a clinica no Supabase. Exibindo fallback visual.");
+      } else if (isDemoMode) {
+        setMessage("Modo demonstração: usando dados fictícios porque o Supabase não respondeu.");
+        setProfessionals(mockProfessionals);
+        setServices(mockServices);
         setSelectedProfessional(mockProfessionals[0]?.id ?? "");
         setSelectedService(mockServices[0]?.id ?? "");
+      } else {
+        setMessage(productionDataErrorMessage);
+        setProfessionals([]);
+        setServices([]);
+        setSelectedProfessional("");
+        setSelectedService("");
       }
       setLoading(false);
     }
@@ -111,12 +120,12 @@ export function BookingPage() {
     event.preventDefault();
     setMessage(null);
     if (!clinic || !professional || !service || !time) {
-      setMessage("Selecione profissional, servico, data e horario.");
+      setMessage("Selecione profissional, serviço, data e horário.");
       return;
     }
     const whatsapp = onlyDigits(patient.whatsapp);
     if (patient.nome.trim().length < 3 || whatsapp.length < 10) {
-      setMessage("Informe nome e WhatsApp validos.");
+      setMessage("Informe nome e WhatsApp válidos.");
       return;
     }
 
@@ -134,7 +143,7 @@ export function BookingPage() {
 
     setLoading(false);
     if (bookingInsert.error) {
-      setMessage(bookingInsert.error.message.includes("slot_unavailable") ? "Este horario acabou de ser ocupado. Escolha outro horario." : bookingInsert.error.message);
+      setMessage(bookingInsert.error.message.includes("slot_unavailable") ? "Este horário acabou de ser ocupado. Escolha outro horário." : bookingInsert.error.message);
       return;
     }
     setSuccess(true);
@@ -150,12 +159,13 @@ export function BookingPage() {
       </header>
       <main className="flex flex-1 justify-center px-5 py-8">
         <form className="w-full max-w-[800px] space-y-6" onSubmit={handleSubmit}>
+          {isDemoMode ? <div className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-bold uppercase tracking-wide text-amber-700">Modo demonstração</div> : null}
           {message ? <div className="rounded border border-primary/30 bg-primary-soft p-3 text-sm text-primary-dark">{message}</div> : null}
           {success ? (
             <section className="rounded-xl border border-surface-variant bg-white p-8 text-center">
               <CheckCircle className="mx-auto h-12 w-12 text-primary" />
               <h2 className="mt-4 text-2xl font-semibold">Agendamento solicitado</h2>
-              <p className="mt-2 text-sm text-secondary">Seu horario entrou como pendente. A clinica confirmara pelo WhatsApp.</p>
+              <p className="mt-2 text-sm text-secondary">Seu horário entrou como pendente. A clínica confirmará pelo WhatsApp.</p>
             </section>
           ) : (
             <>
@@ -186,7 +196,7 @@ export function BookingPage() {
                 <div className="grid gap-4 md:grid-cols-[220px_1fr]">
                   <input className="rounded border border-outline-variant px-3 py-2" min={todayISO()} onChange={(event) => { setDate(event.target.value); setTime(""); }} type="date" value={date} />
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                    {slots.length === 0 ? <p className="col-span-full text-sm text-secondary">Nenhum horario disponivel para esta data.</p> : slots.map((slot) => (
+                    {slots.length === 0 ? <p className="col-span-full text-sm text-secondary">Nenhum horário disponível para esta data.</p> : slots.map((slot) => (
                       <button className={`rounded border px-3 py-2 text-sm ${time === slot.time ? "border-primary bg-primary text-white" : slot.available ? "border-outline-variant bg-white" : "cursor-not-allowed border-surface-variant bg-surface-container text-secondary"}`} disabled={!slot.available} key={slot.time} onClick={() => setTime(slot.time)} type="button">{slot.time}</button>
                     ))}
                   </div>
@@ -196,7 +206,7 @@ export function BookingPage() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <input className="rounded border border-outline-variant px-3 py-2" onChange={(event) => setPatient({ ...patient, nome: event.target.value })} placeholder="Nome completo" value={patient.nome} />
                   <input className="rounded border border-outline-variant px-3 py-2" onChange={(event) => setPatient({ ...patient, whatsapp: event.target.value })} placeholder="WhatsApp" value={patient.whatsapp} />
-                  <input className="rounded border border-outline-variant px-3 py-2" onChange={(event) => setPatient({ ...patient, email: event.target.value })} placeholder="Email opcional" type="email" value={patient.email} />
+                  <input className="rounded border border-outline-variant px-3 py-2" onChange={(event) => setPatient({ ...patient, email: event.target.value })} placeholder="E-mail opcional" type="email" value={patient.email} />
                 </div>
               </Step>
               <div className="flex justify-end pt-2">
@@ -208,7 +218,7 @@ export function BookingPage() {
       </main>
       <footer className="flex flex-col items-center justify-between gap-4 border-t border-surface-variant bg-surface-container-low px-6 py-8 text-sm text-secondary md:flex-row">
         <div className="text-lg font-bold text-on-surface">Clinic Pro</div>
-        <div>© 2026 Clinic Pro SaaS. Sistemas de Precisao Clinica.</div>
+        <div>© 2026 Clinic Pro SaaS. Sistema de Precisão Clínica.</div>
       </footer>
     </div>
   );

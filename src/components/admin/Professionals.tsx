@@ -1,12 +1,12 @@
-import { mockProfessionals } from "../../data/mockData";
+import type { Professional } from "../../types/clinic";
 import { EmptyState } from "../ui/EmptyState";
 import { SectionCard } from "../ui/SectionCard";
 
 export interface ProfessionalsProps {
-  readonly professionals?: typeof mockProfessionals;
+  readonly professionals?: Professional[];
 }
 
-export function Professionals({ professionals = mockProfessionals }: ProfessionalsProps) {
+export function Professionals({ professionals = [] }: ProfessionalsProps) {
   return (
     <SectionCard title="Profissionais" description="Mock atual: sera substituido por CRUD Supabase na fase 5.">
       {professionals.length === 0 ? (

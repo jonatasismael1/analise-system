@@ -19,7 +19,7 @@ export function cleanupLegacyServiceWorker() {
           window.location.reload();
         }
       } catch (error) {
-        console.warn("Nao foi possivel limpar o service worker antigo.", error);
+        console.warn("Não foi possível limpar o service worker antigo.", error);
       }
     })();
   });

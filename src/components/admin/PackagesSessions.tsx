@@ -1,14 +1,14 @@
-import { mockPackages } from "../../data/mockData";
+import type { SessionPackage } from "../../types/clinic";
 import { EmptyState } from "../ui/EmptyState";
 import { SectionCard } from "../ui/SectionCard";
 
 export interface PackagesSessionsProps {
-  readonly packages?: typeof mockPackages;
+  readonly packages?: SessionPackage[];
 }
 
-export function PackagesSessions({ packages = mockPackages }: PackagesSessionsProps) {
+export function PackagesSessions({ packages = [] }: PackagesSessionsProps) {
   return (
-    <SectionCard title="Pacotes & Sessoes">
+    <SectionCard title="Pacotes & Sessões">
       {packages.length === 0 ? (
         <EmptyState title="Nenhum pacote" message="Pacotes ativos ficarao listados aqui." />
       ) : (
