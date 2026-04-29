@@ -8,7 +8,29 @@ import { mockProfessionals, mockServices } from "../data/mockData";
 import type { Professional, Service } from "../types/clinic";
 import type { Database, Json } from "../types/database";
 
-type Clinic = Database["public"]["Tables"]["clinicas"]["Row"];
+type Clinic = Pick<Database["public"]["Tables"]["clinicas"]["Row"], "id" | "nome" | "slug">;
+
+interface PublicBookingData {
+  clinic: Clinic;
+  professionals: Array<{
+    id: string;
+    clinica_id: string;
+    nome: string;
+    especialidade: string;
+    foto_url: string | null;
+    horarios: Json;
+    ativo: boolean;
+  }>;
+  services: Array<{
+    id: string;
+    clinica_id: string;
+    profissional_id: string | null;
+    nome: string;
+    duracao_min: number;
+    preco: number;
+    ativo: boolean;
+  }>;
+}
 
 export function BookingPage() {
   const { slug } = useParams();
@@ -29,23 +51,34 @@ export function BookingPage() {
     async function loadPublicData() {
       if (!slug) return;
       setLoading(true);
-      const clinicRes = await supabase.from("clinicas").select("*").eq("slug", slug).maybeSingle();
-      if (clinicRes.data) {
-        setClinic(clinicRes.data);
-        const [professionalsRes, servicesRes] = await Promise.all([
-          supabase.from("profissionais").select("*").eq("clinica_id", clinicRes.data.id).eq("ativo", true).order("nome"),
-          supabase.from("servicos").select("*").eq("clinica_id", clinicRes.data.id).eq("ativo", true).order("nome")
-        ]);
-        if (!professionalsRes.error) {
-          const mapped = (professionalsRes.data ?? []).map((row) => ({ id: row.id, clinicaId: row.clinica_id, nome: row.nome, especialidade: row.especialidade, fotoUrl: row.foto_url ?? undefined, horarios: row.horarios, ativo: row.ativo }));
-          setProfessionals(mapped.length ? mapped : []);
-          setSelectedProfessional(mapped[0]?.id ?? "");
-        }
-        if (!servicesRes.error) {
-          const mapped = (servicesRes.data ?? []).map((row) => ({ id: row.id, clinicaId: row.clinica_id, nome: row.nome, duracaoMin: row.duracao_min, preco: Number(row.preco), profissionalId: row.profissional_id, ativo: row.ativo }));
-          setServices(mapped.length ? mapped : []);
-          setSelectedService(mapped[0]?.id ?? "");
-        }
+      const { data, error } = await supabase.rpc("get_public_booking_data", { p_slug: slug });
+      const bookingData = data as PublicBookingData | null;
+
+      if (!error && bookingData?.clinic) {
+        setClinic(bookingData.clinic);
+        const mappedProfessionals = (bookingData.professionals ?? []).map((row) => ({
+          id: row.id,
+          clinicaId: row.clinica_id,
+          nome: row.nome,
+          especialidade: row.especialidade,
+          fotoUrl: row.foto_url ?? undefined,
+          horarios: row.horarios,
+          ativo: row.ativo
+        }));
+        const mappedServices = (bookingData.services ?? []).map((row) => ({
+          id: row.id,
+          clinicaId: row.clinica_id,
+          nome: row.nome,
+          duracaoMin: row.duracao_min,
+          preco: Number(row.preco),
+          profissionalId: row.profissional_id,
+          ativo: row.ativo
+        }));
+
+        setProfessionals(mappedProfessionals);
+        setServices(mappedServices);
+        setSelectedProfessional(mappedProfessionals[0]?.id ?? "");
+        setSelectedService(mappedServices[0]?.id ?? "");
       } else {
         setMessage("Nao foi possivel carregar a clinica no Supabase. Exibindo fallback visual.");
         setSelectedProfessional(mockProfessionals[0]?.id ?? "");
@@ -58,12 +91,16 @@ export function BookingPage() {
 
   useEffect(() => {
     async function loadOccupied() {
-      if (!selectedProfessional || !date) return;
-      const { data } = await supabase.from("agendamentos").select("horario").eq("profissional_id", selectedProfessional).eq("data", date).in("status", ["pendente", "confirmado"]);
-      setOccupied((data ?? []).map((row) => row.horario));
+      if (!slug || !selectedProfessional || !date) return;
+      const { data } = await supabase.rpc("get_public_occupied_slots", {
+        p_slug: slug,
+        p_profissional_id: selectedProfessional,
+        p_data: date
+      });
+      setOccupied(((data ?? []) as Array<{ horario: string }>).map((row) => row.horario));
     }
     void loadOccupied();
-  }, [date, selectedProfessional]);
+  }, [date, selectedProfessional, slug]);
 
   const professional = professionals.find((item) => item.id === selectedProfessional);
   const filteredServices = useMemo(() => services.filter((service) => !service.profissionalId || service.profissionalId === selectedProfessional), [selectedProfessional, services]);
@@ -84,30 +121,20 @@ export function BookingPage() {
     }
 
     setLoading(true);
-    const patientInsert = await supabase.from("pacientes").insert({
-      clinica_id: clinic.id,
-      nome: patient.nome,
-      whatsapp,
-      email: patient.email || null,
-      status: "ativo",
-      profissional_id: professional.id
-    }).select("id").single();
-
-    const appointmentInsert = await supabase.from("agendamentos").insert({
-      clinica_id: clinic.id,
-      profissional_id: professional.id,
-      servico_id: service.id,
-      paciente_id: patientInsert.data?.id ?? null,
-      paciente_nome: patient.nome,
-      paciente_whatsapp: whatsapp,
-      data: date,
-      horario: time,
-      status: "pendente"
+    const bookingInsert = await supabase.rpc("create_public_booking", {
+      p_slug: clinic.slug,
+      p_profissional_id: professional.id,
+      p_servico_id: service.id,
+      p_paciente_nome: patient.nome,
+      p_paciente_whatsapp: whatsapp,
+      p_paciente_email: patient.email || null,
+      p_data: date,
+      p_horario: time
     });
 
     setLoading(false);
-    if (appointmentInsert.error) {
-      setMessage(appointmentInsert.error.message.includes("duplicate") ? "Este horario acabou de ser ocupado. Escolha outro horario." : appointmentInsert.error.message);
+    if (bookingInsert.error) {
+      setMessage(bookingInsert.error.message.includes("slot_unavailable") ? "Este horario acabou de ser ocupado. Escolha outro horario." : bookingInsert.error.message);
       return;
     }
     setSuccess(true);

@@ -47,6 +47,7 @@ export interface Patient {
   profissionalId?: string | null;
   ultimoAtendimento?: string | null;
   proximoRetorno?: string | null;
+  kanbanStage?: "novo" | "agendado" | "atendido" | "retorno" | "faltou" | "inativo" | null;
   observacoes?: string | null;
 }
 

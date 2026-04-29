@@ -42,6 +42,7 @@ function mapPatient(row: PatientRow): Patient {
     profissionalId: row.profissional_id,
     ultimoAtendimento: row.ultimo_atendimento,
     proximoRetorno: row.proximo_retorno,
+    kanbanStage: row.kanban_stage as Patient["kanbanStage"],
     valorTotalGasto: Number(row.valor_total_gasto),
     observacoes: row.observacoes
   };
@@ -210,6 +211,7 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
       profissional_id: values.profissionalId ?? null,
       ultimo_atendimento: values.ultimoAtendimento ?? null,
       proximo_retorno: values.proximoRetorno ?? null,
+      kanban_stage: values.kanbanStage ?? null,
       valor_total_gasto: values.valorTotalGasto,
       observacoes: values.observacoes ?? null
     };
@@ -237,6 +239,7 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
       endereco: p.endereco ?? null,
       status: p.status,
       profissional_id: p.profissionalId ?? null,
+      kanban_stage: p.kanbanStage ?? null,
       valor_total_gasto: p.valorTotalGasto,
       observacoes: p.observacoes ?? null
     }));

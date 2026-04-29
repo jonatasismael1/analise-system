@@ -19,8 +19,8 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["servicos"]["Insert"]>;
       };
       pacientes: {
-        Row: { id: string; clinica_id: string; nome: string; whatsapp: string; email: string | null; cpf: string | null; data_nascimento: string | null; endereco: string | null; status: string; profissional_id: string | null; ultimo_atendimento: string | null; proximo_retorno: string | null; valor_total_gasto: number; observacoes: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; clinica_id: string; nome: string; whatsapp: string; email?: string | null; cpf?: string | null; data_nascimento?: string | null; endereco?: string | null; status?: string; profissional_id?: string | null; ultimo_atendimento?: string | null; proximo_retorno?: string | null; valor_total_gasto?: number; observacoes?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; clinica_id: string; nome: string; whatsapp: string; email: string | null; cpf: string | null; data_nascimento: string | null; endereco: string | null; status: string; profissional_id: string | null; ultimo_atendimento: string | null; proximo_retorno: string | null; kanban_stage: string | null; valor_total_gasto: number; observacoes: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; clinica_id: string; nome: string; whatsapp: string; email?: string | null; cpf?: string | null; data_nascimento?: string | null; endereco?: string | null; status?: string; profissional_id?: string | null; ultimo_atendimento?: string | null; proximo_retorno?: string | null; kanban_stage?: string | null; valor_total_gasto?: number; observacoes?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["pacientes"]["Insert"]>;
       };
       agendamentos: {

@@ -3,7 +3,7 @@
  * Funções puras para exportação de dados financeiros.
  * Suporta CSV, XLSX (SheetJS) e PDF (window.print via CSS).
  */
-import * as XLSX from "xlsx";
+import * as XLSX from "@e965/xlsx";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 

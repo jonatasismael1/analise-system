@@ -465,23 +465,27 @@ function PatientsPanel({ patients, professionals, onSave, onDelete, onImportMass
 }
 
 function PatientKanbanPanel({ patients, appointments, professionals, onSave }: { readonly patients: Patient[]; readonly appointments: Appointment[]; readonly professionals: Professional[]; readonly onSave: (values: Patient) => Promise<void> }) {
+  type KanbanStage = NonNullable<Patient["kanbanStage"]>;
   const [filters, setFilters] = useState({ search: "", professionalId: "todos" });
+  const [draggedPatientId, setDraggedPatientId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<KanbanStage | null>(null);
   const today = todayISO();
   const filteredPatients = patients.filter((patient) => {
     const matchesSearch = `${patient.nome} ${patient.whatsapp} ${patient.email ?? ""}`.toLowerCase().includes(filters.search.toLowerCase());
     const matchesProfessional = filters.professionalId === "todos" || patient.profissionalId === filters.professionalId;
     return matchesSearch && matchesProfessional;
   });
-  const columns = [
-    { id: "novo", title: "Novo lead", help: "Ainda sem consulta registrada." },
-    { id: "agendado", title: "Agendado", help: "Tem consulta futura pendente ou confirmada." },
-    { id: "atendido", title: "Atendido", help: "Já realizou consulta e pode virar retorno." },
-    { id: "retorno", title: "Retorno pendente", help: "Está na janela de contato para voltar." },
-    { id: "faltou", title: "Faltou", help: "Precisa de recuperação ativa." },
-    { id: "inativo", title: "Inativo", help: "Sem movimento recente." }
+  const columns: Array<{ id: KanbanStage; title: string; help: string; accent: string }> = [
+    { id: "novo", title: "Novo lead", help: "Ainda sem consulta registrada.", accent: "border-t-sky-400" },
+    { id: "agendado", title: "Agendado", help: "Consulta futura pendente ou confirmada.", accent: "border-t-indigo-400" },
+    { id: "atendido", title: "Atendido", help: "Ja realizou consulta e pode virar retorno.", accent: "border-t-emerald-400" },
+    { id: "retorno", title: "Retorno pendente", help: "Na janela de contato para voltar.", accent: "border-t-amber-400" },
+    { id: "faltou", title: "Faltou", help: "Precisa de recuperacao ativa.", accent: "border-t-rose-400" },
+    { id: "inativo", title: "Inativo", help: "Sem movimento recente.", accent: "border-t-slate-400" }
   ];
 
-  function stageFor(patient: Patient) {
+  function stageFor(patient: Patient): KanbanStage {
+    if (patient.kanbanStage) return patient.kanbanStage;
     const patientAppointments = appointments.filter((appointment) => appointment.pacienteNome === patient.nome);
     if (patientAppointments.some((appointment) => appointment.status === "faltou")) return "faltou";
     if (patient.status === "inativo") return "inativo";
@@ -491,29 +495,57 @@ function PatientKanbanPanel({ patients, appointments, professionals, onSave }: {
     return "novo";
   }
 
-  function nextAction(patient: Patient, stage: string) {
-    if (stage === "agendado") return "Confirmar presença 24h antes da consulta.";
-    if (stage === "faltou") return "Enviar mensagem de recuperação e oferecer novo horário.";
+  function nextAction(patient: Patient, stage: KanbanStage) {
+    if (stage === "agendado") return "Confirmar presenca 24h antes da consulta.";
+    if (stage === "faltou") return "Enviar mensagem de recuperacao e oferecer novo horario.";
     if (stage === "retorno") return `Entrar em contato para retorno${patient.proximoRetorno ? ` em ${patient.proximoRetorno}` : ""}.`;
-    if (stage === "atendido") return "Definir data de retorno e registrar observações.";
-    if (stage === "inativo") return "Campanha de reativação por WhatsApp.";
+    if (stage === "atendido") return "Definir data de retorno e registrar observacoes.";
+    if (stage === "inativo") return "Campanha de reativacao por WhatsApp.";
     return "Completar cadastro e conduzir para agendamento.";
   }
 
+  async function movePatient(patient: Patient, stage: KanbanStage) {
+    const nextStatus: Patient["status"] = stage === "inativo" ? "inativo" : stage === "retorno" ? "retorno_pendente" : "ativo";
+    await onSave({
+      ...patient,
+      status: nextStatus,
+      kanbanStage: stage,
+      proximoRetorno: stage === "retorno" ? patient.proximoRetorno ?? today : patient.proximoRetorno,
+      ultimoAtendimento: stage === "atendido" ? patient.ultimoAtendimento ?? today : patient.ultimoAtendimento
+    });
+  }
+
+  function handleDrop(stage: KanbanStage) {
+    const patient = filteredPatients.find((item) => item.id === draggedPatientId);
+    setDraggedPatientId(null);
+    setDropTarget(null);
+    if (!patient || stageFor(patient) === stage) return;
+    void movePatient(patient, stage);
+  }
+
   return (
-    <SectionCard title="Kanban de Pacientes" description="Acompanhe o estágio clínico e comercial, retornos, faltas e próximos contatos.">
+    <SectionCard title="Kanban de Pacientes" description="Arraste pacientes entre etapas para atualizar o funil clinico e comercial.">
       <div className="mb-4 grid gap-3 md:grid-cols-[1fr_260px]">
         <Field label="Buscar"><input className={inputClass()} placeholder="Nome, WhatsApp ou e-mail" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} /></Field>
         <Field label="Profissional"><select className={inputClass()} value={filters.professionalId} onChange={(event) => setFilters({ ...filters, professionalId: event.target.value })}><option value="todos">Todos</option>{professionals.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></Field>
       </div>
       {/* Kanban horizontal com scroll */}
       <div className="-mx-1 overflow-x-auto pb-3">
-        <div className="flex gap-3 px-1" style={{ minWidth: `${columns.length * 272}px` }}>
+        <div className="flex gap-3 px-1" style={{ minWidth: `${columns.length * 292}px` }}>
           {columns.map((column) => {
             const items = filteredPatients.filter((patient) => stageFor(patient) === column.id);
             return (
               <section
-                className="flex w-[260px] shrink-0 flex-col rounded-xl border border-surface-variant bg-surface-container-low"
+                className={`flex w-[280px] shrink-0 flex-col rounded-xl border border-t-4 bg-surface-container-low transition ${column.accent} ${dropTarget === column.id ? "border-primary bg-primary/5 shadow-modal" : "border-surface-variant"}`}
+                onDragLeave={() => setDropTarget(null)}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDropTarget(column.id);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleDrop(column.id);
+                }}
                 key={column.id}
               >
                 {/* Cabeçalho fixo da coluna */}
@@ -525,21 +557,39 @@ function PatientKanbanPanel({ patients, appointments, professionals, onSave }: {
                   <p className="mt-0.5 text-[11px] text-secondary">{column.help}</p>
                 </div>
                 {/* Cards da coluna */}
-                <div className="flex-1 space-y-2 overflow-y-auto p-2" style={{ maxHeight: 480 }}>
+                <div className="flex-1 space-y-2 overflow-y-auto p-2" style={{ maxHeight: 520 }}>
                   {items.length === 0 ? (
-                    <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-outline-variant">
-                      <p className="text-[11px] text-secondary">Nenhum paciente</p>
+                    <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-outline-variant bg-white/60">
+                      <p className="text-[11px] font-medium text-secondary">Solte pacientes aqui</p>
                     </div>
                   ) : (
                     items.map((patient) => (
-                      <article className="rounded-lg border border-outline-variant bg-white p-3 shadow-clinical transition hover:border-primary/30" key={patient.id}>
-                        <p className="text-sm font-semibold text-on-surface">{patient.nome}</p>
-                        <p className="mt-0.5 text-xs text-secondary">{patient.whatsapp}</p>
+                      <article
+                        className={`cursor-grab rounded-lg border border-outline-variant bg-white p-3 shadow-clinical transition active:cursor-grabbing ${draggedPatientId === patient.id ? "scale-[0.98] opacity-60 ring-2 ring-primary/25" : "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-modal"}`}
+                        draggable
+                        key={patient.id}
+                        onDragEnd={() => {
+                          setDraggedPatientId(null);
+                          setDropTarget(null);
+                        }}
+                        onDragStart={(event) => {
+                          setDraggedPatientId(patient.id);
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", patient.id);
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-on-surface">{patient.nome}</p>
+                            <p className="mt-0.5 text-xs text-secondary">{patient.whatsapp}</p>
+                          </div>
+                          <span className="rounded-full border border-outline-variant px-2 py-0.5 text-[10px] font-semibold text-secondary">{brl.format(patient.valorTotalGasto)}</span>
+                        </div>
                         <p className="mt-2 text-[11px] leading-snug text-on-surface-variant">{nextAction(patient, column.id)}</p>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {column.id !== "retorno" ? <button className="rounded-md border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary transition" onClick={() => void onSave({ ...patient, status: "retorno_pendente", proximoRetorno: patient.proximoRetorno ?? today })} type="button">Marcar retorno</button> : null}
-                          {column.id !== "inativo" ? <button className="rounded-md border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-red-300 hover:text-error transition" onClick={() => void onSave({ ...patient, status: "inativo" })} type="button">Inativar</button> : null}
-                          {patient.status !== "ativo" ? <button className="rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-white hover:bg-primary-dark transition" onClick={() => void onSave({ ...patient, status: "ativo" })} type="button">Ativar</button> : null}
+                        <div className="mt-3 grid grid-cols-2 gap-1.5">
+                          {column.id !== "retorno" ? <button className="rounded-md border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary transition" onClick={() => void movePatient(patient, "retorno")} type="button">Retorno</button> : null}
+                          {column.id !== "inativo" ? <button className="rounded-md border border-outline-variant px-2 py-1 text-[11px] font-medium hover:border-red-300 hover:text-error transition" onClick={() => void movePatient(patient, "inativo")} type="button">Inativar</button> : null}
+                          {patient.status !== "ativo" ? <button className="col-span-2 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-white hover:bg-primary-dark transition" onClick={() => void movePatient(patient, "novo")} type="button">Reativar</button> : null}
                         </div>
                       </article>
                     ))
