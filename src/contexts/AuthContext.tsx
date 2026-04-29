@@ -1,5 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import type { Database } from "../types/database";
 import type { ClinicUser, UserRole } from "../types/clinic";
@@ -30,72 +30,94 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [profile, setProfile] = useState<ClinicUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const isInitialLoad = useRef(true);
 
-  async function loadClinic(userId: string) {
+  const loadClinicData = async (userId: string) => {
     try {
-      const owner = await supabase.from("clinicas").select("*").eq("user_id", userId).maybeSingle();
-      if (owner.data) {
-        setClinic(owner.data);
+      // 1. Check if user is an owner
+      const { data: owner, error: ownerError } = await supabase
+        .from("clinicas")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (owner) {
+        setClinic(owner);
         setProfile(null);
         return;
       }
 
-      const access = await supabase.from("usuarios").select("*").eq("user_id", userId).eq("ativo", true).maybeSingle();
-      if (access.data) {
-        const clinicRes = await supabase.from("clinicas").select("*").eq("id", access.data.clinica_id).maybeSingle();
-        setClinic(clinicRes.data ?? null);
+      // 2. Check if user is a staff member
+      const { data: access, error: accessError } = await supabase
+        .from("usuarios")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("ativo", true)
+        .maybeSingle();
+
+      if (access) {
+        const { data: clinicRes } = await supabase
+          .from("clinicas")
+          .select("*")
+          .eq("id", access.clinica_id)
+          .maybeSingle();
+
+        setClinic(clinicRes ?? null);
         setProfile({
-          id: access.data.id,
-          clinicaId: access.data.clinica_id,
-          userId: access.data.user_id,
-          profissionalId: access.data.profissional_id,
-          nome: access.data.nome,
-          email: access.data.email,
-          role: access.data.role as UserRole,
-          ativo: access.data.ativo
+          id: access.id,
+          clinicaId: access.clinica_id,
+          userId: access.user_id,
+          profissionalId: access.profissional_id,
+          nome: access.nome,
+          email: access.email,
+          role: access.role as UserRole,
+          ativo: access.ativo
         });
         return;
       }
 
       setClinic(null);
       setProfile(null);
-    } catch (e) {
-      console.error("Error loading clinic context:", e);
+    } catch (err) {
+      console.error("Error loading clinic context:", err);
       setClinic(null);
       setProfile(null);
     }
-  }
-
-  async function refreshClinic() {
-    setLoading(true);
-    const { data } = await supabase.auth.getUser();
-    if (data.user) await loadClinic(data.user.id);
-    setLoading(false);
-  }
+  };
 
   useEffect(() => {
     let mounted = true;
 
-    // Initial session check
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      if (data.session?.user) {
-        await loadClinic(data.session.user.id);
+    const initialize = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        
+        setSession(initialSession);
+        if (initialSession?.user) {
+          await loadClinicData(initialSession.user.id);
+        }
+      } catch (err) {
+        console.error("Auth init error:", err);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          isInitialLoad.current = false;
+        }
       }
-      setLoading(false);
-    });
+    };
 
-    // Listen for auth changes
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+    void initialize();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!mounted) return;
-      
+
       setSession(nextSession);
-      
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+
+      if (event === "SIGNED_IN") {
         if (nextSession?.user) {
           setLoading(true);
-          await loadClinic(nextSession.user.id);
+          await loadClinicData(nextSession.user.id);
           setLoading(false);
         }
       } else if (event === "SIGNED_OUT") {
@@ -107,7 +129,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     return () => {
       mounted = false;
-      listener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -122,42 +144,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(true);
       try {
         const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          setLoading(false);
-          return { error: error.message };
-        }
+        if (error) return { error: error.message };
         if (data.user) {
-          await loadClinic(data.user.id);
+          await loadClinicData(data.user.id);
         }
-        setLoading(false);
         return {};
       } catch (err: any) {
-        setLoading(false);
         return { error: err.message };
+      } finally {
+        setLoading(false);
       }
     },
     async logout() {
       setLoading(true);
-      await supabase.auth.signOut();
-      setSession(null);
-      setClinic(null);
-      setProfile(null);
-      setLoading(false);
+      try {
+        await supabase.auth.signOut();
+      } finally {
+        setSession(null);
+        setClinic(null);
+        setProfile(null);
+        setLoading(false);
+      }
     },
     async registerClinic(email, password, clinicName) {
       setLoading(true);
       try {
+        // 1. SignUp
         const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-        if (authError) {
-          setLoading(false);
-          return { error: authError.message };
-        }
-        if (!authData.user) {
-          setLoading(false);
-          return { error: "Erro ao criar usuário." };
-        }
+        if (authError) return { error: authError.message };
+        if (!authData.user) return { error: "Falha ao criar usuário." };
 
-        const slug = clinicName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
+        // 2. Create Clinic
+        const slug = clinicName
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)+/g, "");
         
         const { error: clinicError } = await supabase.from("clinicas").insert({
           nome: clinicName,
@@ -166,21 +189,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
           user_id: authData.user.id
         });
 
-        if (clinicError) {
-          setLoading(false);
-          return { error: clinicError.message };
-        }
+        if (clinicError) return { error: clinicError.message };
 
-        // Wait a bit and refresh to ensure DB consistency
-        await loadClinic(authData.user.id);
-        setLoading(false);
+        // 3. Load clinic data immediately
+        await loadClinicData(authData.user.id);
         return {};
       } catch (err: any) {
-        setLoading(false);
         return { error: err.message };
+      } finally {
+        setLoading(false);
       }
     },
-    refreshClinic
+    async refreshClinic() {
+      if (session?.user) {
+        setLoading(true);
+        await loadClinicData(session.user.id);
+        setLoading(false);
+      }
+    }
   }), [clinic, loading, profile, session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -22,26 +22,31 @@ export function LoginPage() {
     setFormLoading(true);
     setError(null);
 
-    if (isRegistering) {
-      const result = await registerClinic(email, password, clinicName);
-      if (result.error) {
-        setError(result.error);
-        setFormLoading(false);
-        return;
+    try {
+      if (isRegistering) {
+        const result = await registerClinic(email, password, clinicName);
+        if (result.error) {
+          setError(result.error);
+          setFormLoading(false);
+          return;
+        }
+      } else {
+        const result = await login(email, password);
+        if (result.error) {
+          setError(result.error);
+          setFormLoading(false);
+          return;
+        }
       }
-    } else {
-      const result = await login(email, password);
-      if (result.error) {
-        setError(result.error);
-        setFormLoading(false);
-        return;
-      }
+    } catch (err: any) {
+      setError(err.message || "Ocorreu um erro inesperado.");
+    } finally {
+      setFormLoading(false);
     }
-
-    // O AuthContext vai atualizar o estado de 'clinic' e 'session'
-    // e o componente vai redirecionar automaticamente pelo if lá em cima
-    setFormLoading(false);
   }
+
+  // Se logou mas não tem clínica (ex: usuário de teste sem clínica)
+  const showNoClinicError = session && !clinic && !authLoading;
 
   const isLoading = formLoading || authLoading;
 
@@ -122,6 +127,12 @@ export function LoginPage() {
               {error && (
                 <div className="rounded-xl bg-error/10 p-3 text-xs font-medium text-error">
                   {error}
+                </div>
+              )}
+
+              {showNoClinicError && (
+                <div className="rounded-xl bg-amber-50 p-3 text-xs font-medium text-amber-700 border border-amber-200">
+                  Usuário autenticado, mas nenhuma clínica encontrada. Entre em contato com o suporte ou tente registrar uma nova clínica.
                 </div>
               )}
 
