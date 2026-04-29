@@ -45,7 +45,7 @@ export function AdminPage() {
     return ["Dashboard", "Agendamentos", "Pacientes", "Kanban Pacientes"].includes(module);
   }), [role]);
 
-  const insights = useMemo(() => calculateGrowthInsights({
+  const growthAnalysis = useMemo(() => calculateGrowthInsights({
     professionals: data.professionals,
     appointments: data.appointments,
     patients: data.patients,
@@ -99,7 +99,7 @@ export function AdminPage() {
 
       <div className="space-y-5">
         <DataMessage loading={data.loading} message={data.message} onRetry={() => void data.reload()} />
-        {activeModule === "Dashboard" ? <DashboardPanel appointments={data.appointments} professionals={data.professionals} patients={data.patients} kpis={data.financialKpis} insightsCount={insights.length} /> : null}
+        {activeModule === "Dashboard" ? <DashboardPanel appointments={data.appointments} professionals={data.professionals} patients={data.patients} kpis={data.financialKpis} insightsCount={growthAnalysis.insights.length} /> : null}
         {activeModule === "Profissionais" ? <ProfessionalsPanel professionals={data.professionals} onSave={data.saveProfessional} onDelete={data.deleteProfessional} onCreateAccess={data.createStaffUser} /> : null}
         {activeModule === "Serviços" ? <ServicesPanel services={data.services} professionals={data.professionals} onSave={data.saveService} onDelete={data.deleteService} /> : null}
         {activeModule === "Agendamentos" ? <AppointmentsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} onSave={data.saveAppointment} onDelete={data.deleteAppointment} /> : null}
@@ -108,7 +108,7 @@ export function AdminPage() {
         {activeModule === "Financeiro" ? <FinancePanel entries={data.financeEntries} kpis={data.financialKpis} onPayment={data.savePayment} onExpense={data.saveExpense} onUpdatePayment={data.updatePayment} onUpdateExpense={data.updateExpense} onDeletePayment={data.deletePayment} onDeleteExpense={data.deleteExpense} professionals={data.professionals} services={data.services} clinicaNome={clinic?.nome ?? "Clinic Pro"} /> : null}
         {activeModule === "Pacotes & Sessões" ? <PackagesPanel packages={data.packages} patients={data.patients} services={data.services} onSave={data.savePackage} onRegister={data.registerSession} /> : null}
         {activeModule === "Relatórios" ? <ReportsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} entries={data.financeEntries} /> : null}
-        {activeModule === "AI Growth Engine" ? <AIPanel insights={insights} clinicName={clinic?.nome ?? "Clinic Pro"} /> : null}
+        {activeModule === "AI Growth Engine" ? <AIPanel analysis={growthAnalysis} clinicName={clinic?.nome ?? "Clinic Pro"} /> : null}
         {activeModule === "Acessos" ? <AccessPanel users={data.users} professionals={data.professionals} onCreate={data.createStaffUser} onSave={data.saveUser} onDelete={data.deleteUser} /> : null}
       </div>
     </AdminShell>
