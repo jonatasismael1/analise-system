@@ -359,20 +359,26 @@ async function handleDebyAutoReply(input: {
     model: agent?.model,
   });
 
-  if (!output) return;
-
-  if (settings.ai_mode === "assisted") {
-    await supabase
-      .from("ai_conversation_settings")
-      .update({ suggested_response: output, suggested_at: new Date().toISOString() })
-      .eq("clinic_id", clinicId)
-      .eq("conversation_id", conversaId);
+  if (!output) {
+    console.error("[deby-auto] IA nao gerou resposta para conversa", conversaId);
     return;
   }
 
+  // Salva a resposta no banco antes de tentar enviar — garante que nao se perca
+  await supabase
+    .from("ai_conversation_settings")
+    .update({ suggested_response: output, suggested_at: new Date().toISOString() })
+    .eq("clinic_id", clinicId)
+    .eq("conversation_id", conversaId);
+
+  if (settings.ai_mode === "assisted") return;
+
   const nowIso = new Date().toISOString();
   const sent = await sendEvolutionText(evolutionUrl, evolutionKey, instanceName, telefone, output);
-  if (!sent) return;
+  if (!sent) {
+    console.error("[deby-auto] Evolution nao enviou a mensagem para", telefone);
+    return;
+  }
   const messageId = extractEvolutionMessageId(sent);
 
   const { error: insertError } = await supabase.from("whatsapp_mensagens").insert({
@@ -413,42 +419,56 @@ async function callDebyForWhatsApp(input: {
   }
 
   const baseUrl = (Deno.env.get("OPENROUTER_BASE_URL") ?? "https://openrouter.ai/api/v1").replace(/\/$/, "");
-  const model = input.model || Deno.env.get("DEFAULT_AI_MODEL") || "openrouter/free";
+  const model = input.model || Deno.env.get("DEFAULT_AI_MODEL") || "meta-llama/llama-3.3-70b-instruct:free";
   const systemPrompt = input.systemPrompt?.trim()
     || "Voce e Deby AI, assistente de atendimento de uma clinica. Responda em portugues do Brasil, com tom humano, claro e objetivo. Nao diagnostique, nao prometa resultados e direcione assuntos clinicos para avaliacao profissional.";
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": Deno.env.get("APP_ORIGIN") ?? "",
-      "X-Title": "ClinicPro Deby AI WhatsApp"
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "system",
-          content: `${systemPrompt}\n\nRegras: responda apenas a ultima mensagem do contato, em uma mensagem curta de WhatsApp. Se faltar informacao, faca uma pergunta objetiva. Nunca informe que voce e uma IA se nao perguntarem.`
-        },
-        {
-          role: "user",
-          content: `Contato: ${input.contatoNome}\nClinica: ${input.clinicId}\nConversa recente:\n${input.transcript.slice(0, 8000)}`
-        }
-      ],
-      temperature: 0.35
-    })
-  });
+  console.log("[deby-auto] chamando OpenRouter model:", model);
 
-  if (!response.ok) {
-    const detail = await response.text();
-    console.error("[deby-auto] OpenRouter:", response.status, detail.slice(0, 400));
+  try {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 25000);
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": Deno.env.get("APP_ORIGIN") ?? "",
+        "X-Title": "ClinicPro Deby AI WhatsApp"
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: `${systemPrompt}\n\nRegras: responda apenas a ultima mensagem do contato, em uma mensagem curta de WhatsApp. Se faltar informacao, faca uma pergunta objetiva. Nunca informe que voce e uma IA se nao perguntarem.`
+          },
+          {
+            role: "user",
+            content: `Contato: ${input.contatoNome}\nClinica: ${input.clinicId}\nConversa recente:\n${input.transcript.slice(0, 8000)}`
+          }
+        ],
+        temperature: 0.35
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(tid);
+
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("[deby-auto] OpenRouter erro", response.status, "model:", model, "detalhe:", detail.slice(0, 400));
+      return null;
+    }
+
+    const data = await response.json();
+    const output = String(data?.choices?.[0]?.message?.content ?? "").trim() || null;
+    console.log("[deby-auto] OpenRouter resposta:", output ? `${output.slice(0, 80)}...` : "VAZIO");
+    return output;
+  } catch (err) {
+    console.error("[deby-auto] fetch OpenRouter excecao:", err instanceof Error ? err.message : String(err));
     return null;
   }
-
-  const data = await response.json();
-  return String(data?.choices?.[0]?.message?.content ?? "").trim() || null;
 }
 
 async function sendEvolutionText(
