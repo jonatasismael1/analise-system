@@ -2,7 +2,10 @@ node_modules
 dist
 .env
 .env.local
+.env.*.local
 .mcp.json
 vite-dev*.log
 .DS_Store
 .vscode/
+tsconfig.app.tsbuildinfo
+supabase/.temp/

@@ -100,3 +100,9 @@ body {
   -webkit-font-smoothing: antialiased;
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
+
+.chat-bg {
+  background-color: #f8f9ff;
+  background-image: radial-gradient(#bcc9c8 0.5px, transparent 0.5px);
+  background-size: 24px 24px;
+}
