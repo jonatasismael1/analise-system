@@ -824,6 +824,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
   const [newConvForm, setNewConvForm] = useState({ nome: "", telefone: "" });
   const [creatingConv, setCreatingConv] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [showContactPanel, setShowContactPanel] = useState(false);
 
   const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const msgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1640,7 +1641,15 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
               )}
               {selected ? (
                 <>
-                  <Avatar contact={selected.contact} size="sm" />
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full transition active:scale-95 xl:cursor-default"
+                    onClick={() => setShowContactPanel(true)}
+                    title="Ver informações do contato"
+                    aria-label="Abrir informações do contato"
+                  >
+                    <Avatar contact={selected.contact} size="sm" />
+                  </button>
                   <div className="min-w-0 flex-1">
                     <h2 className="truncate text-[13.5px] font-bold text-ink">
                       {bestName(selected.contact.name, selected.contact.phone)}
@@ -1799,6 +1808,52 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {/* ── Drawer info do contato — mobile/tablet (< xl) ─────────────────────── */}
+      {showContactPanel && selected && (
+        <div
+          className="fixed inset-0 z-50 xl:hidden"
+          onClick={() => setShowContactPanel(false)}
+        >
+          {/* Overlay escuro */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          {/* Painel deslizante da direita */}
+          <div
+            className="absolute right-0 top-0 flex h-full w-[300px] max-w-full flex-col bg-canvas shadow-modal animate-slide-in-right"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-divider px-4">
+              <span className="text-[13px] font-bold text-ink">Informações do contato</span>
+              <button
+                type="button"
+                className="rounded-lg p-1.5 text-ink-muted transition hover:bg-surface-low hover:text-ink"
+                onClick={() => setShowContactPanel(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <ContactAiPanel
+                conversation={selected}
+                messages={messages}
+                lead={selectedLead}
+                stages={stages}
+                debyAgent={debyAgent}
+                loading={aiLoading || creatingLead}
+                creatingPatient={creatingPatient}
+                onUpdateAiSettings={handleUpdateAiSettings}
+                onUpdateAtendimento={handleUpdateAtendimento}
+                onSummarize={() => void handleAiAction("whatsapp_summary")}
+                onSuggestReply={() => void handleAiAction("whatsapp_reply")}
+                onSaveAgent={async a => { await saveAiAgent(clinicId, a); setAgents(await loadAiAgents(clinicId)); }}
+                onUseReply={text => { setReply(text); setShowContactPanel(false); }}
+                onCreateLead={() => { void handleCreateLead(); setShowContactPanel(false); }}
+                onCreatePatient={() => { void handleCreatePatient(); setShowContactPanel(false); }}
+              />
+            </div>
+          </div>
         </div>
       )}
 

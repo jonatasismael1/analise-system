@@ -117,6 +117,42 @@
 | 7 | Mensagens WhatsApp sem acentuação | ✅ Corrigido |
 | 8 | Ícone Settings semanticamente errado em Serviços | ✅ Corrigido |
 | 9 | 30+ textos sem acentuação correta | ✅ Corrigidos |
+
+---
+
+## ✅ Módulo WhatsApp — Implementação completa (2026-05-21)
+
+### Funcionalidades implementadas
+
+| # | Funcionalidade | Detalhe |
+|---|---|---|
+| 1 | Inbox de conversas em tempo real | Supabase Realtime `postgres_changes` |
+| 2 | Envio de texto pelo painel | Via Edge Function `quick-action` → Evolution API |
+| 3 | Envio de mídia (imagem/vídeo/áudio/doc) | Upload no Supabase Storage + URL pública |
+| 4 | Mensagens do celular aparecem no painel | Webhook `fromMe: true` salvo como `direcao: "out"` |
+| 5 | Deduplicação de mensagens | `waha_message_id` com índice UNIQUE parcial |
+| 6 | Aba de contatos com busca | Sincroniza via evento `CONTACTS_UPSERT` da Evolution API |
+| 7 | Nova conversa / novo contato | Modal com telefone e nome |
+| 8 | Botão "Enviar mensagem" na lista de pacientes | Navega direto para o chat do paciente |
+| 9 | Painel direito: CRM + Deby AI | Converter lead/paciente, agendamento, IA toggle |
+| 10 | Player de áudio com waveform | Componente `AudioBubble` com play/pause e tempo |
+| 11 | Figurinhas em tamanho correto | `max-h-28 max-w-[120px]`, separado de imagem |
+| 12 | Links clicáveis nas mensagens | Função `linkify()` com regex de URLs |
+| 13 | Módulo ativo persiste ao mudar de aba | `sessionStorage.setItem("clinicpro_module")` |
+| 14 | Info do contato acessível no mobile | Drawer lateral com `animate-slide-in-right` ao clicar na foto |
+| 15 | Receita digital para médico | PDF gerado com logo Análise Saúde, assinatura e QR |
+
+### Bugs WhatsApp corrigidos
+
+| # | Bug | Causa raiz | Fix |
+|---|---|---|---|
+| 1 | Mensagens enviadas não apareciam | `if (fromMe) continue` no webhook | Removido; `direcao: fromMe ? "out" : "in"` |
+| 2 | Contatos não populavam | Filtro restritivo `endsWith("@s.whatsapp.net")` | Filtro permissivo + handler `CONTACTS_UPSERT` |
+| 3 | Mensagens duplicadas no painel | Panel inseria sem saber do webhook | wamid capturado da resposta da Evolution API |
+| 4 | Figurinhas imensos | `w-full` no `MediaPreview` | Tipo `sticker` separado com tamanho fixo |
+| 5 | Links não clicáveis | Texto renderizado como `<p>` simples | `linkify()` envolve URLs em `<a target="_blank">` |
+| 6 | Dashboard ao voltar de outra aba | `activeModule` não persistia | `sessionStorage` inicializa e salva o módulo |
+| 7 | Info contato inacessível mobile | `ContactAiPanel` apenas em `xl:flex` | Drawer slide-in ativado ao clicar na foto |
 | 10 | Pacotes: botão sem `type="submit"` | ✅ Corrigido |
 
 ---
