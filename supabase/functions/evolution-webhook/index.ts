@@ -42,6 +42,8 @@ Deno.serve(async (req: Request) => {
   try {
     if (eventKey === "messagesupsert" || eventKey === "messagesupserted") {
       await handleMessagesUpsert(supabase, clinicId, instanceName, evolutionUrl, evolutionKey, data);
+    } else if (eventKey === "contactsupsert" || eventKey === "contactsupserted" || eventKey === "contactsupdate") {
+      await handleContactsUpsert(supabase, clinicId, data);
     }
     return jsonResponse({ ok: true });
   } catch (err) {
@@ -150,6 +152,37 @@ async function downloadAndUploadMedia(
     console.warn("[evolution-webhook] downloadAndUploadMedia falhou:", err instanceof Error ? err.message : err);
     return null;
   }
+}
+
+async function handleContactsUpsert(supabase: any, clinicId: string, data: any) {
+  const contacts: any[] = Array.isArray(data) ? data : [data];
+  let saved = 0;
+
+  for (const c of contacts) {
+    const rawJid: string = c.id ?? c.remoteJid ?? c.jid ?? "";
+    if (!rawJid || rawJid.includes("@g.us") || rawJid === "status@broadcast") continue;
+
+    const chatId = rawJid.endsWith("@s.whatsapp.net")
+      ? rawJid
+      : `${rawJid.replace(/\D/g, "")}@s.whatsapp.net`;
+    const telefone = chatId.replace("@s.whatsapp.net", "");
+    if (telefone.length < 8) continue;
+
+    const { error } = await supabase.from("whatsapp_contatos").upsert(
+      {
+        clinica_id: clinicId,
+        chat_id: chatId,
+        telefone,
+        push_name: c.pushName ?? c.notify ?? c.name ?? c.verifiedName ?? null,
+        profile_pic_url: c.profilePictureUrl ?? c.profilePicUrl ?? c.imgUrl ?? null,
+        origem: "evolution",
+      },
+      { onConflict: "clinica_id,chat_id" }
+    );
+    if (error) console.error("[evolution-webhook] upsert contato:", error.message);
+    else saved++;
+  }
+  console.log(`[evolution-webhook] contacts.upsert: ${saved}/${contacts.length} salvos`);
 }
 
 async function handleMessagesUpsert(

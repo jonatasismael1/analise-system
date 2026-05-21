@@ -348,46 +348,78 @@ function normalizarTelefone(raw: string): string {
   return digits.startsWith("55") ? digits : `55${digits}`;
 }
 
+function buildContatoRows(clinicId: string, raw: any[]): Record<string, unknown>[] {
+  return raw
+    .filter((c: any) => {
+      const jid: string = c.id ?? c.remoteJid ?? c.jid ?? "";
+      return jid && !jid.includes("@g.us") && jid !== "status@broadcast" && jid.length > 4;
+    })
+    .map((c: any) => {
+      const rawJid: string = c.id ?? c.remoteJid ?? c.jid ?? "";
+      const chatId = rawJid.endsWith("@s.whatsapp.net")
+        ? rawJid
+        : `${rawJid.replace(/\D/g, "")}@s.whatsapp.net`;
+      const telefone = chatId.replace("@s.whatsapp.net", "");
+      return {
+        clinica_id: clinicId,
+        chat_id: chatId,
+        telefone,
+        push_name: c.pushName ?? c.notify ?? c.name ?? c.verifiedName ?? null,
+        profile_pic_url: c.profilePictureUrl ?? c.profilePicUrl ?? c.imgUrl ?? null,
+        origem: "evolution",
+      };
+    })
+    .filter((r: any) => r.telefone.length >= 8);
+}
+
 // Sincroniza contatos da Evolution API com a tabela whatsapp_contatos
 async function syncContactsFromEvolution(clinicId: string, instanceName: string): Promise<void> {
   try {
     const { data: res, error } = await supabase.functions.invoke("quick-action", {
       body: { action: "fetch_contacts", instanceName },
     });
-    if (error || !res?.ok) return;
 
-    // A Evolution API retorna array em res.data (ou res.data.contacts)
-    const raw: any[] = Array.isArray(res.data) ? res.data
-      : Array.isArray(res.data?.contacts) ? res.data.contacts
-      : [];
+    if (error) {
+      console.warn("[contacts] invoke error:", error);
+      return;
+    }
 
-    if (!raw.length) return;
+    if (!res?.ok) {
+      console.warn("[contacts] fetch_contacts retornou ok=false:", JSON.stringify(res).slice(0, 300));
+      return;
+    }
 
-    const rows = raw
-      .filter((c: any) => c.id?.endsWith("@s.whatsapp.net") || c.remoteJid?.endsWith("@s.whatsapp.net"))
-      .map((c: any) => {
-        const chatId: string = c.id ?? c.remoteJid;
-        const phone = chatId.replace("@s.whatsapp.net", "");
-        return {
-          clinica_id: clinicId,
-          chat_id: chatId,
-          telefone: phone,
-          push_name: c.pushName ?? c.notify ?? null,
-          profile_pic_url: c.profilePictureUrl ?? c.profilePicUrl ?? null,
-          origem: "evolution",
-        };
-      });
+    // Evolution API pode retornar vários formatos:
+    // - array direto: [{id, pushName, ...}]
+    // - objeto com array: {data: [...]} ou {contacts: [...]}
+    // - objeto aninhado: {data: {contacts: [...]}}
+    const payload = res.data;
+    const raw: any[] =
+      Array.isArray(payload) ? payload :
+      Array.isArray(payload?.data) ? payload.data :
+      Array.isArray(payload?.contacts) ? payload.contacts :
+      Array.isArray(payload?.data?.contacts) ? payload.data.contacts :
+      [];
 
+    console.log(`[contacts] fetchContacts bruto: ${raw.length} itens`);
+    if (!raw.length) {
+      console.warn("[contacts] nenhum contato retornado. payload:", JSON.stringify(payload).slice(0, 500));
+      return;
+    }
+
+    const rows = buildContatoRows(clinicId, raw);
+    console.log(`[contacts] ${rows.length} contatos após filtro, upserting...`);
     if (!rows.length) return;
 
-    // Upsert em lotes de 100 para não estourar o payload
     for (let i = 0; i < rows.length; i += 100) {
-      await supabase
+      const { error: upsertErr } = await supabase
         .from("whatsapp_contatos")
-        .upsert(rows.slice(i, i + 100), { onConflict: "clinica_id,chat_id", ignoreDuplicates: false });
+        .upsert(rows.slice(i, i + 100), { onConflict: "clinica_id,chat_id" });
+      if (upsertErr) console.warn("[contacts] upsert erro:", upsertErr.message);
     }
-  } catch {
-    // Falha silenciosa — não quebra o carregamento
+    console.log(`[contacts] sync concluído: ${rows.length} contatos`);
+  } catch (e) {
+    console.warn("[contacts] sync falhou:", e instanceof Error ? e.message : e);
   }
 }
 
