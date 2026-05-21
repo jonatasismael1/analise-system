@@ -170,8 +170,8 @@ async function handleMessagesUpsert(
     const pushName: string = msg.pushName ?? "";
 
     if (!remoteJid || remoteJid.includes("@g.us") || remoteJid === "status@broadcast") continue;
-    // Mensagens enviadas pelo SaaS ja sao salvas diretamente — ignora echo fromMe
-    if (fromMe) continue;
+    // fromMe = true: mensagem enviada pelo celular (exibir como "out")
+    // fromMe = false: mensagem recebida (exibir como "in")
 
     const msgBody = msg.message ?? {};
     const tipo = detectTipo(msgBody);
@@ -183,9 +183,13 @@ async function handleMessagesUpsert(
 
     const telefone = remoteJid.replace(/@s\.whatsapp\.net$/, "").replace(/@c\.us$/, "");
 
+    // Nao sobrescreve push_name do contato com nome do remetente (fromMe = voce)
+    const contatoRow: Record<string, unknown> = { clinica_id: clinicId, chat_id: remoteJid, telefone };
+    if (!fromMe && pushName) contatoRow.push_name = pushName;
+
     const contatoId = await upsertAndGet(
       supabase, "whatsapp_contatos",
-      { clinica_id: clinicId, chat_id: remoteJid, telefone, nome: pushName || null },
+      contatoRow,
       "clinica_id,chat_id", "chat_id", remoteJid, clinicId
     );
     if (!contatoId) continue;
@@ -221,7 +225,7 @@ async function handleMessagesUpsert(
       conversa_id: conversaId,
       contato_id: contatoId,
       waha_message_id: messageId || null,
-      direcao: "in",
+      direcao: fromMe ? "out" : "in",
       tipo,
       texto,
       media_url: mediaUrl,
@@ -229,6 +233,6 @@ async function handleMessagesUpsert(
       enviada_em,
     });
     if (msgErr) console.error("[evolution-webhook] insert mensagem:", msgErr.message);
-    else console.log(`[evolution-webhook] salvo: tipo=${tipo} media=${mediaUrl ? "sim" : "nao"}`);
+    else console.log(`[evolution-webhook] salvo: dir=${fromMe ? "out" : "in"} tipo=${tipo} media=${mediaUrl ? "sim" : "nao"}`);
   }
 }

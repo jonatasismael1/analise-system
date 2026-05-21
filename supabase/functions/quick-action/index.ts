@@ -155,8 +155,8 @@ Deno.serve(async (req: Request) => {
 
       case "fetch_contacts": {
         if (!instanceName) return jsonResponse({ ok: false, error: "instanceName obrigatório." }, 400);
-        // POST com body vazio retorna todos os contatos da instância
-        result = await callEvolution(`/contact/fetchContacts/${instanceName}`, "POST", {});
+        // where: {} retorna todos os contatos sem filtro
+        result = await callEvolution(`/contact/fetchContacts/${instanceName}`, "POST", { where: {} });
         break;
       }
 

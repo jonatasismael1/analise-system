@@ -98,8 +98,11 @@ export async function setInstanceWebhook(instanceName: string, clinicId: string)
   await callQuickAction({ action: "set_webhook", instanceName, webhookUrl });
 }
 
-export async function sendWhatsAppText(instanceName: string, phone: string, text: string): Promise<void> {
-  await callQuickAction({ action: "send_text", instanceName, number: phone, text });
+// Retorna o wamid (ID da mensagem no WhatsApp) para deduplicação com o webhook
+export async function sendWhatsAppText(instanceName: string, phone: string, text: string): Promise<string | null> {
+  const data = await callQuickAction<Record<string, unknown>>({ action: "send_text", instanceName, number: phone, text });
+  const wamid = (data as any)?.key?.id ?? null;
+  return typeof wamid === "string" ? wamid : null;
 }
 
 export async function sendWhatsAppMedia(input: {
@@ -110,8 +113,8 @@ export async function sendWhatsAppMedia(input: {
   caption?: string;
   fileName?: string;
   mimeType?: string;
-}): Promise<void> {
-  await callQuickAction({
+}): Promise<string | null> {
+  const data = await callQuickAction<Record<string, unknown>>({
     action: "send_media",
     instanceName: input.instanceName,
     number: input.phone,
@@ -121,6 +124,8 @@ export async function sendWhatsAppMedia(input: {
     fileName: input.fileName ?? "",
     mimeType: input.mimeType ?? "application/octet-stream",
   });
+  const wamid = (data as any)?.key?.id ?? null;
+  return typeof wamid === "string" ? wamid : null;
 }
 
 export async function fetchContactProfilePicture(

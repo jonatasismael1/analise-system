@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import {
-  Bot, Calendar, CheckCheck, ChevronDown, FileUp,
-  Loader2, MessageCircle, MessageSquarePlus, Mic, Phone,
-  PlusCircle, RefreshCcw, Search, Send, Sparkles,
+  ArrowLeft, Bot, Calendar, CheckCheck, ChevronDown, FileUp,
+  Loader2, MessageCircle, MessageSquarePlus, Mic, Pause, Phone,
+  Play, PlusCircle, RefreshCcw, Search, Send, Sparkles,
   Tag, UserPlus, UserRound, Users, Wifi, WifiOff, X,
 } from "lucide-react";
 import { askDeby } from "../../../services/debyService";
@@ -303,10 +303,26 @@ function ContactItem({
 
 // ─── MessageBubble ────────────────────────────────────────────────────────────
 
-function MessageBubble({ message }: { readonly message: WhatsAppMessage }) {
+function MessageBubble({
+  message,
+  contact,
+}: {
+  readonly message: WhatsAppMessage;
+  readonly contact?: WhatsAppConversation["contact"];
+}) {
+  // Áudio tem componente próprio com avatar + waveform
+  if (message.messageType === "audio") {
+    return <AudioBubble message={message} contact={contact} />;
+  }
+
   const isOut = message.direction === "out";
   return (
     <div className={`flex ${isOut ? "justify-end" : "justify-start"} animate-fade-in`}>
+      {!isOut && contact && (
+        <div className="mr-2 self-end">
+          <Avatar contact={contact} size="xs" />
+        </div>
+      )}
       <div
         className={`relative max-w-[72%] rounded-2xl px-3.5 py-2.5 shadow-sm ${
           isOut
@@ -342,9 +358,6 @@ function MediaPreview({ message }: { readonly message: WhatsAppMessage }) {
   if (message.messageType === "video") {
     return <video className="mb-2 max-h-52 w-full rounded-xl" src={message.mediaUrl} controls />;
   }
-  if (message.messageType === "audio") {
-    return <audio className="mb-2 w-full" src={message.mediaUrl} controls />;
-  }
   return (
     <a
       className="mb-2 flex items-center gap-2 rounded-lg bg-black/10 px-3 py-2 text-xs underline transition hover:bg-black/20"
@@ -355,6 +368,109 @@ function MediaPreview({ message }: { readonly message: WhatsAppMessage }) {
       <FileUp className="h-4 w-4 shrink-0" />
       Abrir documento
     </a>
+  );
+}
+
+// ─── Formatação de tempo de áudio ─────────────────────────────────────────────
+
+function fmtAudioTime(s: number): string {
+  if (!s || !isFinite(s)) return "0:00";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+// ─── Bolão de áudio com avatar + waveform + play/pause ───────────────────────
+
+function AudioBubble({
+  message,
+  contact,
+}: {
+  readonly message: WhatsAppMessage;
+  readonly contact?: WhatsAppConversation["contact"];
+}) {
+  const isOut = message.direction === "out";
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Waveform determinístico baseado no ID da mensagem
+  const bars = useMemo(() => {
+    const seed = message.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return Array.from({ length: 28 }, (_, i) => {
+      const h = Math.abs(Math.sin(seed * 0.1 + i * 0.7) * 60 + 20);
+      return Math.round(h);
+    });
+  }, [message.id]);
+
+  const progress = duration > 0 ? currentTime / duration : 0;
+
+  function togglePlay() {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) a.pause();
+    else void a.play();
+  }
+
+  return (
+    <div className={`flex items-end gap-2 animate-fade-in ${isOut ? "justify-end" : "justify-start"}`}>
+      {/* Avatar do remetente (só para mensagens recebidas) */}
+      {!isOut && contact && <Avatar contact={contact} size="xs" />}
+
+      <div
+        className={`flex min-w-[200px] max-w-[280px] items-center gap-2.5 rounded-2xl px-3.5 py-3 shadow-sm ${
+          isOut ? "rounded-br-sm bg-[#d9fdd3]" : "rounded-bl-sm bg-white"
+        }`}
+      >
+        {/* Play / Pause */}
+        <button
+          onClick={togglePlay}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white transition hover:bg-primary-dark active:scale-95"
+          type="button"
+          aria-label={playing ? "Pausar" : "Reproduzir"}
+        >
+          {playing
+            ? <Pause className="h-3.5 w-3.5" />
+            : <Play className="h-3.5 w-3.5 ml-0.5" />}
+        </button>
+
+        {/* Waveform */}
+        <div className="flex flex-1 items-center gap-[2px]" style={{ height: 32 }}>
+          {bars.map((h, i) => (
+            <div
+              key={i}
+              className={`w-[2px] rounded-full transition-colors duration-75 ${
+                i / bars.length <= progress
+                  ? "bg-primary"
+                  : isOut ? "bg-[#9dd3b8]" : "bg-border-strong"
+              }`}
+              style={{ height: `${h}%` }}
+            />
+          ))}
+        </div>
+
+        {/* Duração */}
+        <span className="shrink-0 font-mono text-[11px] text-ink-muted">
+          {fmtAudioTime(currentTime > 0 ? currentTime : duration)}
+        </span>
+      </div>
+
+      {/* Timestamp fora da bolha para áudio */}
+      <span className="self-end pb-1 font-mono text-[10px] text-[#667781]">
+        {msgTime(message.sentAt)}
+      </span>
+
+      <audio
+        ref={audioRef}
+        src={message.mediaUrl ?? ""}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => { setPlaying(false); setCurrentTime(0); }}
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+      />
+    </div>
   );
 }
 
@@ -676,6 +792,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
   const [showNewConvModal, setShowNewConvModal] = useState(false);
   const [newConvForm, setNewConvForm] = useState({ nome: "", telefone: "" });
   const [creatingConv, setCreatingConv] = useState(false);
+  const [mobileShowChat, setMobileShowChat] = useState(false);
 
   const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const msgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -949,6 +1066,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
       let textoEnviado = reply.trim();
       let uploadedMediaUrl: string | null = null;
       let mediaType: "image" | "video" | "audio" | "document" | "text" = "text";
+      let wamid: string | null = null;
 
       if (file) {
         uploadedMediaUrl = await uploadMediaFile(clinicId, selected.id, file);
@@ -957,14 +1075,14 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
           : file.type.startsWith("audio/") ? "audio"
           : "document";
         textoEnviado = reply.trim() || `[${mediaType}]`;
-        await sendWhatsAppMedia({
+        wamid = await sendWhatsAppMedia({
           instanceName: DEFAULT_INSTANCE_NAME, phone,
           mediaUrl: uploadedMediaUrl, mediaType,
           caption: reply.trim(), fileName: file.name,
           mimeType: file.type || "application/octet-stream",
         });
       } else {
-        await sendWhatsAppText(DEFAULT_INSTANCE_NAME, phone, textoEnviado);
+        wamid = await sendWhatsAppText(DEFAULT_INSTANCE_NAME, phone, textoEnviado);
       }
 
       const { data: inserted, error: insertErr } = await supabase
@@ -973,6 +1091,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
           clinica_id: clinicId,
           conversa_id: selected.id,
           contato_id: selected.contactId || null,
+          waha_message_id: wamid,
           direcao: "out",
           tipo: file ? mediaType : "text",
           texto: textoEnviado,
@@ -1132,7 +1251,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
   // ══════════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card">
+    <div className="flex h-full flex-col overflow-hidden bg-surface">
 
       {/* ── Header / barra de conexão ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between border-b border-border-strong/50 bg-surface px-5 py-3">
@@ -1319,10 +1438,10 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
 
       {/* ── Inbox (conectado) ──────────────────────────────────────────────────── */}
       {connStatus === "connected" && (
-        <div className="grid min-h-[660px] xl:grid-cols-[300px_minmax(0,1fr)_280px]">
+        <div className="flex flex-1 overflow-hidden">
 
           {/* ── Coluna esquerda: conversas / contatos ──────────────────────────── */}
-          <aside className="flex flex-col border-r border-border-strong/40 bg-canvas">
+          <aside className={`${mobileShowChat ? "hidden" : "flex"} w-full flex-col border-r border-border-strong/40 bg-canvas md:flex md:w-[300px] md:flex-none`}>
 
             {/* Tabs */}
             <div className="flex border-b border-border-strong/40">
@@ -1404,7 +1523,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
                         key={conv.id}
                         conversation={conv}
                         selected={selected?.id === conv.id}
-                        onClick={() => { setSelectedId(conv.id); setDebyOutput(""); }}
+                        onClick={() => { setSelectedId(conv.id); setDebyOutput(""); setMobileShowChat(true); }}
                       />
                     ))
                   )}
@@ -1474,9 +1593,20 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
           </aside>
 
           {/* ── Coluna central: mensagens ──────────────────────────────────────── */}
-          <main className="flex flex-col bg-surface">
+          <main className={`${mobileShowChat ? "flex" : "hidden"} flex-1 flex-col overflow-hidden bg-surface md:flex`}>
             {/* Header da conversa */}
             <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-strong/40 bg-surface/95 px-4 backdrop-blur">
+              {/* Botão voltar — mobile apenas */}
+              {mobileShowChat && (
+                <button
+                  className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-secondary transition hover:bg-surface-low md:hidden"
+                  type="button"
+                  onClick={() => { setMobileShowChat(false); setSelectedId(null); }}
+                  aria-label="Voltar"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+              )}
               {selected ? (
                 <>
                   <Avatar contact={selected.contact} size="sm" />
@@ -1527,7 +1657,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
               ) : (
                 <div className="flex flex-col gap-2">
                   {messages.map(msg => (
-                    <MessageBubble key={msg.id} message={msg} />
+                    <MessageBubble key={msg.id} message={msg} contact={selected?.contact} />
                   ))}
                   <div ref={bottomRef} />
                 </div>
@@ -1605,7 +1735,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
           </main>
 
           {/* ── Coluna direita: contato + IA ───────────────────────────────────── */}
-          <aside className="hidden border-l border-border-strong/40 bg-canvas xl:flex xl:flex-col">
+          <aside className="hidden w-[280px] flex-none flex-col border-l border-border-strong/40 bg-canvas xl:flex">
             {selected ? (
               <ContactAiPanel
                 conversation={selected}
