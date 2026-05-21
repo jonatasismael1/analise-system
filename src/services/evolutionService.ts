@@ -1,7 +1,7 @@
 import { supabase } from "../lib/supabaseClient";
 
 export type EvolutionFrontendStatus = "connected" | "disconnected" | "qr_required" | "starting" | "error";
-export type MessageType = "text" | "image" | "video" | "audio" | "document" | "unknown";
+export type MessageType = "text" | "image" | "video" | "audio" | "document" | "sticker" | "unknown";
 export type AiMode = "automatic" | "assisted";
 
 export interface WhatsAppInstance {

@@ -68,8 +68,9 @@ async function upsertAndGet(
   return data?.id ?? null;
 }
 
-function detectTipo(msgBody: any): "text" | "image" | "video" | "audio" | "document" {
-  if (msgBody.imageMessage || msgBody.stickerMessage) return "image";
+function detectTipo(msgBody: any): "text" | "image" | "video" | "audio" | "document" | "sticker" {
+  if (msgBody.stickerMessage)                         return "sticker";
+  if (msgBody.imageMessage)                           return "image";
   if (msgBody.videoMessage)                           return "video";
   if (msgBody.audioMessage || msgBody.pttMessage)    return "audio";
   if (msgBody.documentMessage)                        return "document";

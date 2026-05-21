@@ -301,6 +301,28 @@ function ContactItem({
   );
 }
 
+// Converte URLs no texto em elementos <a> clicáveis
+function linkify(text: string): React.ReactNode[] {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) =>
+    urlRegex.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noreferrer"
+        className="underline text-blue-600 break-all"
+        onClick={e => e.stopPropagation()}
+      >
+        {part}
+      </a>
+    ) : (
+      part
+    )
+  );
+}
+
 // ─── MessageBubble ────────────────────────────────────────────────────────────
 
 function MessageBubble({
@@ -333,7 +355,7 @@ function MessageBubble({
       >
         {message.mediaUrl && <MediaPreview message={message} />}
         {message.content && (
-          <p className="whitespace-pre-wrap text-[13.5px] leading-snug">{message.content}</p>
+          <p className="whitespace-pre-wrap text-[13.5px] leading-snug">{linkify(message.content)}</p>
         )}
         <div className="mt-1 flex items-center justify-end gap-1">
           <span className="font-mono text-[10px] text-[#667781]">{msgTime(message.sentAt)}</span>
@@ -346,17 +368,26 @@ function MessageBubble({
 
 function MediaPreview({ message }: { readonly message: WhatsAppMessage }) {
   if (!message.mediaUrl) return null;
+  if (message.messageType === "sticker") {
+    return (
+      <img
+        className="mb-1 max-h-28 max-w-[120px] object-contain"
+        src={message.mediaUrl}
+        alt="sticker"
+      />
+    );
+  }
   if (message.messageType === "image") {
     return (
       <img
-        className="mb-2 max-h-52 w-full rounded-xl object-cover"
+        className="mb-2 max-h-52 max-w-[260px] rounded-xl object-cover"
         src={message.mediaUrl}
         alt=""
       />
     );
   }
   if (message.messageType === "video") {
-    return <video className="mb-2 max-h-52 w-full rounded-xl" src={message.mediaUrl} controls />;
+    return <video className="mb-2 max-h-52 max-w-[260px] rounded-xl" src={message.mediaUrl} controls />;
   }
   return (
     <a

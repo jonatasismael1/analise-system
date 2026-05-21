@@ -41,7 +41,15 @@ type Module = (typeof modules)[number];
 
 export function AdminPage() {
   const { clinic, logout, loading, role, profile } = useAuth();
-  const [activeModule, setActiveModule] = useState<Module>("Dashboard");
+  const [activeModule, setActiveModule] = useState<Module>(
+    () => (sessionStorage.getItem("clinicpro_module") as Module | null) ?? "Dashboard"
+  );
+
+  // Persiste o módulo ativo para sobreviver a navegação em outras abas
+  const changeModule = (m: Module) => {
+    sessionStorage.setItem("clinicpro_module", m);
+    setActiveModule(m);
+  };
   const data = useClinicData(clinic?.id, role, profile?.profissionalId);
   const visibleModules = useMemo(() => modules.filter((module) => {
     if (role === "admin") return true;
@@ -59,8 +67,9 @@ export function AdminPage() {
 
   useEffect(() => {
     if (!visibleModules.includes(activeModule)) {
-      setActiveModule(visibleModules[0] ?? "Dashboard");
+      changeModule(visibleModules[0] ?? "Dashboard");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModule, visibleModules]);
 
   if (loading) {
@@ -79,7 +88,7 @@ export function AdminPage() {
   }
 
   return (
-    <AdminShell activeModule={activeModule} onModuleChange={setActiveModule} modules={[...visibleModules]} onLogout={logout} clinicaId={clinic.id} noPadding={activeModule === "WhatsApp"}>
+    <AdminShell activeModule={activeModule} onModuleChange={changeModule} modules={[...visibleModules]} onLogout={logout} clinicaId={clinic.id} noPadding={activeModule === "WhatsApp"}>
       {/* Page header — oculto no WhatsApp para maximizar a área de chat */}
       {activeModule !== "WhatsApp" && (
       <div className="mb-6 overflow-hidden rounded-lg border border-[rgba(21,168,152,0.12)] bg-surface shadow-card">
