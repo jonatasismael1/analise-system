@@ -20,7 +20,10 @@ export interface WhatsAppContact {
   name: string | null;
   phone: string;
   profilePicUrl: string | null;
+  pushName: string | null;
 }
+
+export type AtendimentoStatus = "novo" | "ativo" | "paciente" | "arquivado" | "humano";
 
 export interface AiAgent {
   id: string;
@@ -47,8 +50,10 @@ export interface WhatsAppConversation {
   contactId: string;
   leadId: string | null;
   status: string;
+  atendimentoStatus: AtendimentoStatus;
   lastMessage: string | null;
   lastMessageAt: string | null;
+  unreadCount: number;
   contact: WhatsAppContact;
   aiSettings: ConversationAiSettings | null;
 }
@@ -269,19 +274,25 @@ function mapInstance(row: any): WhatsAppInstance {
 }
 
 function mapConversation(row: any, contato: any, aiRow?: any): WhatsAppConversation {
+  // Resolve o melhor nome disponível: push_name (WhatsApp) > nome (manual) > null
+  const resolvedName = contato?.push_name ?? contato?.nome ?? null;
+
   return {
     id: row.id,
     instanceId: "analise-saude",
     contactId: row.contato_id,
     leadId: row.lead_id ?? null,
     status: row.status ?? "aberta",
+    atendimentoStatus: (row.atendimento_status ?? "novo") as AtendimentoStatus,
     lastMessage: row.ultimo_texto ?? null,
     lastMessageAt: row.ultima_mensagem_em ?? null,
+    unreadCount: row.unread_count ?? 0,
     contact: {
       id: contato?.id ?? row.contato_id,
-      name: contato?.nome ?? null,
+      name: resolvedName,
       phone: contato?.telefone ?? row.chat_id ?? "",
-      profilePicUrl: null
+      profilePicUrl: contato?.profile_pic_url ?? null,
+      pushName: contato?.push_name ?? null,
     },
     aiSettings: aiRow ? {
       id: aiRow.id,
@@ -324,8 +335,10 @@ export interface WhatsAppContactRecord {
   id: string;
   clinicaId: string;
   nome: string | null;
+  pushName: string | null;
   telefone: string;
   chatId: string;
+  profilePicUrl: string | null;
   pacienteId: string | null;
   leadId: string | null;
 }
@@ -335,19 +348,69 @@ function normalizarTelefone(raw: string): string {
   return digits.startsWith("55") ? digits : `55${digits}`;
 }
 
-export async function loadWhatsAppContacts(clinicId: string): Promise<WhatsAppContactRecord[]> {
+// Sincroniza contatos da Evolution API com a tabela whatsapp_contatos
+async function syncContactsFromEvolution(clinicId: string, instanceName: string): Promise<void> {
+  try {
+    const { data: res, error } = await supabase.functions.invoke("quick-action", {
+      body: { action: "fetch_contacts", instanceName },
+    });
+    if (error || !res?.ok) return;
+
+    // A Evolution API retorna array em res.data (ou res.data.contacts)
+    const raw: any[] = Array.isArray(res.data) ? res.data
+      : Array.isArray(res.data?.contacts) ? res.data.contacts
+      : [];
+
+    if (!raw.length) return;
+
+    const rows = raw
+      .filter((c: any) => c.id?.endsWith("@s.whatsapp.net") || c.remoteJid?.endsWith("@s.whatsapp.net"))
+      .map((c: any) => {
+        const chatId: string = c.id ?? c.remoteJid;
+        const phone = chatId.replace("@s.whatsapp.net", "");
+        return {
+          clinica_id: clinicId,
+          chat_id: chatId,
+          telefone: phone,
+          push_name: c.pushName ?? c.notify ?? null,
+          profile_pic_url: c.profilePictureUrl ?? c.profilePicUrl ?? null,
+          origem: "evolution",
+        };
+      });
+
+    if (!rows.length) return;
+
+    // Upsert em lotes de 100 para não estourar o payload
+    for (let i = 0; i < rows.length; i += 100) {
+      await supabase
+        .from("whatsapp_contatos")
+        .upsert(rows.slice(i, i + 100), { onConflict: "clinica_id,chat_id", ignoreDuplicates: false });
+    }
+  } catch {
+    // Falha silenciosa — não quebra o carregamento
+  }
+}
+
+export async function loadWhatsAppContacts(clinicId: string, instanceName?: string): Promise<WhatsAppContactRecord[]> {
+  // Primeiro sincroniza todos os contatos da instância Evolution (best-effort)
+  if (instanceName) {
+    await syncContactsFromEvolution(clinicId, instanceName);
+  }
+
   const { data, error } = await supabase
     .from("whatsapp_contatos")
     .select("*")
     .eq("clinica_id", clinicId)
-    .order("nome", { ascending: true, nullsFirst: false });
+    .order("push_name", { ascending: true, nullsFirst: false });
   if (error) throw error;
   return (data ?? []).map((row: any) => ({
     id: row.id,
     clinicaId: row.clinica_id,
-    nome: row.nome ?? null,
+    nome: row.nome ?? row.push_name ?? null,
+    pushName: row.push_name ?? null,
     telefone: row.telefone,
     chatId: row.chat_id,
+    profilePicUrl: row.profile_pic_url ?? null,
     pacienteId: row.paciente_id ?? null,
     leadId: row.lead_id ?? null,
   }));
@@ -377,11 +440,41 @@ export async function upsertWhatsAppContact(clinicId: string, input: { nome?: st
     id: data.id,
     clinicaId: data.clinica_id,
     nome: data.nome ?? null,
+    pushName: data.push_name ?? null,
     telefone: data.telefone,
     chatId: data.chat_id,
+    profilePicUrl: data.profile_pic_url ?? null,
     pacienteId: data.paciente_id ?? null,
     leadId: data.lead_id ?? null,
   };
+}
+
+export async function markConversationRead(clinicId: string, conversationId: string): Promise<void> {
+  await supabase.rpc("mark_conversation_read", {
+    p_conversation_id: conversationId,
+    p_clinic_id: clinicId,
+  });
+}
+
+export async function updateContactAtendimentoStatus(
+  clinicId: string,
+  conversationId: string,
+  status: AtendimentoStatus
+): Promise<void> {
+  const { error } = await supabase
+    .from("whatsapp_conversas")
+    .update({ atendimento_status: status })
+    .eq("id", conversationId)
+    .eq("clinica_id", clinicId);
+  if (error) throw error;
+}
+
+export async function saveContactProfilePic(clinicId: string, contactId: string, url: string): Promise<void> {
+  await supabase
+    .from("whatsapp_contatos")
+    .update({ profile_pic_url: url, pic_fetched_at: new Date().toISOString() })
+    .eq("id", contactId)
+    .eq("clinica_id", clinicId);
 }
 
 export async function findOrCreateConversation(clinicId: string, contactId: string, chatId: string): Promise<WhatsAppConversation> {

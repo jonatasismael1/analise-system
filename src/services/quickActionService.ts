@@ -123,6 +123,25 @@ export async function sendWhatsAppMedia(input: {
   });
 }
 
+export async function fetchContactProfilePicture(
+  instanceName: string,
+  phone: string
+): Promise<string | null> {
+  try {
+    const data = await callQuickAction<Record<string, unknown>>({
+      action: "fetch_profile_picture",
+      instanceName,
+      number: phone,
+    });
+    // Evolution retorna { profilePictureUrl: "https://..." } ou null
+    const url = (data?.profilePictureUrl ?? data?.image ?? data?.url ?? null) as string | null;
+    return url || null;
+  } catch {
+    // Foto não disponível não é erro crítico
+    return null;
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function normalizeState(raw: string): EvolutionState {

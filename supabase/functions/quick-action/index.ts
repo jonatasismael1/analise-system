@@ -143,11 +143,28 @@ Deno.serve(async (req: Request) => {
         break;
       }
 
+      case "fetch_profile_picture": {
+        if (!instanceName) return jsonResponse({ ok: false, error: "instanceName obrigatório." }, 400);
+        const { number: picNumber } = body;
+        if (!picNumber) return jsonResponse({ ok: false, error: "number obrigatório." }, 400);
+        result = await callEvolution(`/chat/fetchProfilePictureUrl/${instanceName}`, "POST", {
+          number: String(picNumber),
+        });
+        break;
+      }
+
+      case "fetch_contacts": {
+        if (!instanceName) return jsonResponse({ ok: false, error: "instanceName obrigatório." }, 400);
+        // POST com body vazio retorna todos os contatos da instância
+        result = await callEvolution(`/contact/fetchContacts/${instanceName}`, "POST", {});
+        break;
+      }
+
       default:
         return jsonResponse({
           ok: false,
           error: `Action inválida: ${action}`,
-          allowedActions: ["fetch_instances","create_instance","connect_instance","get_status","logout_instance","delete_instance","set_webhook","send_text","send_media"]
+          allowedActions: ["fetch_instances","create_instance","connect_instance","get_status","logout_instance","delete_instance","set_webhook","send_text","send_media","fetch_profile_picture","fetch_contacts"]
         }, 400);
     }
 
