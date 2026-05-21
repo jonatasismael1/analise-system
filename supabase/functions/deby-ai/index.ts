@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
     const apiKey = env("OPENROUTER_API_KEY");
     const baseUrl = (Deno.env.get("OPENROUTER_BASE_URL") ?? "https://openrouter.ai/api/v1").replace(/\/$/, "");
-    const model = Deno.env.get("DEFAULT_AI_MODEL") ?? "gpt-5.2";
+    const model = Deno.env.get("DEFAULT_AI_MODEL") ?? "openrouter/free";
     const instruction = actionPrompts[payload.action];
     const input = payload.input.slice(0, 12000);
 
