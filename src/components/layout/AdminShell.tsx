@@ -42,9 +42,10 @@ export interface AdminShellProps {
   readonly onModuleChange: (module: any) => void;
   readonly onLogout: () => void | Promise<void>;
   readonly clinicaId?: string;
+  readonly noPadding?: boolean;
 }
 
-export function AdminShell({ children, activeModule, modules, onModuleChange, onLogout, clinicaId }: AdminShellProps) {
+export function AdminShell({ children, activeModule, modules, onModuleChange, onLogout, clinicaId, noPadding }: AdminShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -136,7 +137,11 @@ export function AdminShell({ children, activeModule, modules, onModuleChange, on
 
       {/* Main content */}
       <main className="w-full pt-14 md:pl-[240px] md:pt-0">
-        <div className="mx-auto max-w-[1300px] px-5 py-6 sm:px-7">{children}</div>
+        {noPadding ? (
+          <div className="h-[calc(100dvh-3.5rem)] overflow-hidden md:h-[100dvh]">{children}</div>
+        ) : (
+          <div className="mx-auto max-w-[1300px] px-5 py-6 sm:px-7">{children}</div>
+        )}
       </main>
     </div>
   );

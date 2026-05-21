@@ -79,8 +79,9 @@ export function AdminPage() {
   }
 
   return (
-    <AdminShell activeModule={activeModule} onModuleChange={setActiveModule} modules={[...visibleModules]} onLogout={logout} clinicaId={clinic.id}>
-      {/* Page header com tira de acento teal */}
+    <AdminShell activeModule={activeModule} onModuleChange={setActiveModule} modules={[...visibleModules]} onLogout={logout} clinicaId={clinic.id} noPadding={activeModule === "WhatsApp"}>
+      {/* Page header — oculto no WhatsApp para maximizar a área de chat */}
+      {activeModule !== "WhatsApp" && (
       <div className="mb-6 overflow-hidden rounded-lg border border-[rgba(21,168,152,0.12)] bg-surface shadow-card">
         <div className="h-[3px] w-full bg-primary" />
         <div className="flex flex-col justify-between gap-4 px-5 py-4 md:flex-row md:items-center">
@@ -108,7 +109,9 @@ export function AdminPage() {
           </button>
         </div>
       </div>
+      )}
 
+      {activeModule === "WhatsApp" ? <WhatsAppPanel clinicId={clinic.id} /> : (
       <div className="space-y-5">
         <DataMessage loading={data.loading} message={data.message} onRetry={() => void data.reload()} />
         {activeModule === "Dashboard" ? <DashboardPanel appointments={data.appointments} professionals={data.professionals} patients={data.patients} kpis={data.financialKpis} insightsCount={growthAnalysis.insights.length} /> : null}
@@ -117,7 +120,6 @@ export function AdminPage() {
         {activeModule === "Agendamentos" ? <AppointmentsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} onSave={data.saveAppointment} onDelete={data.deleteAppointment} /> : null}
         {activeModule === "Pacientes" ? <PatientsPanel clinicId={clinic.id} patients={data.patients} professionals={data.professionals} onSave={data.savePatient} onDelete={data.deletePatient} onImportMassively={data.importPatientsMassively} role={role} /> : null}
         {activeModule === "Leads" ? <LeadKanbanPanel clinicId={clinic.id} /> : null}
-        {activeModule === "WhatsApp" ? <WhatsAppPanel clinicId={clinic.id} /> : null}
         {activeModule === "Kanban Pacientes" ? <PatientKanbanPanel patients={data.patients} appointments={data.appointments} professionals={data.professionals} onSave={data.savePatient} /> : null}
         {activeModule === "Caixa" ? <CashPanel clinicId={clinic.id} role={role} /> : null}
         {activeModule === "Financeiro" ? <FinancePanel entries={data.financeEntries} kpis={data.financialKpis} onPayment={data.savePayment} onExpense={data.saveExpense} onUpdatePayment={data.updatePayment} onUpdateExpense={data.updateExpense} onDeletePayment={data.deletePayment} onDeleteExpense={data.deleteExpense} professionals={data.professionals} services={data.services} clinicaNome={clinic.nome ?? "Análise Saúde"} clinicId={clinic.id} /> : null}
@@ -125,6 +127,7 @@ export function AdminPage() {
         {activeModule === "Relatórios" ? <ReportsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} entries={data.financeEntries} /> : null}
         {activeModule === "Acessos" ? <AccessPanel users={data.users} professionals={data.professionals} onCreate={data.createStaffUser} onSave={data.saveUser} onDelete={data.deleteUser} /> : null}
       </div>
+      )}
     </AdminShell>
   );
 }
