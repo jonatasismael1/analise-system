@@ -135,7 +135,7 @@ export function AdminPage() {
         </div>
       )}
 
-      {activeModule === "WhatsApp" ? <WhatsAppPanel clinicId={clinic.id} /> : (
+      {activeModule === "WhatsApp" ? <WhatsAppPanel clinicId={clinic.id} onNavigateToAppointments={() => changeModule("Agendamentos")} /> : (
         <div className="space-y-5">
           <DataMessage loading={data.loading} message={data.message} onRetry={() => void data.reload()} />
           {activeModule === "Dashboard" ? <DashboardPanel appointments={data.appointments} professionals={data.professionals} patients={data.patients} financeEntries={data.financeEntries} kpis={data.financialKpis} insightsCount={growthAnalysis.insights.length} role={role} /> : null}

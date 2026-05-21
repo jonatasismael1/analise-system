@@ -576,6 +576,7 @@ function ContactAiPanel({
   onUseReply,
   onCreateLead,
   onCreatePatient,
+  onCreateAppointment,
 }: {
   readonly conversation: WhatsAppConversation;
   readonly messages: WhatsAppMessage[];
@@ -592,6 +593,7 @@ function ContactAiPanel({
   readonly onUseReply: (text: string) => void;
   readonly onCreateLead: () => void;
   readonly onCreatePatient: () => void;
+  readonly onCreateAppointment: () => void;
 }) {
   const name = bestName(conversation.contact.name, conversation.contact.phone);
   const ai = conversation.aiSettings;
@@ -681,6 +683,7 @@ function ContactAiPanel({
           <button
             className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] font-medium text-ink-secondary transition hover:border-primary hover:bg-primary-wash hover:text-primary"
             type="button"
+            onClick={onCreateAppointment}
           >
             <Calendar className="h-4 w-4" />
             Criar agendamento
@@ -791,7 +794,7 @@ function NoConversationSelected() {
 // WhatsAppPanel — componente principal
 // ══════════════════════════════════════════════════════════════════════════════
 
-export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
+export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly clinicId: string; readonly onNavigateToAppointments?: () => void }) {
   // ── Conexão ─────────────────────────────────────────────────────────────────
   const [connStatus, setConnStatus] = useState<ConnStatus>("checking");
   const [qr, setQr] = useState<{ code: string; b64: string | null } | null>(null);
@@ -1248,6 +1251,15 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
     } finally {
       setCreatingPatient(false);
     }
+  }
+
+  function handleCreateAppointment() {
+    if (!selected || !onNavigateToAppointments) return;
+    sessionStorage.setItem("wa_quick_appointment", JSON.stringify({
+      nome: bestName(selected.contact.name, selected.contact.phone),
+      telefone: selected.contact.phone,
+    }));
+    onNavigateToAppointments();
   }
 
   async function handleStartConversation(contact: WhatsAppContactRecord) {
@@ -1797,6 +1809,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
                 onUseReply={text => setReply(text)}
                 onCreateLead={() => void handleCreateLead()}
                 onCreatePatient={() => void handleCreatePatient()}
+                onCreateAppointment={handleCreateAppointment}
               />
             ) : (
               <div className="flex flex-1 items-center justify-center p-6">
@@ -1855,6 +1868,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
                 onUseReply={text => { setReply(text); setShowContactPanel(false); }}
                 onCreateLead={() => { void handleCreateLead(); setShowContactPanel(false); }}
                 onCreatePatient={() => { void handleCreatePatient(); setShowContactPanel(false); }}
+                onCreateAppointment={() => { handleCreateAppointment(); setShowContactPanel(false); }}
               />
             </div>
           </div>

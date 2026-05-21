@@ -344,7 +344,7 @@ async function handleDebyAutoReply(input: {
     .eq("clinica_id", clinicId)
     .eq("conversa_id", conversaId)
     .order("enviada_em", { ascending: false })
-    .limit(12);
+    .limit(10);
 
   const transcript = (history ?? [])
     .reverse()
@@ -413,7 +413,7 @@ async function callDebyForWhatsApp(input: {
   }
 
   const baseUrl = (Deno.env.get("OPENROUTER_BASE_URL") ?? "https://openrouter.ai/api/v1").replace(/\/$/, "");
-  const model = input.model || Deno.env.get("DEFAULT_AI_MODEL") || "gpt-5.2";
+  const model = input.model || Deno.env.get("DEFAULT_AI_MODEL") || "openrouter/free";
   const systemPrompt = input.systemPrompt?.trim()
     || "Voce e Deby AI, assistente de atendimento de uma clinica. Responda em portugues do Brasil, com tom humano, claro e objetivo. Nao diagnostique, nao prometa resultados e direcione assuntos clinicos para avaliacao profissional.";
 
