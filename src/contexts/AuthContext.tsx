@@ -17,7 +17,7 @@ interface AuthContextValue {
   user: User | null;
   clinic: Clinic | null;
   profile: ClinicUser | null;
-  role: UserRole;
+  role: UserRole | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
@@ -143,7 +143,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user: session?.user ?? null,
     clinic,
     profile,
-    role: profile?.role ?? "admin",
+    role: profile?.role ?? (clinic?.user_id && clinic.user_id === session?.user.id ? "admin" : null),
     loading,
     async login(email, password) {
       setLoading(true);

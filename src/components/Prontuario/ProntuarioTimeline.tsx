@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FileText, Plus, Clock, Edit2, Send, X, Loader2, Printer } from "lucide-react";
 import { ProntuarioEditor, type ProntuarioData } from "./ProntuarioEditor";
 import {
   DEFAULT_INSTANCE_NAME,
   sendWhatsAppText
 } from "../../services/quickActionService";
+import { loadProntuarios, saveProntuario } from "../../services/prontuarioService";
 import type { Patient, Professional } from "../../types/clinic";
 
 interface ProntuarioTimelineProps {
@@ -148,25 +149,48 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
   const [enviando, setEnviando] = useState(false);
   const [envioFeedback, setEnvioFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const [historico, setHistorico] = useState<ProntuarioData[]>([
-    {
-      id: "1",
-      queixa: "Paciente relata dores na região lombar após esforço físico.",
-      evolucao: "<p>Realizada avaliação física. Musculatura paravertebral tensa. Teste de Lasegue negativo.</p><ul><li>Mobilidade reduzida</li><li>Dor à palpação</li></ul>",
-      conduta: "Prescrição de analgésico e encaminhamento para fisioterapia.",
-      profissionalId: professionals[0]?.id ?? "",
-      data: new Date().toISOString()
-    }
-  ]);
+  const [historico, setHistorico] = useState<ProntuarioData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = (data: ProntuarioData) => {
-    if (data.id) {
-      setHistorico(historico.map((h) => h.id === data.id ? { ...h, ...data, data: h.data } : h));
-    } else {
-      setHistorico([{ ...data, id: Date.now().toString(), data: new Date().toISOString() }, ...historico]);
+  const loadHistory = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const records = await loadProntuarios(clinicId, patient.id);
+      setHistorico(records);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao carregar prontuario.");
+      setHistorico([]);
+    } finally {
+      setLoading(false);
     }
-    setIsEditing(false);
-    setEditingData(null);
+  }, [clinicId, patient.id]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  const handleSave = async (data: ProntuarioData) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await saveProntuario(clinicId, patient.id, data);
+      setHistorico((current) => {
+        const exists = current.some((item) => item.id === saved.id);
+        if (exists) {
+          return current.map((item) => (item.id === saved.id ? saved : item));
+        }
+        return [saved, ...current];
+      });
+      setIsEditing(false);
+      setEditingData(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao salvar prontuario.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   function openReceita(item: ProntuarioData) {
@@ -216,6 +240,7 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
           <button
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark transition"
             onClick={() => setIsEditing(true)}
+            disabled={loading}
           >
             <Plus className="h-4 w-4" />
             Nova Evolução
@@ -228,6 +253,7 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
           initialData={editingData ?? undefined}
           professionals={professionals}
           onSave={handleSave}
+          isSaving={saving}
           onCancel={() => {
             setIsEditing(false);
             setEditingData(null);
@@ -235,8 +261,19 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
         />
       )}
 
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
       <div className="relative border-l-2 border-surface-variant ml-4 pl-6 space-y-8">
-        {historico.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center gap-2 py-4 text-sm text-secondary">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando prontuario...
+          </div>
+        ) : historico.length === 0 ? (
           <p className="text-sm text-secondary py-4">Nenhuma evolução registrada para este paciente.</p>
         ) : (
           historico.map((item) => (

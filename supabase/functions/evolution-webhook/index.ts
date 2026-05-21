@@ -268,5 +268,215 @@ async function handleMessagesUpsert(
     });
     if (msgErr) console.error("[evolution-webhook] insert mensagem:", msgErr.message);
     else console.log(`[evolution-webhook] salvo: dir=${fromMe ? "out" : "in"} tipo=${tipo} media=${mediaUrl ? "sim" : "nao"}`);
+
+    if (!fromMe && tipo === "text" && texto?.trim()) {
+      await handleDebyAutoReply({
+        supabase,
+        clinicId,
+        instanceName,
+        evolutionUrl,
+        evolutionKey,
+        conversaId,
+        contatoId,
+        telefone,
+        contatoNome: pushName || telefone,
+      });
+    }
   }
+}
+
+async function handleDebyAutoReply(input: {
+  supabase: any;
+  clinicId: string;
+  instanceName: string;
+  evolutionUrl: string;
+  evolutionKey: string;
+  conversaId: string;
+  contatoId: string;
+  telefone: string;
+  contatoNome: string;
+}) {
+  const {
+    supabase,
+    clinicId,
+    instanceName,
+    evolutionUrl,
+    evolutionKey,
+    conversaId,
+    contatoId,
+    telefone,
+    contatoNome,
+  } = input;
+
+  if (!evolutionUrl || !evolutionKey) return;
+
+  const { data: conversa } = await supabase
+    .from("whatsapp_conversas")
+    .select("status, atendimento_status")
+    .eq("clinica_id", clinicId)
+    .eq("id", conversaId)
+    .single();
+
+  if (conversa?.status === "arquivada" || conversa?.status === "resolvida" || conversa?.atendimento_status === "humano") {
+    return;
+  }
+
+  const { data: settings, error: settingsError } = await supabase
+    .from("ai_conversation_settings")
+    .select("*")
+    .eq("clinic_id", clinicId)
+    .eq("conversation_id", conversaId)
+    .maybeSingle();
+
+  if (settingsError) {
+    console.error("[deby-auto] settings:", settingsError.message);
+    return;
+  }
+  if (!settings?.ai_enabled || settings.human_takeover) return;
+
+  const { data: agent } = settings.agent_id
+    ? await supabase.from("ai_agents").select("*").eq("clinic_id", clinicId).eq("id", settings.agent_id).maybeSingle()
+    : await supabase.from("ai_agents").select("*").eq("clinic_id", clinicId).eq("name", "Deby AI").eq("active", true).maybeSingle();
+
+  const { data: history } = await supabase
+    .from("whatsapp_mensagens")
+    .select("direcao, tipo, texto, enviada_em")
+    .eq("clinica_id", clinicId)
+    .eq("conversa_id", conversaId)
+    .order("enviada_em", { ascending: false })
+    .limit(12);
+
+  const transcript = (history ?? [])
+    .reverse()
+    .map((m: any) => `${m.direcao === "in" ? "Paciente/Contato" : "Clinica"}: ${m.texto ?? `[${m.tipo ?? "mensagem"}]`}`)
+    .join("\n");
+
+  const output = await callDebyForWhatsApp({
+    clinicId,
+    contatoNome,
+    transcript,
+    systemPrompt: agent?.system_prompt,
+    model: agent?.model,
+  });
+
+  if (!output) return;
+
+  if (settings.ai_mode === "assisted") {
+    await supabase
+      .from("ai_conversation_settings")
+      .update({ suggested_response: output, suggested_at: new Date().toISOString() })
+      .eq("clinic_id", clinicId)
+      .eq("conversation_id", conversaId);
+    return;
+  }
+
+  const nowIso = new Date().toISOString();
+  const sent = await sendEvolutionText(evolutionUrl, evolutionKey, instanceName, telefone, output);
+  if (!sent) return;
+  const messageId = extractEvolutionMessageId(sent);
+
+  const { error: insertError } = await supabase.from("whatsapp_mensagens").insert({
+    clinica_id: clinicId,
+    conversa_id: conversaId,
+    contato_id: contatoId,
+    waha_message_id: messageId,
+    direcao: "out",
+    tipo: "text",
+    texto: output,
+    media_url: null,
+    payload: { deby_auto: true, evolution: sent },
+    enviada_em: nowIso,
+  });
+
+  if (insertError) {
+    console.error("[deby-auto] insert resposta:", insertError.message);
+  }
+
+  await supabase
+    .from("whatsapp_conversas")
+    .update({ ultimo_texto: output, ultima_mensagem_em: nowIso })
+    .eq("clinica_id", clinicId)
+    .eq("id", conversaId);
+}
+
+async function callDebyForWhatsApp(input: {
+  clinicId: string;
+  contatoNome: string;
+  transcript: string;
+  systemPrompt?: string | null;
+  model?: string | null;
+}) {
+  const apiKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!apiKey) {
+    console.error("[deby-auto] OPENROUTER_API_KEY ausente.");
+    return null;
+  }
+
+  const baseUrl = (Deno.env.get("OPENROUTER_BASE_URL") ?? "https://openrouter.ai/api/v1").replace(/\/$/, "");
+  const model = input.model || Deno.env.get("DEFAULT_AI_MODEL") || "gpt-5.2";
+  const systemPrompt = input.systemPrompt?.trim()
+    || "Voce e Deby AI, assistente de atendimento de uma clinica. Responda em portugues do Brasil, com tom humano, claro e objetivo. Nao diagnostique, nao prometa resultados e direcione assuntos clinicos para avaliacao profissional.";
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": Deno.env.get("APP_ORIGIN") ?? "",
+      "X-Title": "ClinicPro Deby AI WhatsApp"
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "system",
+          content: `${systemPrompt}\n\nRegras: responda apenas a ultima mensagem do contato, em uma mensagem curta de WhatsApp. Se faltar informacao, faca uma pergunta objetiva. Nunca informe que voce e uma IA se nao perguntarem.`
+        },
+        {
+          role: "user",
+          content: `Contato: ${input.contatoNome}\nClinica: ${input.clinicId}\nConversa recente:\n${input.transcript.slice(0, 8000)}`
+        }
+      ],
+      temperature: 0.35
+    })
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error("[deby-auto] OpenRouter:", response.status, detail.slice(0, 400));
+    return null;
+  }
+
+  const data = await response.json();
+  return String(data?.choices?.[0]?.message?.content ?? "").trim() || null;
+}
+
+async function sendEvolutionText(
+  evolutionUrl: string,
+  evolutionKey: string,
+  instanceName: string,
+  telefone: string,
+  text: string
+) {
+  const response = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "apikey": evolutionKey },
+    body: JSON.stringify({ number: telefone.replace(/\D/g, ""), text }),
+  });
+  const raw = await response.text();
+  let data: unknown = raw;
+  try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
+  if (!response.ok) {
+    console.error("[deby-auto] Evolution sendText:", response.status, raw.slice(0, 400));
+    return null;
+  }
+  return data;
+}
+
+function extractEvolutionMessageId(data: any): string | null {
+  return data?.key?.id
+    ?? data?.message?.key?.id
+    ?? data?.data?.key?.id
+    ?? data?.id
+    ?? null;
 }

@@ -69,8 +69,12 @@ create table if not exists public.leads (
 );
 
 alter table public.whatsapp_contatos
+  drop constraint if exists whatsapp_contatos_lead_id_fkey;
+alter table public.whatsapp_contatos
   add constraint whatsapp_contatos_lead_id_fkey foreign key (lead_id) references public.leads(id) on delete set null;
 
+alter table public.whatsapp_conversas
+  drop constraint if exists whatsapp_conversas_lead_id_fkey;
 alter table public.whatsapp_conversas
   add constraint whatsapp_conversas_lead_id_fkey foreign key (lead_id) references public.leads(id) on delete set null;
 

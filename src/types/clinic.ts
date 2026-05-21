@@ -25,6 +25,10 @@ export interface Service {
 
 export interface Appointment {
   id: string;
+  pacienteId?: string | null;
+  pacienteWhatsapp?: string | null;
+  profissionalId?: string | null;
+  servicoId?: string | null;
   pacienteNome: string;
   profissional: string;
   servico: string;

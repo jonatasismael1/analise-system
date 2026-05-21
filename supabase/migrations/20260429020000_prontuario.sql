@@ -65,6 +65,7 @@ create policy "prontuario_acessos owner all" on public.prontuario_acessos
 -- Bucket do storage (requires supabase storage api access, handle manually if needed, but here's SQL)
 insert into storage.buckets (id, name, public) values ('prontuarios', 'prontuarios', false) on conflict (id) do nothing;
 
+drop policy if exists "Prontuarios bucket access" on storage.objects;
 create policy "Prontuarios bucket access"
   on storage.objects for all
   to authenticated

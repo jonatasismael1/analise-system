@@ -8,16 +8,18 @@ export interface ProntuarioData {
   conduta: string;
   profissionalId: string;
   data?: string;
+  atualizadoEm?: string;
 }
 
 interface ProntuarioEditorProps {
   initialData?: ProntuarioData;
   professionals: { id: string; nome: string }[];
-  onSave: (data: ProntuarioData) => void;
+  onSave: (data: ProntuarioData) => void | Promise<void>;
   onCancel: () => void;
+  isSaving?: boolean;
 }
 
-export function ProntuarioEditor({ initialData, professionals, onSave, onCancel }: ProntuarioEditorProps) {
+export function ProntuarioEditor({ initialData, professionals, onSave, onCancel, isSaving = false }: ProntuarioEditorProps) {
   const [queixa, setQueixa] = useState(initialData?.queixa ?? "");
   const [evolucao, setEvolucao] = useState(initialData?.evolucao ?? "");
   const [conduta, setConduta] = useState(initialData?.conduta ?? "");
@@ -32,7 +34,7 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel 
 
   const handleSave = () => {
     const content = editorRef.current?.innerHTML ?? evolucao;
-    onSave({
+    void onSave({
       id: initialData?.id,
       queixa,
       evolucao: content,
@@ -47,7 +49,7 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel 
         <h3 className="text-lg font-bold text-primary">
           {initialData ? "Editar Evolução" : "Nova Evolução Clínica"}
         </h3>
-        <button onClick={onCancel} className="text-secondary hover:text-on-surface p-1">
+        <button onClick={onCancel} className="text-secondary hover:text-on-surface p-1" disabled={isSaving}>
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -62,6 +64,7 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel 
             className="w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
             value={profissionalId}
             onChange={(e) => setProfissionalId(e.target.value)}
+            disabled={isSaving}
           >
             {professionals.map((p) => (
               <option key={p.id} value={p.id}>{p.nome}</option>
@@ -80,6 +83,7 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel 
             value={queixa}
             onChange={(e) => setQueixa(e.target.value)}
             placeholder="Relato do paciente..."
+            disabled={isSaving}
           />
         </div>
 
@@ -91,14 +95,14 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel 
           <div className="rounded-lg border border-outline-variant overflow-hidden">
             {/* Toolbar */}
             <div className="flex items-center gap-1 border-b border-outline-variant bg-surface-container-low p-1">
-              <button onClick={() => execCommand("bold")} className="p-1.5 text-secondary hover:bg-surface-container hover:text-primary rounded" title="Negrito">
+              <button onClick={() => execCommand("bold")} className="p-1.5 text-secondary hover:bg-surface-container hover:text-primary rounded disabled:opacity-50" title="Negrito" disabled={isSaving}>
                 <Bold className="h-4 w-4" />
               </button>
               <button onClick={() => execCommand("italic")} className="p-1.5 text-secondary hover:bg-surface-container hover:text-primary rounded" title="Itálico">
                 <Italic className="h-4 w-4" />
               </button>
               <div className="h-4 w-px bg-outline-variant mx-1" />
-              <button onClick={() => execCommand("insertUnorderedList")} className="p-1.5 text-secondary hover:bg-surface-container hover:text-primary rounded" title="Lista">
+              <button onClick={() => execCommand("insertUnorderedList")} className="p-1.5 text-secondary hover:bg-surface-container hover:text-primary rounded disabled:opacity-50" title="Lista" disabled={isSaving}>
                 <List className="h-4 w-4" />
               </button>
             </div>
@@ -106,7 +110,8 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel 
             <div
               ref={editorRef}
               className="w-full min-h-[120px] p-3 text-sm focus:outline-none prose prose-sm max-w-none"
-              contentEditable
+              contentEditable={!isSaving}
+              aria-disabled={isSaving}
               onInput={(e) => setEvolucao(e.currentTarget.innerHTML)}
               dangerouslySetInnerHTML={{ __html: initialData?.evolucao ?? "" }}
             />
@@ -132,12 +137,14 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel 
         <button
           className="rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium hover:bg-surface-container-low"
           onClick={onCancel}
+          disabled={isSaving}
         >
           Cancelar
         </button>
         <button
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark"
           onClick={handleSave}
+          disabled={isSaving}
         >
           <Check className="h-4 w-4" />
           Salvar Evolução

@@ -1187,15 +1187,19 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
 
   async function handleUpdateAiSettings(values: { aiEnabled?: boolean; humanTakeover?: boolean; aiMode?: AiMode }) {
     if (!selected) return;
-    const cur = selected.aiSettings;
-    await saveConversationAiSettings({
-      clinicId, conversationId: selected.id,
-      aiEnabled: values.aiEnabled ?? cur?.aiEnabled ?? false,
-      agentId: cur?.agentId ?? debyAgent?.id ?? null,
-      humanTakeover: values.humanTakeover ?? cur?.humanTakeover ?? false,
-      aiMode: values.aiMode ?? cur?.aiMode ?? "assisted",
-    });
-    await loadInboxData();
+    try {
+      const cur = selected.aiSettings;
+      await saveConversationAiSettings({
+        clinicId, conversationId: selected.id,
+        aiEnabled: values.aiEnabled ?? cur?.aiEnabled ?? false,
+        agentId: cur?.agentId ?? debyAgent?.id ?? null,
+        humanTakeover: values.humanTakeover ?? cur?.humanTakeover ?? false,
+        aiMode: values.aiMode ?? cur?.aiMode ?? "assisted",
+      });
+      await loadInboxData();
+    } catch (e) {
+      setNotice({ type: "error", text: e instanceof Error ? e.message : "Erro ao salvar configuracao da Deby AI." });
+    }
   }
 
   function handleUpdateAtendimento(status: AtendimentoStatus) {

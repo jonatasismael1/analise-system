@@ -58,6 +58,20 @@ create table if not exists public.whatsapp_messages (
   created_at timestamptz not null default now()
 );
 
+alter table public.whatsapp_messages
+  add column if not exists clinic_id uuid references public.clinicas(id) on delete cascade,
+  add column if not exists instance_id uuid references public.whatsapp_instances(id) on delete cascade,
+  add column if not exists conversation_id uuid references public.whatsapp_conversations(id) on delete cascade,
+  add column if not exists evolution_message_id text,
+  add column if not exists direction text,
+  add column if not exists message_type text default 'text',
+  add column if not exists content text,
+  add column if not exists media_url text,
+  add column if not exists raw_payload jsonb not null default '{}'::jsonb,
+  add column if not exists status text,
+  add column if not exists sent_at timestamptz not null default now(),
+  add column if not exists created_at timestamptz not null default now();
+
 create unique index if not exists idx_whatsapp_messages_evolution_message_id
   on public.whatsapp_messages(clinic_id, evolution_message_id)
   where evolution_message_id is not null;

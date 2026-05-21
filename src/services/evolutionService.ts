@@ -154,7 +154,7 @@ export async function deleteEvolutionInstance(clinicId: string, instanceId: stri
   if (data?.error) throw new Error(data.error);
 }
 
-export async function loadWhatsAppConversations(clinicId: string, _instanceId?: string | null) {
+export async function loadWhatsAppConversations(clinicId: string) {
   const { data: conversas, error } = await supabase
     .from("whatsapp_conversas")
     .select("*")
@@ -251,13 +251,6 @@ export async function saveConversationAiSettings(input: {
       suggested_response: input.suggestedResponse ?? null
     }, { onConflict: "clinic_id,conversation_id" });
   if (error) throw error;
-}
-
-function detectMediaType(mimeType: string): "image" | "video" | "audio" | "document" {
-  if (mimeType.startsWith("image/")) return "image";
-  if (mimeType.startsWith("video/")) return "video";
-  if (mimeType.startsWith("audio/")) return "audio";
-  return "document";
 }
 
 function mapInstance(row: any): WhatsAppInstance {

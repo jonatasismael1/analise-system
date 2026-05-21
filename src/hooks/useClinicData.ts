@@ -64,7 +64,7 @@ function statusAsFinance(value: string): FinanceEntry["status"] {
   return "pendente";
 }
 
-export function useClinicData(clinicId?: string, role: UserRole = "admin", profileProfessionalId?: string | null) {
+export function useClinicData(clinicId?: string, role: UserRole | null = null, profileProfessionalId?: string | null) {
   const [professionals, setProfessionals] = useState<Professional[]>(() => isDemoMode ? mockProfessionals : []);
   const [services, setServices] = useState<Service[]>(() => isDemoMode ? mockServices : []);
   const [patients, setPatients] = useState<Patient[]>(() => isDemoMode ? mockPatients : []);
@@ -76,7 +76,7 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
   const [message, setMessage] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
-    if (!clinicId) return;
+    if (!clinicId || !role) return;
     setLoading(true);
     setMessage(null);
 
@@ -109,6 +109,10 @@ export function useClinicData(clinicId?: string, role: UserRole = "admin", profi
       setPatients(patientsMapped);
       setAppointments((appointmentsRes.data ?? []).map((row: AppointmentRow) => ({
         id: row.id,
+        pacienteId: row.paciente_id,
+        pacienteWhatsapp: row.paciente_whatsapp,
+        profissionalId: row.profissional_id,
+        servicoId: row.servico_id,
         pacienteNome: row.paciente_nome,
         profissional: professionalsById.get(row.profissional_id) ?? "Profissional",
         servico: row.servico_id ? servicesById.get(row.servico_id) ?? "Serviço" : "Serviço",

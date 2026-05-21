@@ -7,7 +7,11 @@ export type DebyAction =
   | "whatsapp_reply"
   | "lead_analysis"
   | "finance_insights"
-  | "agenda_insights";
+  | "agenda_insights"
+  | "appointment_message"
+  | "patient_reactivation"
+  | "missed_patient_followup"
+  | "company_overview";
 
 export async function askDeby(input: {
   clinicId: string;
@@ -30,4 +34,3 @@ export async function askDeby(input: {
   if (data?.error) throw new Error(data.error);
   return String(data?.output ?? "");
 }
-
