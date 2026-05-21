@@ -317,3 +317,95 @@ function mapAgent(row: any): AiAgent {
     active: row.active
   };
 }
+
+// ─── Contatos e criação de conversas ─────────────────────────────────────────
+
+export interface WhatsAppContactRecord {
+  id: string;
+  clinicaId: string;
+  nome: string | null;
+  telefone: string;
+  chatId: string;
+  pacienteId: string | null;
+  leadId: string | null;
+}
+
+function normalizarTelefone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
+export async function loadWhatsAppContacts(clinicId: string): Promise<WhatsAppContactRecord[]> {
+  const { data, error } = await supabase
+    .from("whatsapp_contatos")
+    .select("*")
+    .eq("clinica_id", clinicId)
+    .order("nome", { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    clinicaId: row.clinica_id,
+    nome: row.nome ?? null,
+    telefone: row.telefone,
+    chatId: row.chat_id,
+    pacienteId: row.paciente_id ?? null,
+    leadId: row.lead_id ?? null,
+  }));
+}
+
+export async function upsertWhatsAppContact(clinicId: string, input: { nome?: string | null; telefone: string }): Promise<WhatsAppContactRecord> {
+  const telefone = normalizarTelefone(input.telefone);
+  const chatId = `${telefone}@s.whatsapp.net`;
+
+  const { error: upsertErr } = await supabase
+    .from("whatsapp_contatos")
+    .upsert(
+      { clinica_id: clinicId, nome: input.nome ?? null, telefone, chat_id: chatId, origem: "manual" },
+      { onConflict: "clinica_id,chat_id" }
+    );
+  if (upsertErr) throw upsertErr;
+
+  const { data, error } = await supabase
+    .from("whatsapp_contatos")
+    .select("*")
+    .eq("clinica_id", clinicId)
+    .eq("chat_id", chatId)
+    .single();
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    clinicaId: data.clinica_id,
+    nome: data.nome ?? null,
+    telefone: data.telefone,
+    chatId: data.chat_id,
+    pacienteId: data.paciente_id ?? null,
+    leadId: data.lead_id ?? null,
+  };
+}
+
+export async function findOrCreateConversation(clinicId: string, contactId: string, chatId: string): Promise<WhatsAppConversation> {
+  const { error: upsertErr } = await supabase
+    .from("whatsapp_conversas")
+    .upsert(
+      { clinica_id: clinicId, contato_id: contactId, chat_id: chatId, status: "aberta" },
+      { onConflict: "clinica_id,chat_id" }
+    );
+  if (upsertErr) throw upsertErr;
+
+  const { data: conv, error: convErr } = await supabase
+    .from("whatsapp_conversas")
+    .select("*")
+    .eq("clinica_id", clinicId)
+    .eq("chat_id", chatId)
+    .single();
+  if (convErr) throw convErr;
+
+  const { data: contato } = await supabase
+    .from("whatsapp_contatos")
+    .select("*")
+    .eq("id", contactId)
+    .single();
+
+  return mapConversation(conv, contato, null);
+}

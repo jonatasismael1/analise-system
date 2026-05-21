@@ -2,22 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import {
   Bot, CheckCheck, FileUp, Loader2, MessageCircle,
-  Mic, PlusCircle, RefreshCcw, Search,
-  Send, Sparkles, Tag, UserPlus, UserRound, Wifi, WifiOff, X
+  Mic, Phone, PlusCircle, RefreshCcw, Search,
+  Send, Sparkles, Tag, UserPlus, UserRound, Wifi, WifiOff, X, Users, MessageSquarePlus
 } from "lucide-react";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { askDeby } from "../../../services/debyService";
 import { savePatientRecord } from "../../../services/patientService";
 import {
+  findOrCreateConversation,
   loadAiAgents,
+  loadWhatsAppContacts,
   loadWhatsAppConversations,
   loadWhatsAppMessages,
   saveAiAgent,
   saveConversationAiSettings,
   uploadMediaFile,
+  upsertWhatsAppContact,
   type AiAgent,
   type AiMode,
   type MessageType,
+  type WhatsAppContactRecord,
   type WhatsAppConversation,
   type WhatsAppMessage
 } from "../../../services/evolutionService";
@@ -44,6 +48,7 @@ import { Field, inputClass } from "../components/Field";
 // ── Tipos internos ─────────────────────────────────────────────────────────────
 
 type ConnStatus = "checking" | "disconnected" | "connecting" | "qr" | "connected";
+type SidebarMode = "conversas" | "contatos";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -86,15 +91,18 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
 
   // ── Inbox ──────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
+  const [contacts, setContacts] = useState<WhatsAppContactRecord[]>([]);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [agents, setAgents] = useState<AiAgent[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stages, setStages] = useState<LeadStage[]>([]);
 
   // ── UI ─────────────────────────────────────────────────────────────────────
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>("conversas");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "leads" | "ai">("all");
   const [search, setSearch] = useState("");
+  const [contactSearch, setContactSearch] = useState("");
   const [reply, setReply] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
@@ -102,6 +110,11 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
   const [creatingPatient, setCreatingPatient] = useState(false);
   const [debyOutput, setDebyOutput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+
+  // ── Modal nova conversa ────────────────────────────────────────────────────
+  const [showNewConvModal, setShowNewConvModal] = useState(false);
+  const [newConvForm, setNewConvForm] = useState({ nome: "", telefone: "" });
+  const [creatingConv, setCreatingConv] = useState(false);
 
   const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const msgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -132,19 +145,29 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
     );
   }, [conversations, filter, search]);
 
+  const filteredContacts = useMemo(() => {
+    const term = contactSearch.trim().toLowerCase();
+    if (!term) return contacts;
+    return contacts.filter(c =>
+      `${c.nome ?? ""} ${c.telefone}`.toLowerCase().includes(term)
+    );
+  }, [contacts, contactSearch]);
+
   // ── Loaders ────────────────────────────────────────────────────────────────
 
   const loadInboxData = useCallback(async () => {
-    const [convs, agts, ldsData, stgsData] = await Promise.all([
+    const [convs, agts, ldsData, stgsData, ctts] = await Promise.all([
       loadWhatsAppConversations(clinicId).catch(() => [] as WhatsAppConversation[]),
       loadAiAgents(clinicId).catch(() => [] as AiAgent[]),
       loadLeads(clinicId).catch(() => [] as Lead[]),
-      loadLeadStages(clinicId).catch(() => [] as LeadStage[])
+      loadLeadStages(clinicId).catch(() => [] as LeadStage[]),
+      loadWhatsAppContacts(clinicId).catch(() => [] as WhatsAppContactRecord[])
     ]);
     setConversations(convs);
     setAgents(agts);
     setLeads(ldsData);
     setStages(stgsData);
+    setContacts(ctts);
     setSelectedId(prev => prev ?? (convs[0]?.id ?? null));
   }, [clinicId]);
 
@@ -192,7 +215,9 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
 
   useEffect(() => {
     if (!selected) { setMessages([]); return; }
-    void loadWhatsAppMessages(clinicId, selected.id).then(setMessages).catch(() => null);
+    void loadWhatsAppMessages(clinicId, selected.id).then(msgs => {
+      setMessages(msgs);
+    }).catch(() => null);
   }, [clinicId, selected?.id]);
 
   // ── Auto-scroll ────────────────────────────────────────────────────────────
@@ -215,7 +240,6 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
           const row = payload.new as Record<string, unknown>;
           if (row.conversa_id === selectedId) {
             setMessages(prev => {
-              // Dedup: não adiciona se o ID já existe
               if (prev.some(m => m.id === (row.id as string))) return prev;
               return [
                 ...prev,
@@ -231,7 +255,6 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
               ];
             });
           }
-          // Atualiza sidebar de conversas para refletir a última mensagem
           loadWhatsAppConversations(clinicId)
             .then(convs => setConversations(convs))
             .catch(() => null);
@@ -291,11 +314,8 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
     setConnStatus("connecting");
     setNotice(null);
     try {
-      // Tenta criar (ignora erro se já existir)
       await createInstance(DEFAULT_INSTANCE_NAME).catch(() => null);
-      // Configura webhook para receber mensagens no Supabase (erro não bloqueia o fluxo)
       setInstanceWebhook(DEFAULT_INSTANCE_NAME, clinicId).catch(() => null);
-      // Gera o QR code
       const result = await connectInstance(DEFAULT_INSTANCE_NAME);
       const code = result.base64 || result.code;
       if (code) {
@@ -303,7 +323,6 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         setConnStatus("qr");
         startQrPolling();
       } else {
-        // Pode já estar conectado
         await checkStatus();
       }
     } catch (e) {
@@ -330,6 +349,45 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
 
   async function handleVerifyQr() {
     await checkStatus();
+  }
+
+  // ── Iniciar conversa a partir de contato ──────────────────────────────────
+
+  async function handleStartConversation(contact: WhatsAppContactRecord) {
+    try {
+      const conv = await findOrCreateConversation(clinicId, contact.id, contact.chatId);
+      // Atualiza lista de conversas para incluir a nova
+      const convs = await loadWhatsAppConversations(clinicId);
+      setConversations(convs);
+      setSelectedId(conv.id);
+      setSidebarMode("conversas");
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Erro ao iniciar conversa.");
+    }
+  }
+
+  // ── Criar nova conversa (modal) ────────────────────────────────────────────
+
+  async function handleCreateNewConversation() {
+    if (!newConvForm.telefone.trim()) return;
+    setCreatingConv(true);
+    setNotice(null);
+    try {
+      const contact = await upsertWhatsAppContact(clinicId, {
+        nome: newConvForm.nome.trim() || null,
+        telefone: newConvForm.telefone.trim(),
+      });
+      await handleStartConversation(contact);
+      // Recarrega contatos
+      const ctts = await loadWhatsAppContacts(clinicId);
+      setContacts(ctts);
+      setShowNewConvModal(false);
+      setNewConvForm({ nome: "", telefone: "" });
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Erro ao criar conversa.");
+    } finally {
+      setCreatingConv(false);
+    }
   }
 
   // ── Ações de mensagem ──────────────────────────────────────────────────────
@@ -364,15 +422,15 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         await sendWhatsAppText(DEFAULT_INSTANCE_NAME, phone, textoEnviado);
       }
 
-      // Salva mensagem no banco e obtém o ID gerado
+      // Salva mensagem no banco
       const { data: inserted, error: insertErr } = await supabase
         .from("whatsapp_mensagens")
         .insert({
           clinica_id: clinicId,
           conversa_id: selected.id,
-          contato_id: selected.contactId,
+          contato_id: selected.contactId || null,
           direcao: "out",
-          tipo: mediaType,
+          tipo: file ? mediaType : "text",
           texto: textoEnviado,
           media_url: uploadedMediaUrl,
           payload: {},
@@ -381,10 +439,22 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         .select("id")
         .single();
 
-      if (insertErr) throw insertErr;
-
-      // Adiciona mensagem ao estado local imediatamente — não depende só do Realtime
-      if (inserted) {
+      if (insertErr) {
+        // Se falhou a gravação, ainda mostra localmente
+        console.error("[WhatsApp] Erro ao salvar mensagem:", insertErr.message);
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `local-${Date.now()}`,
+            direction: "out" as const,
+            messageType: (file ? mediaType : "text") as MessageType,
+            content: textoEnviado,
+            mediaUrl: uploadedMediaUrl,
+            status: null,
+            sentAt: nowIso,
+          }
+        ]);
+      } else if (inserted) {
         setMessages(prev => {
           if (prev.some(m => m.id === inserted.id)) return prev;
           return [...prev, {
@@ -399,13 +469,12 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         });
       }
 
-      // Atualiza ultimo_texto na conversa para refletir na sidebar
+      // Atualiza último texto da conversa
       await supabase.from("whatsapp_conversas")
         .update({ ultimo_texto: textoEnviado, ultima_mensagem_em: nowIso })
         .eq("id", selected.id)
         .eq("clinica_id", clinicId);
 
-      // Recarrega lista de conversas para atualizar a sidebar
       loadWhatsAppConversations(clinicId).then(setConversations).catch(() => null);
 
       setReply("");
@@ -455,7 +524,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
     await loadInboxData();
   }
 
-  // ── Ações de Lead ──────────────────────────────────────────────────────────
+  // ── Ações de Lead/Paciente ─────────────────────────────────────────────────
 
   async function handleCreateLead() {
     if (!selected) return;
@@ -494,7 +563,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         valorTotalGasto: 0,
       });
       if (error) throw error;
-      setNotice("Paciente criado com sucesso! Acesse o módulo Pacientes para completar o cadastro.");
+      setNotice("Paciente criado! Acesse Pacientes para completar o cadastro.");
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Erro ao criar paciente.");
     } finally {
@@ -565,7 +634,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
               Verificar conexão
             </button>
           )}
-          {(connStatus === "disconnected") && (
+          {connStatus === "disconnected" && (
             <button
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#1ebe5d]"
               onClick={() => void handleConnect()}
@@ -588,9 +657,8 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         </div>
       )}
 
-      {/* ── Conteúdo principal ─────────────────────────────────────────────── */}
+      {/* ── Estados de carregamento ────────────────────────────────────────── */}
 
-      {/* Verificando */}
       {connStatus === "checking" && (
         <div className="flex min-h-[500px] items-center justify-center">
           <div className="text-center">
@@ -600,7 +668,6 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         </div>
       )}
 
-      {/* Conectando */}
       {connStatus === "connecting" && (
         <div className="flex min-h-[500px] items-center justify-center">
           <div className="text-center">
@@ -611,7 +678,6 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         </div>
       )}
 
-      {/* QR Code */}
       {connStatus === "qr" && qr && (
         <div className="flex min-h-[500px] items-center justify-center p-8">
           <div className="w-full max-w-sm rounded-2xl border border-outline-variant bg-surface p-8 text-center shadow-card">
@@ -622,7 +688,6 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
             <p className="mt-2 text-sm text-on-surface-variant">
               No WhatsApp, abra <strong>Configurações → Aparelhos conectados → Conectar aparelho</strong>
             </p>
-
             <div className="my-6 flex justify-center">
               {qr.b64 || qr.code.startsWith("data:") ? (
                 <img
@@ -636,12 +701,10 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
                 </div>
               )}
             </div>
-
             <div className="flex items-center gap-2 text-xs text-on-surface-variant">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Verificando conexão automaticamente...
             </div>
-
             <button
               className="mt-4 w-full rounded-xl border border-outline-variant py-2.5 text-sm font-medium hover:border-primary hover:text-primary"
               type="button"
@@ -649,7 +712,6 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
             >
               Já escaniei — verificar agora
             </button>
-
             <button
               className="mt-2 text-xs text-outline hover:text-on-surface-variant"
               type="button"
@@ -661,7 +723,6 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
         </div>
       )}
 
-      {/* Desconectado */}
       {connStatus === "disconnected" && (
         <div className="flex min-h-[500px] items-center justify-center p-8">
           <div className="max-w-sm text-center">
@@ -690,54 +751,142 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
       {connStatus === "connected" && (
         <div className="grid min-h-[660px] xl:grid-cols-[300px_minmax(0,1fr)_280px]">
 
-          {/* Coluna esquerda: conversas */}
+          {/* ── Coluna esquerda: conversas / contatos ─────────────────────── */}
           <aside className="flex flex-col border-r border-outline-variant bg-surface-container-lowest">
-            <div className="border-b border-outline-variant p-4">
-              <div className="relative mb-3">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-outline" />
-                <input
-                  className="h-10 w-full rounded-lg border-none bg-surface-container-low pl-9 pr-3 text-sm text-on-surface placeholder:text-outline focus:ring-1 focus:ring-primary"
-                  placeholder="Buscar conversas..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-1.5">
-                {(["all", "leads", "ai"] as const).map(f => (
+
+            {/* Tabs: Conversas / Contatos */}
+            <div className="flex border-b border-outline-variant">
+              <button
+                className={`flex flex-1 items-center justify-center gap-1.5 py-3 text-xs font-semibold transition ${
+                  sidebarMode === "conversas"
+                    ? "border-b-2 border-primary text-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
+                onClick={() => setSidebarMode("conversas")}
+                type="button"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                Conversas
+              </button>
+              <button
+                className={`flex flex-1 items-center justify-center gap-1.5 py-3 text-xs font-semibold transition ${
+                  sidebarMode === "contatos"
+                    ? "border-b-2 border-primary text-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
+                onClick={() => setSidebarMode("contatos")}
+                type="button"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Contatos
+              </button>
+            </div>
+
+            {/* ── Modo Conversas ────────────────────────────────────────── */}
+            {sidebarMode === "conversas" && (
+              <>
+                <div className="border-b border-outline-variant p-4">
+                  <div className="relative mb-3">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-outline" />
+                    <input
+                      className="h-10 w-full rounded-lg border-none bg-surface-container-low pl-9 pr-3 text-sm text-on-surface placeholder:text-outline focus:ring-1 focus:ring-primary"
+                      placeholder="Buscar conversas..."
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-1.5">
+                    {(["all", "leads", "ai"] as const).map(f => (
+                      <button
+                        key={f}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${filter === f ? "bg-primary text-white" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}
+                        onClick={() => setFilter(f)}
+                        type="button"
+                      >
+                        {f === "all" ? "Todos" : f === "leads" ? "Leads" : "IA Ativa"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  {filtered.length === 0 ? (
+                    <div className="p-6">
+                      <EmptyState
+                        title="Sem conversas"
+                        message={conversations.length === 0
+                          ? "As mensagens chegam aqui automaticamente quando alguém escrever."
+                          : "Nenhuma conversa com este filtro."}
+                      />
+                    </div>
+                  ) : filtered.map(conv => (
+                    <ConversationItem
+                      key={conv.id}
+                      conversation={conv}
+                      selected={selected?.id === conv.id}
+                      onClick={() => { setSelectedId(conv.id); setDebyOutput(""); }}
+                    />
+                  ))}
+                </div>
+
+                {/* Botão nova conversa */}
+                <div className="border-t border-outline-variant p-3">
                   <button
-                    key={f}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${filter === f ? "bg-primary text-white" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}
-                    onClick={() => setFilter(f)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-outline-variant px-3 py-2 text-xs font-semibold text-on-surface-variant hover:border-primary hover:text-primary transition"
+                    onClick={() => setShowNewConvModal(true)}
                     type="button"
                   >
-                    {f === "all" ? "Todos" : f === "leads" ? "Leads" : "IA Ativa"}
+                    <MessageSquarePlus className="h-4 w-4" />
+                    Nova conversa
                   </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {filtered.length === 0 ? (
-                <div className="p-6">
-                  <EmptyState
-                    title="Sem conversas"
-                    message={conversations.length === 0
-                      ? "As mensagens chegam aqui automaticamente quando alguém escrever."
-                      : "Nenhuma conversa com este filtro."}
-                  />
                 </div>
-              ) : filtered.map(conv => (
-                <ConversationItem
-                  key={conv.id}
-                  conversation={conv}
-                  selected={selected?.id === conv.id}
-                  onClick={() => { setSelectedId(conv.id); setDebyOutput(""); }}
-                />
-              ))}
-            </div>
+              </>
+            )}
+
+            {/* ── Modo Contatos ─────────────────────────────────────────── */}
+            {sidebarMode === "contatos" && (
+              <>
+                <div className="border-b border-outline-variant p-4">
+                  <div className="relative mb-3">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-outline" />
+                    <input
+                      className="h-10 w-full rounded-lg border-none bg-surface-container-low pl-9 pr-3 text-sm text-on-surface placeholder:text-outline focus:ring-1 focus:ring-primary"
+                      placeholder="Buscar contatos..."
+                      value={contactSearch}
+                      onChange={e => setContactSearch(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-dark transition"
+                    onClick={() => setShowNewConvModal(true)}
+                    type="button"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Novo contato
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  {filteredContacts.length === 0 ? (
+                    <div className="p-6">
+                      <EmptyState
+                        title="Sem contatos"
+                        message="Contatos aparecem automaticamente quando receber mensagens, ou clique em Novo contato."
+                      />
+                    </div>
+                  ) : filteredContacts.map(contact => (
+                    <ContactItem
+                      key={contact.id}
+                      contact={contact}
+                      onStartConversation={() => void handleStartConversation(contact)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </aside>
 
-          {/* Coluna central: mensagens */}
+          {/* ── Coluna central: mensagens ─────────────────────────────────── */}
           <main className="flex flex-col bg-surface">
             <header className="flex h-14 items-center gap-3 border-b border-outline-variant bg-surface/95 px-4 backdrop-blur">
               {selected ? (
@@ -833,7 +982,7 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
             </footer>
           </main>
 
-          {/* Coluna direita: contato + IA */}
+          {/* ── Coluna direita: contato + IA ──────────────────────────────── */}
           <aside className="hidden flex-col border-l border-outline-variant bg-surface xl:flex">
             {selected ? (
               <ContactAiPanel
@@ -861,6 +1010,68 @@ export function WhatsAppPanel({ clinicId }: { readonly clinicId: string }) {
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {/* ── Modal nova conversa ────────────────────────────────────────────── */}
+      {showNewConvModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-surface shadow-xl">
+            <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
+              <div className="flex items-center gap-2">
+                <MessageSquarePlus className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-on-surface">Nova conversa</h3>
+              </div>
+              <button className="rounded p-1 hover:bg-surface-container-low" type="button" onClick={() => setShowNewConvModal(false)}>
+                <X className="h-5 w-5 text-on-surface-variant" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <Field label="Telefone (WhatsApp) *">
+                <div className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 focus-within:ring-1 focus-within:ring-primary">
+                  <Phone className="h-4 w-4 shrink-0 text-outline" />
+                  <input
+                    className="flex-1 border-none bg-transparent text-sm text-on-surface placeholder:text-outline focus:ring-0"
+                    placeholder="Ex: 11999887766"
+                    value={newConvForm.telefone}
+                    onChange={e => setNewConvForm(prev => ({ ...prev, telefone: e.target.value }))}
+                    type="tel"
+                  />
+                </div>
+              </Field>
+              <Field label="Nome (opcional)">
+                <input
+                  className={inputClass()}
+                  placeholder="Nome do contato"
+                  value={newConvForm.nome}
+                  onChange={e => setNewConvForm(prev => ({ ...prev, nome: e.target.value }))}
+                />
+              </Field>
+              <p className="text-xs text-on-surface-variant">
+                O código do Brasil (+55) é adicionado automaticamente se não informado.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-outline-variant px-5 py-4">
+              <button
+                className="rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low"
+                type="button"
+                onClick={() => setShowNewConvModal(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
+                disabled={creatingConv || !newConvForm.telefone.trim()}
+                type="button"
+                onClick={() => void handleCreateNewConversation()}
+              >
+                {creatingConv ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquarePlus className="h-4 w-4" />}
+                Iniciar conversa
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -904,6 +1115,34 @@ function ConversationItem({ conversation, selected, onClick }: {
   );
 }
 
+// ── ContactItem ────────────────────────────────────────────────────────────────
+
+function ContactItem({ contact, onStartConversation }: {
+  readonly contact: WhatsAppContactRecord;
+  readonly onStartConversation: () => void;
+}) {
+  const ini = initials(contact.nome, contact.telefone);
+  return (
+    <div className="flex items-center gap-3 border-b border-outline-variant/20 p-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+        {ini}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-on-surface">{contact.nome ?? "Sem nome"}</p>
+        <p className="text-xs text-on-surface-variant">{contact.telefone}</p>
+      </div>
+      <button
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition"
+        title="Iniciar conversa"
+        type="button"
+        onClick={onStartConversation}
+      >
+        <MessageCircle className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 // ── ContactAiPanel ─────────────────────────────────────────────────────────────
 
 function ContactAiPanel({ conversation, messages, lead, stages, debyAgent, loading, creatingPatient, onUpdateAiSettings, onSummarize, onSuggestReply, onSaveAgent, onUseReply, onCreateLead, onCreatePatient }: {
@@ -933,7 +1172,6 @@ function ContactAiPanel({ conversation, messages, lead, stages, debyAgent, loadi
       </div>
 
       <div className="flex-1 space-y-5 overflow-y-auto p-5">
-        {/* Lead / CRM */}
         <section>
           <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-outline">Lead / CRM</h3>
           {lead ? (
@@ -978,7 +1216,6 @@ function ContactAiPanel({ conversation, messages, lead, stages, debyAgent, loadi
           </button>
         </section>
 
-        {/* Deby AI */}
         <section>
           <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-outline">Deby AI</h3>
           <div className="space-y-3">
@@ -1156,6 +1393,6 @@ function MediaPreview({ message }: { readonly message: WhatsAppMessage }) {
   );
 }
 
-// Suprime TS pelo uso interno sem impacto de runtime
+// Evita warning de TS
 const _unused = STATUS_LABEL;
 void _unused;

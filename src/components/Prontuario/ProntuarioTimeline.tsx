@@ -1,18 +1,21 @@
 import { useState } from "react";
-import { FileText, Plus, Clock, Edit2, Send, X } from "lucide-react";
+import { FileText, Plus, Clock, Edit2, Send, X, Loader2, Printer } from "lucide-react";
 import { ProntuarioEditor, type ProntuarioData } from "./ProntuarioEditor";
+import {
+  DEFAULT_INSTANCE_NAME,
+  sendWhatsAppText
+} from "../../services/quickActionService";
 import type { Patient, Professional } from "../../types/clinic";
 
 interface ProntuarioTimelineProps {
+  clinicId: string;
   patient: Patient;
   professionals: Professional[];
 }
 
 function formatWhatsApp(phone: string): string {
   const digits = phone.replace(/\D/g, "");
-  // Adiciona código do Brasil se não começar com 55
-  if (digits.length <= 11) return `55${digits}`;
-  return digits;
+  return digits.startsWith("55") ? digits : `55${digits}`;
 }
 
 function buildReceita(patient: Patient, professional: Professional | undefined, item: ProntuarioData): string {
@@ -21,10 +24,13 @@ function buildReceita(patient: Patient, professional: Professional | undefined, 
   const profRegistro = professional?.registro ? `\nCRM/Registro: ${professional.registro}` : "";
 
   const linhas: string[] = [
-    `*RECEITA MÉDICA*`,
+    `🏥 *ANÁLISE SAÚDE*`,
+    `━━━━━━━━━━━━━━━━━━━`,
     ``,
-    `Paciente: ${patient.nome}`,
-    `Data: ${data}`,
+    `📋 *RECEITA MÉDICA*`,
+    ``,
+    `*Paciente:* ${patient.nome}`,
+    `*Data:* ${data}`,
     ``,
   ];
 
@@ -40,17 +46,107 @@ function buildReceita(patient: Patient, professional: Professional | undefined, 
     linhas.push(``);
   }
 
-  linhas.push(`---`);
-  linhas.push(`${profNome}${profRegistro}`);
+  linhas.push(`━━━━━━━━━━━━━━━━━━━`);
+  linhas.push(`*${profNome}*${profRegistro}`);
 
   return linhas.join("\n");
 }
 
-export function ProntuarioTimeline({ patient, professionals }: ProntuarioTimelineProps) {
+function buildReceitaHTML(patient: Patient, professional: Professional | undefined, item: ProntuarioData): string {
+  const data = new Date(item.data ?? new Date()).toLocaleDateString("pt-BR", { dateStyle: "long" });
+  const profNome = professional?.nome ?? "Profissional";
+  const profRegistro = professional?.registro ? `CRM/Registro: ${professional.registro}` : "";
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Receita Médica - ${patient.nome}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #fff; color: #1a1a1a; }
+    .page { max-width: 720px; margin: 0 auto; padding: 40px; }
+    .header { display: flex; align-items: center; gap: 20px; border-bottom: 3px solid #15A898; padding-bottom: 20px; margin-bottom: 28px; }
+    .header img { height: 64px; object-fit: contain; }
+    .header-info h1 { font-size: 22px; color: #15A898; font-weight: 800; }
+    .header-info p { font-size: 13px; color: #666; margin-top: 4px; }
+    .doc-title { font-size: 18px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 2px; color: #192827; margin-bottom: 24px; }
+    .meta { background: #F3F6F5; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .meta-item label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #666; display: block; margin-bottom: 2px; }
+    .meta-item span { font-size: 14px; color: #1a1a1a; font-weight: 600; }
+    .section { margin-bottom: 20px; }
+    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #15A898; border-bottom: 1px solid #e0e0e0; padding-bottom: 6px; margin-bottom: 10px; }
+    .section-body { font-size: 14px; line-height: 1.7; color: #333; background: #fafafa; border-radius: 6px; padding: 12px 16px; }
+    .footer { margin-top: 48px; padding-top: 20px; border-top: 2px solid #192827; display: flex; justify-content: space-between; align-items: flex-end; }
+    .footer-sig { font-size: 14px; font-weight: 700; color: #192827; }
+    .footer-reg { font-size: 12px; color: #666; margin-top: 4px; }
+    .footer-line { font-size: 12px; color: #aaa; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <img src="/logo-analise.png" alt="Análise Saúde" onerror="this.style.display='none'" />
+      <div class="header-info">
+        <h1>Análise Saúde</h1>
+        <p>Saúde e bem-estar com qualidade</p>
+      </div>
+    </div>
+
+    <div class="doc-title">Receita Médica</div>
+
+    <div class="meta">
+      <div class="meta-item">
+        <label>Paciente</label>
+        <span>${patient.nome}</span>
+      </div>
+      <div class="meta-item">
+        <label>Data</label>
+        <span>${data}</span>
+      </div>
+      ${patient.cpf ? `<div class="meta-item"><label>CPF</label><span>${patient.cpf}</span></div>` : ""}
+      ${patient.dataNascimento ? `<div class="meta-item"><label>Nascimento</label><span>${new Date(patient.dataNascimento).toLocaleDateString("pt-BR")}</span></div>` : ""}
+    </div>
+
+    ${item.queixa ? `
+    <div class="section">
+      <div class="section-title">Queixa Principal</div>
+      <div class="section-body">${item.queixa.replace(/\n/g, "<br>")}</div>
+    </div>` : ""}
+
+    ${item.conduta ? `
+    <div class="section">
+      <div class="section-title">Conduta / Prescrição</div>
+      <div class="section-body">${item.conduta.replace(/\n/g, "<br>")}</div>
+    </div>` : ""}
+
+    <div class="footer">
+      <div>
+        <div class="footer-sig">${profNome}</div>
+        ${profRegistro ? `<div class="footer-reg">${profRegistro}</div>` : ""}
+      </div>
+      <div class="footer-line">Emitido em ${data}</div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() { window.print(); };
+  </script>
+</body>
+</html>`;
+}
+
+export function ProntuarioTimeline({ clinicId, patient, professionals }: ProntuarioTimelineProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingData, setEditingData] = useState<ProntuarioData | null>(null);
   const [receitaItem, setReceitaItem] = useState<ProntuarioData | null>(null);
   const [receitaTexto, setReceitaTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [envioFeedback, setEnvioFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const [historico, setHistorico] = useState<ProntuarioData[]>([
     {
@@ -77,6 +173,36 @@ export function ProntuarioTimeline({ patient, professionals }: ProntuarioTimelin
     const professional = professionals.find((p) => p.id === item.profissionalId);
     setReceitaTexto(buildReceita(patient, professional, item));
     setReceitaItem(item);
+    setEnvioFeedback(null);
+  }
+
+  async function handleEnviarWhatsApp() {
+    if (!receitaItem || !patient.whatsapp) return;
+    setEnviando(true);
+    setEnvioFeedback(null);
+    try {
+      const phone = formatWhatsApp(patient.whatsapp);
+      await sendWhatsAppText(DEFAULT_INSTANCE_NAME, phone, receitaTexto);
+      setEnvioFeedback({ ok: true, msg: "Receita enviada com sucesso pelo WhatsApp!" });
+    } catch (e) {
+      setEnvioFeedback({
+        ok: false,
+        msg: e instanceof Error ? e.message : "Erro ao enviar. Verifique se o WhatsApp está conectado."
+      });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  function handleImprimirPDF() {
+    if (!receitaItem) return;
+    const professional = professionals.find((p) => p.id === receitaItem.profissionalId);
+    const html = buildReceitaHTML(patient, professional, receitaItem);
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
   }
 
   return (
@@ -181,50 +307,73 @@ export function ProntuarioTimeline({ patient, professionals }: ProntuarioTimelin
         )}
       </div>
 
-      {/* Modal de envio de receita */}
+      {/* ── Modal de envio de receita ─────────────────────────────────────── */}
       {receitaItem !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-surface-variant px-5 py-4">
               <div>
-                <h3 className="font-bold text-on-surface">Enviar receita via WhatsApp</h3>
-                <p className="text-sm text-secondary">Paciente: {patient.nome} · {patient.whatsapp}</p>
+                <h3 className="font-bold text-on-surface">Receita Digital</h3>
+                <p className="text-sm text-secondary">
+                  {patient.nome} · {patient.whatsapp}
+                </p>
               </div>
-              <button className="rounded p-1 hover:bg-surface-container-low" onClick={() => setReceitaItem(null)}>
+              <button className="rounded p-1 hover:bg-surface-container-low" onClick={() => { setReceitaItem(null); setEnvioFeedback(null); }}>
                 <X className="h-5 w-5 text-secondary" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
+              {envioFeedback && (
+                <div className={`rounded-lg px-4 py-2.5 text-sm font-medium ${envioFeedback.ok ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                  {envioFeedback.msg}
+                </div>
+              )}
+
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-secondary">
                   Conteúdo da receita (edite antes de enviar)
                 </label>
                 <textarea
-                  className="w-full rounded-lg border border-outline-variant bg-surface-container-low p-3 text-sm text-on-surface focus:border-primary focus:outline-none"
+                  className="w-full rounded-lg border border-outline-variant bg-surface-container-low p-3 text-sm text-on-surface focus:border-primary focus:outline-none font-mono"
                   rows={10}
                   value={receitaTexto}
                   onChange={(e) => setReceitaTexto(e.target.value)}
                 />
               </div>
 
-              <div className="flex justify-between gap-3">
+              <p className="text-xs text-on-surface-variant">
+                O WhatsApp interpreta o texto em <strong>*negrito*</strong> automaticamente.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap justify-between gap-3 border-t border-surface-variant px-5 py-4">
+              <button
+                className="inline-flex items-center gap-2 rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-container-low transition"
+                onClick={handleImprimirPDF}
+                type="button"
+              >
+                <Printer className="h-4 w-4" />
+                Baixar / Imprimir PDF
+              </button>
+
+              <div className="flex gap-3">
                 <button
                   className="rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-container-low"
-                  onClick={() => setReceitaItem(null)}
+                  onClick={() => { setReceitaItem(null); setEnvioFeedback(null); }}
+                  type="button"
                 >
                   Cancelar
                 </button>
-                <a
-                  href={`https://wa.me/${formatWhatsApp(patient.whatsapp)}?text=${encodeURIComponent(receitaTexto)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition"
-                  onClick={() => setReceitaItem(null)}
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition"
+                  disabled={enviando || !patient.whatsapp}
+                  onClick={() => void handleEnviarWhatsApp()}
+                  type="button"
                 >
-                  <Send className="h-4 w-4" />
-                  Abrir no WhatsApp
-                </a>
+                  {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Enviar pelo WhatsApp
+                </button>
               </div>
             </div>
           </div>

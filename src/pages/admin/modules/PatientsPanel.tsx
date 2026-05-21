@@ -1,10 +1,14 @@
 import { useRef, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Loader2, MessageCircle, Send, Trash2, X } from "lucide-react";
 import { ProntuarioTimeline } from "../../../components/Prontuario/ProntuarioTimeline";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
 import { brl } from "../../../lib/formatters";
+import {
+  DEFAULT_INSTANCE_NAME,
+  sendWhatsAppText
+} from "../../../services/quickActionService";
 import type { Patient, Professional, UserRole } from "../../../types/clinic";
 import { Field, inputClass } from "../components/Field";
 import { RefinedTable } from "../components/RefinedTable";
@@ -20,6 +24,7 @@ const KANBAN_LABEL: Record<string, string> = {
 };
 
 export function PatientsPanel({
+  clinicId,
   patients,
   professionals,
   onSave,
@@ -27,6 +32,7 @@ export function PatientsPanel({
   onImportMassively,
   role
 }: {
+  readonly clinicId: string;
   readonly patients: Patient[];
   readonly professionals: Professional[];
   readonly onSave: (values: Patient) => Promise<void>;
@@ -51,6 +57,12 @@ export function PatientsPanel({
   });
   const [filters, setFilters] = useState({ search: "", status: "todos", professionalId: "todos" });
 
+  // ── Modal envio rápido de WhatsApp ─────────────────────────────────────────
+  const [msgPatient, setMsgPatient] = useState<Patient | null>(null);
+  const [msgText, setMsgText] = useState("");
+  const [sendingMsg, setSendingMsg] = useState(false);
+  const [msgFeedback, setMsgFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+
   const readonly = role === "profissional";
 
   const filteredPatients = patients.filter((patient) => {
@@ -59,6 +71,23 @@ export function PatientsPanel({
     const matchesProfessional = filters.professionalId === "todos" || patient.profissionalId === filters.professionalId;
     return matchesSearch && matchesStatus && matchesProfessional;
   });
+
+  async function handleSendMsg() {
+    if (!msgPatient || !msgText.trim()) return;
+    setSendingMsg(true);
+    setMsgFeedback(null);
+    try {
+      const phone = msgPatient.whatsapp.replace(/\D/g, "");
+      const normalized = phone.startsWith("55") ? phone : `55${phone}`;
+      await sendWhatsAppText(DEFAULT_INSTANCE_NAME, normalized, msgText.trim());
+      setMsgFeedback({ ok: true, text: "Mensagem enviada com sucesso!" });
+      setMsgText("");
+    } catch (e) {
+      setMsgFeedback({ ok: false, text: e instanceof Error ? e.message : "Erro ao enviar mensagem." });
+    } finally {
+      setSendingMsg(false);
+    }
+  }
 
   if (selectedPatient) {
     return (
@@ -69,7 +98,11 @@ export function PatientsPanel({
         >
           ← Voltar para lista de pacientes
         </button>
-        <ProntuarioTimeline patient={selectedPatient} professionals={professionals} />
+        <ProntuarioTimeline
+          clinicId={clinicId}
+          patient={selectedPatient}
+          professionals={professionals}
+        />
       </div>
     );
   }
@@ -176,7 +209,21 @@ export function PatientsPanel({
             <tr className="border-b border-surface-variant hover:bg-teal-50" key={patient.id}>
               <td className="px-4 py-3 font-medium">{patient.nome}</td>
               {!readonly ? <td className="px-4 py-3">{patient.cpf ?? "-"}</td> : null}
-              <td className="px-4 py-3">{patient.whatsapp}</td>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span>{patient.whatsapp}</span>
+                  {patient.whatsapp && (
+                    <button
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 transition"
+                      title={`Enviar mensagem para ${patient.nome}`}
+                      type="button"
+                      onClick={() => { setMsgPatient(patient); setMsgText(""); setMsgFeedback(null); }}
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </td>
               {!readonly ? <td className="px-4 py-3">{patient.endereco ?? "-"}</td> : null}
               <td className="px-4 py-3"><StatusPill value={patient.status} /></td>
               {readonly ? (
@@ -223,6 +270,66 @@ export function PatientsPanel({
             </tr>
           ))}
         </RefinedTable>
+      )}
+
+      {/* ── Modal envio rápido WhatsApp ─────────────────────────────────────── */}
+      {msgPatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-surface shadow-xl">
+            <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
+              <div>
+                <h3 className="font-bold text-on-surface">Enviar mensagem</h3>
+                <p className="text-sm text-on-surface-variant">
+                  {msgPatient.nome} · {msgPatient.whatsapp}
+                </p>
+              </div>
+              <button
+                className="rounded p-1 hover:bg-surface-container-low"
+                type="button"
+                onClick={() => { setMsgPatient(null); setMsgFeedback(null); }}
+              >
+                <X className="h-5 w-5 text-on-surface-variant" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              {msgFeedback && (
+                <div className={`rounded-lg px-4 py-2.5 text-sm font-medium ${msgFeedback.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                  {msgFeedback.text}
+                </div>
+              )}
+              <Field label="Mensagem">
+                <textarea
+                  className={`${inputClass()} resize-none`}
+                  rows={4}
+                  value={msgText}
+                  onChange={e => setMsgText(e.target.value)}
+                  placeholder={`Olá, ${msgPatient.nome.split(" ")[0]}! Aqui é da Análise Saúde...`}
+                  disabled={sendingMsg}
+                />
+              </Field>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-outline-variant px-5 py-4">
+              <button
+                className="rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low"
+                type="button"
+                onClick={() => { setMsgPatient(null); setMsgFeedback(null); }}
+              >
+                Fechar
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1ebe5d] disabled:opacity-50"
+                disabled={sendingMsg || !msgText.trim()}
+                type="button"
+                onClick={() => void handleSendMsg()}
+              >
+                {sendingMsg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </SectionCard>
   );
