@@ -10,7 +10,7 @@ export function Patients({ patients = [] }: PatientsProps) {
   return (
     <SectionCard title="Pacientes">
       {patients.length === 0 ? (
-        <EmptyState title="Nenhum paciente" message="Pacientes criados pelo agendamento ou admin aparecerao aqui." />
+        <EmptyState title="Nenhum paciente" message="Pacientes criados pelo agendamento ou admin aparecerão aqui." />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {patients.map((patient) => (

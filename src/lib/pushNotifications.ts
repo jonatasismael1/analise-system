@@ -10,7 +10,7 @@ export async function requestPushPermission(clinicaId: string, userId: string) {
     return false;
   }
 
-  const registration = await navigator.serviceWorker.ready;
+  await navigator.serviceWorker.ready;
   
   // VAPID public key would go here in a real implementation
   // const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;

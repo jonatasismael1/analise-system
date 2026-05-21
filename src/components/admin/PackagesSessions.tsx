@@ -10,7 +10,7 @@ export function PackagesSessions({ packages = [] }: PackagesSessionsProps) {
   return (
     <SectionCard title="Pacotes & Sessões">
       {packages.length === 0 ? (
-        <EmptyState title="Nenhum pacote" message="Pacotes ativos ficarao listados aqui." />
+        <EmptyState title="Nenhum pacote" message="Pacotes ativos ficarão listados aqui." />
       ) : (
         <div className="space-y-3">
           {packages.map((sessionPackage) => {

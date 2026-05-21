@@ -1,10 +1,10 @@
-# Clinic Pro
+# Análise Saúde System
 
 Sistema SaaS para clínicas acompanharem agenda, pacientes, financeiro, pacotes, acessos e oportunidades de crescimento em um único painel.
 
 ## Visão geral
 
-O Clinic Pro é uma aplicação React com Supabase voltada para operação diária de clínicas. O painel administrativo concentra agenda, profissionais, serviços, pacientes, Kanban, financeiro, pacotes de sessões, relatórios, acessos e sugestões comerciais.
+Análise Saúde System é uma aplicação React com Supabase voltada para a operação diária da clínica Análise Saúde. O painel administrativo concentra agenda, profissionais, serviços, pacientes, Kanban, financeiro, caixa, WhatsApp, leads, acessos e apoio operacional com Deby AI.
 
 ## Stack
 

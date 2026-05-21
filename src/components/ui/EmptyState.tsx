@@ -1,14 +1,20 @@
 export interface EmptyStateProps {
   readonly title: string;
   readonly message: string;
+  readonly icon?: string;
 }
 
-export function EmptyState({ title, message }: EmptyStateProps) {
+export function EmptyState({ title, message, icon = "inbox" }: EmptyStateProps) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/80 p-6 text-center">
-      <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-primary/70" />
-      <p className="font-semibold text-slate-800">{title}</p>
-      <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">{message}</p>
+    <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+      <span
+        className="material-symbols-outlined select-none text-ink-muted"
+        style={{ fontSize: "40px", fontVariationSettings: '"FILL" 0, "wght" 300' }}
+      >
+        {icon}
+      </span>
+      <p className="text-[15px] font-semibold text-ink">{title}</p>
+      <p className="mx-auto max-w-[280px] text-[13px] leading-relaxed text-ink-secondary">{message}</p>
     </div>
   );
 }

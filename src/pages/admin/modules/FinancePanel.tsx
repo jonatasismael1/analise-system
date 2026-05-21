@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Check, Copy, Trash2 } from "lucide-react";
+import { Bot, Check, Copy, Trash2 } from "lucide-react";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
 import { brl, todayISO } from "../../../lib/formatters";
+import { askDeby } from "../../../services/debyService";
 import type { FinanceEntry, Professional, Service } from "../../../types/clinic";
 import ExportPage from "../../ExportPage";
 import { Field, inputClass } from "../components/Field";
@@ -43,7 +44,6 @@ function decisionTone(percent: number): { tone: "success" | "warning" | "danger"
 
 export function FinancePanel({
   entries,
-  kpis,
   onPayment,
   onExpense,
   onUpdatePayment,
@@ -53,7 +53,8 @@ export function FinancePanel({
   professionals,
   services,
   clinicaNome,
-  clinicaCnpj
+  clinicaCnpj,
+  clinicId
 }: {
   readonly entries: FinanceEntry[];
   readonly kpis: { revenue: number; expenses: number; profit: number; overdue: number; forecast: number };
@@ -67,12 +68,14 @@ export function FinancePanel({
   readonly services: Service[];
   readonly clinicaNome: string;
   readonly clinicaCnpj?: string;
+  readonly clinicId: string;
 }) {
   const [activeTab, setActiveTab] = useState<"lancamentos" | "exportar">("lancamentos");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentForm>({ id: "", descricao: "", valor: 180, status: "pago", formaPagamento: "manual", data: todayISO(), profissionalId: "", servicoId: "" });
   const [expense, setExpense] = useState<ExpenseForm>({ id: "", descricao: "", valor: 90, categoria: "Operacional", status: "pendente", data: todayISO() });
   const [filters, setFilters] = useState({ search: "", status: "todos", tipo: "todos" });
+  const [debyOutput, setDebyOutput] = useState("");
 
   const filteredEntries = entries.filter((entry) => {
     const matchesSearch = entry.descricao.toLowerCase().includes(filters.search.toLowerCase());
@@ -131,6 +134,26 @@ export function FinancePanel({
     setExpense({ id: "", descricao: "", valor: 90, categoria: "Operacional", status: "pendente", data: todayISO() });
   }
 
+  async function analyzeFinanceWithDeby() {
+    const lines = entries.slice(0, 80).map((entry) => `${entry.data ?? "-"} | ${entry.tipo ?? "pagamento"} | ${entry.status} | ${entry.descricao} | ${brl.format(entry.valor)}`).join("\n");
+    const output = await askDeby({
+      clinicId,
+      action: "finance_insights",
+      module: "financeiro",
+      text: [
+        `Clínica: ${clinicaNome}`,
+        `Receita realizada: ${brl.format(decision.realized)}`,
+        `Receita prevista: ${brl.format(decision.forecast)}`,
+        `Despesas: ${brl.format(decision.expenses)}`,
+        `Lucro: ${brl.format(decision.profit)}`,
+        `Inadimplência: ${brl.format(decision.overdue)}`,
+        "Lançamentos recentes:",
+        lines
+      ].join("\n")
+    });
+    setDebyOutput(output);
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex border-b border-surface-variant">
@@ -179,6 +202,14 @@ export function FinancePanel({
                 <p className="mt-1 text-sm text-secondary">Previsto menos despesas registradas.</p>
               </div>
             </div>
+          </SectionCard>
+
+          <SectionCard title="Deby AI no financeiro" description="Insights administrativos restritos ao admin.">
+            <button className="inline-flex items-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium hover:border-primary hover:text-primary" type="button" onClick={() => void analyzeFinanceWithDeby()}>
+              <Bot className="h-4 w-4" />
+              Analisar caixa
+            </button>
+            {debyOutput ? <div className="mt-3 whitespace-pre-wrap rounded-lg border border-teal-100 bg-teal-50 p-3 text-sm text-teal-950">{debyOutput}</div> : null}
           </SectionCard>
 
           <SectionCard title="Financeiro">

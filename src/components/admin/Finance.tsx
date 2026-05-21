@@ -10,7 +10,7 @@ export function Finance({ entries = [] }: FinanceProps) {
   return (
     <SectionCard title="Financeiro">
       {entries.length === 0 ? (
-        <EmptyState title="Sem registros financeiros" message="Pagamentos e despesas serao conectados em fase propria." />
+        <EmptyState title="Sem registros financeiros" message="Pagamentos e despesas serão conectados em fase própria." />
       ) : (
         <div className="space-y-3">
           {entries.map((entry) => (

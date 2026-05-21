@@ -10,7 +10,7 @@ export function Appointments({ appointments = [] }: AppointmentsProps) {
   return (
     <SectionCard title="Agendamentos">
       {appointments.length === 0 ? (
-        <EmptyState title="Sem agendamentos" message="Novos agendamentos aparecerao nesta lista." />
+        <EmptyState title="Sem agendamentos" message="Novos agendamentos aparecerão nesta lista." />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-left text-sm">

@@ -153,8 +153,8 @@ export function BookingPage() {
     <div className="flex min-h-screen flex-col bg-background text-on-surface">
       <header className="sticky top-0 z-50 w-full border-b border-surface-variant bg-white px-6 py-4">
         <div className="mx-auto flex max-w-[800px] items-center justify-center">
-          <img src="/logo-clinic-pro.png" alt="Clinic Pro" className="h-10 w-auto mr-3" />
-          <h1 className="text-2xl font-semibold">{clinic?.nome ?? "Clinic Pro - Matriz"}</h1>
+          <img src="/logo-analise.png" alt="Análise Saúde System" className="h-10 w-auto mr-3" />
+          <h1 className="text-2xl font-semibold">{clinic?.nome ?? "Análise Saúde"}</h1>
         </div>
       </header>
       <main className="flex flex-1 justify-center px-5 py-8">
@@ -217,8 +217,8 @@ export function BookingPage() {
         </form>
       </main>
       <footer className="flex flex-col items-center justify-between gap-4 border-t border-surface-variant bg-surface-container-low px-6 py-8 text-sm text-secondary md:flex-row">
-        <div className="text-lg font-bold text-on-surface">Clinic Pro</div>
-        <div>© 2026 Clinic Pro SaaS. Sistema de Precisão Clínica.</div>
+        <div className="text-lg font-bold text-on-surface">Análise Saúde System</div>
+        <div>© 2026 Análise Saúde. Sistema operacional interno da clínica.</div>
       </footer>
     </div>
   );

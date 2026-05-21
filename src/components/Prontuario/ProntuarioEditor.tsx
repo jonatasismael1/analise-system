@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Bold, Italic, List, Check, X, Link } from "lucide-react";
+import { Bold, Italic, List, Check, X } from "lucide-react";
 
 export interface ProntuarioData {
   id?: string;

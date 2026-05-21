@@ -5,3 +5,4 @@ dist
 .mcp.json
 vite-dev*.log
 .DS_Store
+.vscode/

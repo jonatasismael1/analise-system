@@ -1,5 +1,5 @@
 import { onlyDigits } from "./formatters";
-import type { Appointment, FinanceEntry, Patient } from "../types/clinic";
+import type { FinanceEntry, Patient } from "../types/clinic";
 
 export type ValidationResult = {
   valid: boolean;
