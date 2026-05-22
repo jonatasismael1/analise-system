@@ -389,7 +389,7 @@ export function AIPanel(props: AIPanelProps) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-[rgba(21,168,152,0.12)] bg-surface p-5 shadow-card">
+      <div className="rounded-3xl border border-border bg-surface p-5 shadow-card md:p-6">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-wash text-primary">
             <HeaderIcon className="h-5 w-5" />

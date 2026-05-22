@@ -37,7 +37,7 @@ export function ConfirmDialog() {
       onClick={() => answer(false)}
     >
       <div
-        className="relative w-full max-w-sm rounded-xl border border-danger/20 bg-surface p-6 shadow-modal"
+        className="relative w-full max-w-sm rounded-3xl border border-danger/20 bg-surface p-6 shadow-modal"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -61,14 +61,14 @@ export function ConfirmDialog() {
 
         <div className="mt-5 flex justify-end gap-2">
           <button
-            className="h-9 rounded-lg border border-border-strong bg-surface px-4 text-[13px] font-medium text-ink-secondary transition hover:bg-surface-low"
+            className="h-9 rounded-2xl border border-border-strong bg-surface px-4 text-[13px] font-medium text-ink-secondary transition hover:bg-surface-low"
             onClick={() => answer(false)}
             type="button"
           >
             Cancelar
           </button>
           <button
-            className="h-9 rounded-lg bg-danger px-4 text-[13px] font-semibold text-white transition hover:bg-danger/90 active:-translate-y-px"
+            className="h-9 rounded-2xl bg-danger px-4 text-[13px] font-semibold text-white transition hover:bg-red-600 active:-translate-y-px"
             onClick={() => answer(true)}
             type="button"
           >

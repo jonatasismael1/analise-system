@@ -94,10 +94,10 @@ export function AdminPage() {
   if (!role) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-canvas px-6">
-        <div className="max-w-md rounded-lg border border-danger/20 bg-surface p-6 text-center shadow-card">
+        <div className="max-w-md rounded-3xl border border-danger/20 bg-surface p-6 text-center shadow-card">
           <h1 className="text-lg font-bold text-ink">Acesso não autorizado</h1>
           <p className="mt-2 text-sm text-ink-secondary">Seu usuário não tem um perfil ativo nesta clínica. Entre em contato com o administrador.</p>
-          <button className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white" onClick={() => void logout()} type="button">
+          <button className="mt-4 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-dark" onClick={() => void logout()} type="button">
             Voltar para login
           </button>
         </div>
@@ -106,15 +106,25 @@ export function AdminPage() {
   }
 
   return (
-    <AdminShell activeModule={activeModule} onModuleChange={changeModule} modules={[...visibleModules]} onLogout={logout} clinicaId={clinic.id} noPadding={activeModule === "WhatsApp"}>
+    <AdminShell
+      activeModule={activeModule}
+      onModuleChange={changeModule}
+      modules={[...visibleModules]}
+      onLogout={logout}
+      clinicaId={clinic.id}
+      noPadding={activeModule === "WhatsApp"}
+      clinicName={clinic.nome ?? "Análise Saúde"}
+      userRole={role ?? undefined}
+    >
       {activeModule !== "WhatsApp" && (
-        <div className="mb-6 overflow-hidden rounded-lg border border-[rgba(21,168,152,0.12)] bg-surface shadow-card">
-          <div className="h-[3px] w-full bg-primary" />
-          <div className="flex flex-col justify-between gap-4 px-5 py-4 md:flex-row md:items-center">
+        <div className="mb-6 rounded-3xl border border-border bg-surface p-5 shadow-card md:p-6">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Análise Saúde System</p>
-              <h1 className="mt-0.5 text-[22px] font-bold leading-tight tracking-tight text-ink">{activeModule}</h1>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-secondary">
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                Análise Saúde System
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{activeModule}</h1>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
                 <span>{clinic.nome ?? "Análise Saúde"}</span>
                 <span className="text-ink-muted">·</span>
                 <span className="capitalize">{role}</span>
@@ -126,11 +136,11 @@ export function AdminPage() {
               </div>
             </div>
             <button
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 text-[12.5px] font-medium text-ink-secondary transition hover:bg-surface-low active:-translate-y-px"
+              className="inline-flex h-9 items-center gap-1.5 rounded-2xl border border-border-strong bg-surface px-4 text-sm font-medium text-ink-secondary transition hover:bg-surface-low active:-translate-y-px"
               onClick={() => void data.reload()}
               type="button"
             >
-              <RefreshCcw className="h-3 w-3" />
+              <RefreshCcw className="h-3.5 w-3.5" />
               Atualizar
             </button>
           </div>

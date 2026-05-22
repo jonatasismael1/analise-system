@@ -5,59 +5,64 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: "#F3F6F5",
+        // Design 2.0 — paleta azul/slate profissional
+        canvas: "#f8fafc",        // slate-50 — fundo principal
         surface: {
-          DEFAULT: "#FFFFFF",
-          low: "#EDF1F0",
+          DEFAULT: "#ffffff",
+          low: "#f1f5f9",         // slate-100
         },
-        sidebar: "#192827",
-        "sidebar-hover": "#243D3B",
+        sidebar: "#ffffff",        // sidebar limpa branca
+        "sidebar-hover": "#f8fafc",
         ink: {
-          DEFAULT: "#1A2B2A",
-          secondary: "#4E6A68",
-          muted: "#7A9490",
+          DEFAULT: "#0f172a",     // slate-900
+          secondary: "#475569",   // slate-600
+          muted: "#94a3b8",       // slate-400
         },
         primary: {
-          DEFAULT: "#15A898",
-          dark: "#0D7A6D",
-          wash: "#E4F5F3",
-          bright: "#1DC9B5",
+          DEFAULT: "#2563eb",     // blue-600
+          dark: "#1d4ed8",        // blue-700
+          wash: "#eff6ff",        // blue-50
+          bright: "#3b82f6",      // blue-500
         },
         danger: {
-          DEFAULT: "#C84A3C",
-          wash: "#FEF0EE",
-          border: "#F5C4BE",
+          DEFAULT: "#ef4444",     // red-500
+          wash: "#fee2e2",        // red-100
+          border: "#fecaca",      // red-200
         },
         success: {
-          DEFAULT: "#2B7A50",
-          wash: "#E6F4EC",
+          DEFAULT: "#22c55e",     // green-500
+          wash: "#dcfce7",        // green-100
         },
         warning: {
-          DEFAULT: "#B8710F",
-          wash: "#FEF5E4",
+          DEFAULT: "#f59e0b",     // amber-500
+          wash: "#fef3c7",        // amber-100
+        },
+        info: {
+          DEFAULT: "#0ea5e9",     // sky-500
+          wash: "#e0f2fe",        // sky-100
         },
         border: {
-          DEFAULT: "rgba(21, 168, 152, 0.12)",
-          strong: "#C4D4D1",
-          divider: "#EDF1F0",
+          DEFAULT: "#e2e8f0",     // slate-200
+          strong: "#cbd5e1",      // slate-300
+          divider: "#f1f5f9",     // slate-100
         },
-        // Aliases de compatibilidade para componentes existentes que usam tokens antigos
-        background: "#F3F6F5",
+        // Aliases de compatibilidade para componentes existentes
+        background: "#f8fafc",
         "surface-container-lowest": "#ffffff",
-        "surface-container-low": "#EDF1F0",
-        "surface-container": "#E8ECEA",
-        "surface-container-high": "#DFE5E3",
-        "surface-variant": "#D4DCDA",
-        "on-surface": "#1A2B2A",
-        "on-surface-variant": "#4E6A68",
-        outline: "#7A9490",
-        "outline-variant": "#C4D4D1",
-        secondary: "#4E6A68",
-        error: "#C84A3C",
-        "error-container": "#FEF0EE",
+        "surface-container-low": "#f1f5f9",
+        "surface-container": "#e2e8f0",
+        "surface-container-high": "#cbd5e1",
+        "surface-variant": "#cbd5e1",
+        "on-surface": "#0f172a",
+        "on-surface-variant": "#475569",
+        outline: "#94a3b8",
+        "outline-variant": "#cbd5e1",
+        secondary: "#475569",
+        error: "#ef4444",
+        "error-container": "#fee2e2",
       },
       fontFamily: {
-        sans: ["Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       borderRadius: {
@@ -67,16 +72,18 @@ export default {
         lg: "12px",
         xl: "14px",
         "2xl": "18px",
+        "3xl": "24px",
+        "4xl": "32px",
       },
       boxShadow: {
-        card: "0 1px 4px rgba(25, 40, 39, 0.06)",
-        modal: "0 20px 60px rgba(25, 40, 39, 0.22)",
-        sidebar: "2px 0 12px rgba(0, 0, 0, 0.15)",
-        toast: "0 8px 24px rgba(25, 40, 39, 0.28)",
-        "primary-press": "0 3px 8px rgba(21, 168, 152, 0.25)",
-        // Aliases de compatibilidade
-        clinical: "0 1px 4px rgba(25, 40, 39, 0.06)",
-        modal_old: "0 20px 60px rgba(25, 40, 39, 0.22)",
+        card: "0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)",
+        modal: "0 20px 60px rgba(15, 23, 42, 0.18)",
+        sidebar: "1px 0 0 #e2e8f0",
+        toast: "0 8px 24px rgba(15, 23, 42, 0.18)",
+        "primary-press": "0 3px 8px rgba(37, 99, 235, 0.25)",
+        // aliases de compatibilidade
+        clinical: "0 1px 3px rgba(15, 23, 42, 0.06)",
+        modal_old: "0 20px 60px rgba(15, 23, 42, 0.18)",
       },
       animation: {
         shimmer: "shimmer 1.4s ease-in-out infinite",

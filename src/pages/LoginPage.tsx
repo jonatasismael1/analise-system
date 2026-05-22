@@ -1,13 +1,20 @@
 import { FormEvent, useState } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, CalendarDays, CreditCard, Loader2, MessageCircle, Stethoscope } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { allowPublicSignup } from "../lib/appConfig";
 
 const inputClass =
-  "w-full rounded-md border border-border-strong bg-surface px-3.5 py-2.5 text-[14px] text-ink outline-none transition-all duration-150 placeholder:text-ink-muted focus:border-primary focus:shadow-[0_0_0_3px_rgba(21,168,152,0.15)]";
+  "w-full rounded-2xl border border-border-strong bg-surface px-4 py-2.5 text-sm text-ink outline-none transition-all duration-150 placeholder:text-ink-muted focus:border-blue-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(37,99,235,0.10)]";
 
-const labelClass = "mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-ink-secondary";
+const labelClass = "mb-1.5 block text-sm font-medium text-ink";
+
+const features = [
+  { icon: CalendarDays, label: "Agenda médica inteligente" },
+  { icon: Stethoscope, label: "Prontuário eletrônico" },
+  { icon: CreditCard, label: "Financeiro e caixa" },
+  { icon: MessageCircle, label: "WhatsApp integrado" },
+];
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -57,30 +64,38 @@ export function LoginPage() {
   const isLoading = formLoading || authLoading;
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-canvas px-4">
-      {/* Split layout: esquerda institucional, direita formulário */}
-      <div className="grid w-full max-w-[900px] overflow-hidden rounded-xl border border-[rgba(21,168,152,0.12)] shadow-modal md:grid-cols-[1fr_1fr]">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-canvas px-4 py-8">
+      <div className="grid w-full max-w-[920px] overflow-hidden rounded-3xl border border-border shadow-modal md:grid-cols-[1fr_1fr]">
 
         {/* Painel esquerdo — identidade da marca */}
-        <div className="hidden flex-col justify-between bg-sidebar p-10 md:flex">
+        <div
+          className="hidden flex-col justify-between p-10 md:flex"
+          style={{
+            background: "linear-gradient(135deg, #1e40af 0%, #2563eb 45%, #3b82f6 100%)",
+          }}
+        >
           <div>
-            <img src="/logo-analise.png" alt="Análise Saúde System" className="h-12 w-auto" />
+            <img src="/logo-analise.png" alt="Análise Saúde System" className="h-10 w-auto brightness-0 invert" />
             <div className="mt-8">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7A9490]">Sistema clínico</p>
-              <h1 className="mt-2 text-[28px] font-bold leading-tight tracking-tight text-[#E4F5F3]">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-200">
+                Sistema clínico
+              </p>
+              <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-white">
                 Análise Saúde<br />System
               </h1>
-              <p className="mt-4 text-[14px] leading-relaxed text-[#7A9490]">
+              <p className="mt-4 text-sm leading-relaxed text-blue-100">
                 Gestão clínica integrada para secretárias, médicos e administração.
               </p>
             </div>
           </div>
 
           <div className="space-y-3">
-            {["Agenda médica inteligente", "Prontuário eletrônico", "Financeiro e caixa", "WhatsApp integrado"].map((item) => (
-              <div key={item} className="flex items-center gap-2.5">
-                <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1DC9B5]" />
-                <span className="text-[12.5px] text-[#8AA5A0]">{item}</span>
+            {features.map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-3">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                  <Icon className="h-3.5 w-3.5 text-white" />
+                </div>
+                <span className="text-sm text-blue-100">{label}</span>
               </div>
             ))}
           </div>
@@ -89,13 +104,14 @@ export function LoginPage() {
         {/* Painel direito — formulário */}
         <div className="bg-surface px-8 py-10">
           <div className="mb-8">
-            {/* Logo apenas no mobile */}
-            <img src="/logo-analise.png" alt="Análise Saúde" className="mb-6 h-10 w-auto md:hidden" />
-            <h2 className="text-[18px] font-bold tracking-tight text-ink">
+            <img src="/logo-analise.png" alt="Análise Saúde" className="mb-6 h-9 w-auto md:hidden" />
+            <h2 className="text-xl font-semibold tracking-tight text-ink">
               {isRegistering ? "Criar conta" : "Bem-vindo de volta"}
             </h2>
-            <p className="mt-1 text-[13px] text-ink-secondary">
-              {isRegistering ? "Preencha os dados para cadastrar sua clínica." : "Acesse o painel com suas credenciais."}
+            <p className="mt-1 text-sm text-ink-secondary">
+              {isRegistering
+                ? "Preencha os dados para cadastrar sua clínica."
+                : "Acesse o painel com suas credenciais."}
             </p>
           </div>
 
@@ -142,25 +158,25 @@ export function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-md border border-danger-border bg-danger-wash px-3.5 py-2.5 text-[13px] font-medium text-danger">
+              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {error}
               </div>
             )}
 
             {showNoClinicError && (
-              <div className="rounded-md border border-amber-200 bg-warning-wash px-3.5 py-2.5 text-[13px] font-medium text-warning">
+              <div className="rounded-2xl border border-yellow-100 bg-yellow-50 px-4 py-3 text-sm font-medium text-yellow-700">
                 Usuário autenticado, mas nenhuma clínica encontrada. Entre em contato com o suporte.
               </div>
             )}
 
             {!allowPublicSignup && (
-              <div className="rounded-md border border-border-strong bg-surface-low px-3.5 py-2.5 text-[13px] text-ink-secondary">
+              <div className="rounded-2xl border border-border-strong bg-surface-low px-4 py-3 text-sm text-ink-secondary">
                 Acesso exclusivo para clínicas cadastradas.
               </div>
             )}
 
             <button
-              className="group mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-primary py-3 text-[14px] font-semibold text-white transition-all duration-150 hover:bg-primary-dark active:-translate-y-px active:shadow-primary-press disabled:opacity-60"
+              className="group mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-primary-dark active:-translate-y-px active:shadow-primary-press disabled:opacity-60"
               disabled={isLoading}
               type="submit"
             >
@@ -178,7 +194,7 @@ export function LoginPage() {
           {allowPublicSignup ? (
             <div className="mt-6 text-center">
               <button
-                className="text-[12.5px] font-medium text-ink-secondary transition hover:text-primary"
+                className="text-sm font-medium text-ink-secondary transition hover:text-primary"
                 onClick={() => {
                   setIsRegistering(!isRegistering);
                   setError(null);

@@ -1,50 +1,48 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* Superfícies */
-  --color-canvas: #F3F6F5;
-  --color-surface: #FFFFFF;
-  --color-surface-low: #EDF1F0;
-  --color-sidebar: #192827;
-  --color-sidebar-hover: #243D3B;
+  /* Superfícies — design 2.0 */
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-low: #f1f5f9;
+  --color-sidebar: #ffffff;
+  --color-sidebar-hover: #f8fafc;
 
   /* Tipografia */
-  --color-ink: #1A2B2A;
-  --color-ink-secondary: #4E6A68;
-  --color-ink-muted: #7A9490;
+  --color-ink: #0f172a;
+  --color-ink-secondary: #475569;
+  --color-ink-muted: #94a3b8;
 
   /* Bordas */
-  --color-border: rgba(21, 168, 152, 0.12);
-  --color-border-strong: #C4D4D1;
-  --color-divider: #EDF1F0;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-divider: #f1f5f9;
 
-  /* Acento único — teal da marca */
-  --color-primary: #15A898;
-  --color-primary-dark: #0D7A6D;
-  --color-primary-wash: #E4F5F3;
-  --color-primary-sidebar: #1DC9B5;
+  /* Primário — azul médico profissional */
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-wash: #eff6ff;
+  --color-primary-sidebar: #3b82f6;
 
   /* Estados semânticos */
-  --color-danger: #C84A3C;
-  --color-danger-wash: #FEF0EE;
-  --color-danger-border: #F5C4BE;
-  --color-success: #2B7A50;
-  --color-success-wash: #E6F4EC;
-  --color-warning: #B8710F;
-  --color-warning-wash: #FEF5E4;
+  --color-danger: #ef4444;
+  --color-danger-wash: #fee2e2;
+  --color-danger-border: #fecaca;
+  --color-success: #22c55e;
+  --color-success-wash: #dcfce7;
+  --color-warning: #f59e0b;
+  --color-warning-wash: #fef3c7;
 
   /* Sombras */
-  --shadow-card: 0 1px 4px rgba(25, 40, 39, 0.06);
-  --shadow-modal: 0 20px 60px rgba(25, 40, 39, 0.22);
-  --shadow-sidebar: 2px 0 12px rgba(0, 0, 0, 0.15);
-  --shadow-toast: 0 8px 24px rgba(25, 40, 39, 0.28);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.18);
+  --shadow-sidebar: 1px 0 0 #e2e8f0;
+  --shadow-toast: 0 8px 24px rgba(15, 23, 42, 0.18);
 
-  color: #1A2B2A;
-  background: #F3F6F5;
+  color: #0f172a;
+  background: #f8fafc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -54,18 +52,18 @@
 body {
   margin: 0;
   min-width: 320px;
-  font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif;
-  background: #F3F6F5;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background: #f8fafc;
 }
 
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #15A898;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #2563eb;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #9fb5b1 transparent;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 *::-webkit-scrollbar {
@@ -74,7 +72,7 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #9fb5b1;
+  background: #cbd5e1;
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
@@ -102,7 +100,7 @@ body {
 }
 
 .chat-bg {
-  background-color: #f8f9ff;
-  background-image: radial-gradient(#bcc9c8 0.5px, transparent 0.5px);
+  background-color: #f0f9ff;
+  background-image: radial-gradient(#bae6fd 0.5px, transparent 0.5px);
   background-size: 24px 24px;
 }

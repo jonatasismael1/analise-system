@@ -67,19 +67,19 @@ function buildReceitaHTML(patient: Patient, professional: Professional | undefin
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; background: #fff; color: #1a1a1a; }
     .page { max-width: 720px; margin: 0 auto; padding: 40px; }
-    .header { display: flex; align-items: center; gap: 20px; border-bottom: 3px solid #15A898; padding-bottom: 20px; margin-bottom: 28px; }
+    .header { display: flex; align-items: center; gap: 20px; border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 28px; }
     .header img { height: 64px; object-fit: contain; }
-    .header-info h1 { font-size: 22px; color: #15A898; font-weight: 800; }
+    .header-info h1 { font-size: 22px; color: #2563eb; font-weight: 800; }
     .header-info p { font-size: 13px; color: #666; margin-top: 4px; }
-    .doc-title { font-size: 18px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 2px; color: #192827; margin-bottom: 24px; }
-    .meta { background: #F3F6F5; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .doc-title { font-size: 18px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 2px; color: #0f172a; margin-bottom: 24px; }
+    .meta { background: #f8fafc; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .meta-item label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #666; display: block; margin-bottom: 2px; }
     .meta-item span { font-size: 14px; color: #1a1a1a; font-weight: 600; }
     .section { margin-bottom: 20px; }
-    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #15A898; border-bottom: 1px solid #e0e0e0; padding-bottom: 6px; margin-bottom: 10px; }
+    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #2563eb; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px; }
     .section-body { font-size: 14px; line-height: 1.7; color: #333; background: #fafafa; border-radius: 6px; padding: 12px 16px; }
-    .footer { margin-top: 48px; padding-top: 20px; border-top: 2px solid #192827; display: flex; justify-content: space-between; align-items: flex-end; }
-    .footer-sig { font-size: 14px; font-weight: 700; color: #192827; }
+    .footer { margin-top: 48px; padding-top: 20px; border-top: 2px solid #0f172a; display: flex; justify-content: space-between; align-items: flex-end; }
+    .footer-sig { font-size: 14px; font-weight: 700; color: #0f172a; }
     .footer-reg { font-size: 12px; color: #666; margin-top: 4px; }
     .footer-line { font-size: 12px; color: #aaa; }
     @media print {

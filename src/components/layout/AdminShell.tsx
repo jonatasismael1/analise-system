@@ -12,6 +12,9 @@ import {
   LogOut,
   MessageCircle,
   Percent,
+  PanelLeft,
+  PanelLeftClose,
+  Search,
   Stethoscope,
   Users,
   Menu,
@@ -47,19 +50,35 @@ export interface AdminShellProps {
   readonly onLogout: () => void | Promise<void>;
   readonly clinicaId?: string;
   readonly noPadding?: boolean;
+  readonly clinicName?: string;
+  readonly userRole?: string;
 }
 
-export function AdminShell({ children, activeModule, modules, onModuleChange, onLogout, clinicaId, noPadding }: AdminShellProps) {
+export function AdminShell({
+  children,
+  activeModule,
+  modules,
+  onModuleChange,
+  onLogout,
+  clinicaId,
+  noPadding,
+  clinicName,
+  userRole,
+}: AdminShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const avatarInitial = clinicName ? clinicName.charAt(0).toUpperCase() : "A";
 
   return (
     <div className="min-h-[100dvh] bg-canvas text-ink md:flex">
       <OfflineBanner />
 
-      <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-white/10 bg-[#192827] px-4 md:hidden">
+      {/* ── Barra superior mobile ─────────────────────────── */}
+      <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-white/80 px-4 backdrop-blur-md md:hidden">
         <div className="flex items-center gap-2">
           <button
-            className="rounded-md p-1.5 text-white/60 transition hover:bg-white/[0.08] hover:text-white/90"
+            className="rounded-xl p-1.5 text-ink-muted transition hover:bg-surface-low hover:text-ink"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             type="button"
           >
@@ -67,75 +86,149 @@ export function AdminShell({ children, activeModule, modules, onModuleChange, on
           </button>
           <img src="/logo-analise.png" alt="Análise Saúde" className="ml-1 h-7 w-auto" />
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           {clinicaId && <NotificationBell clinicaId={clinicaId} />}
         </div>
       </div>
 
+      {/* ── Sidebar ───────────────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col bg-[#192827] shadow-[2px_0_12px_rgba(0,0,0,0.18)] transition-transform duration-300 md:translate-x-0 ${
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-white transition-all duration-300 ease-in-out md:translate-x-0 ${
+          isCollapsed ? "md:w-[72px]" : "md:w-72"
+        } w-72 ${isMobileMenuOpen ? "translate-x-0 shadow-xl" : "-translate-x-full md:translate-x-0"}`}
       >
-        <div className="flex h-14 items-center gap-3 px-5">
-          <img src="/logo-analise.png" alt="Análise Saúde System" className="h-8 w-auto" />
-          <div className="leading-none">
-            <p className="text-[13px] font-semibold text-[#E4F5F3]">Análise Saúde</p>
-            <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-white/40">System</p>
-          </div>
+        {/* Cabeçalho da sidebar */}
+        <div
+          className={`flex h-14 shrink-0 items-center border-b border-border-divider ${
+            isCollapsed ? "justify-center px-3" : "gap-3 px-4"
+          }`}
+        >
+          <img
+            src="/logo-analise.png"
+            alt="Análise Saúde System"
+            className={`shrink-0 w-auto ${isCollapsed ? "h-6" : "h-7"}`}
+          />
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1 leading-none">
+              <p className="truncate text-[13px] font-semibold text-ink">Análise Saúde</p>
+              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-ink-muted">
+                System
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="mx-4 h-px bg-white/[0.06]" />
-
-        <nav className="flex-1 overflow-y-auto py-3">
+        {/* Navegação */}
+        <nav className="flex-1 overflow-y-auto py-2">
           {modules.map((item) => {
             const Icon = iconByModule[item] ?? LayoutDashboard;
             const active = item === activeModule;
             return (
-              <button
-                className={`flex w-full items-center gap-2.5 py-2.5 pl-5 pr-4 text-left text-[13px] transition-all duration-150 min-h-[44px] md:min-h-0 ${
-                  active
-                    ? "border-l-[3px] border-[#1DC9B5] bg-[rgba(29,201,181,0.13)] pl-[17px] font-semibold text-white"
-                    : "border-l-[3px] border-transparent font-medium text-white/65 hover:bg-white/[0.08] hover:text-white/95"
-                }`}
-                key={item}
-                onClick={() => {
-                  onModuleChange(item);
-                  setIsMobileMenuOpen(false);
-                }}
-                type="button"
-              >
-                <Icon
-                  className={`h-4 w-4 shrink-0 ${active ? "text-[#1DC9B5]" : "text-white/40"}`}
-                />
-                <span className="truncate">{item}</span>
-              </button>
+              <div key={item} className="px-2 py-0.5">
+                <button
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-150 min-h-[44px] md:min-h-0 ${
+                    isCollapsed ? "justify-center" : ""
+                  } ${
+                    active
+                      ? "border border-blue-100 bg-blue-50 font-semibold text-blue-600"
+                      : "border border-transparent font-medium text-ink-secondary hover:bg-surface-low hover:text-ink"
+                  }`}
+                  onClick={() => {
+                    onModuleChange(item);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  title={isCollapsed ? item : undefined}
+                  type="button"
+                >
+                  <Icon
+                    className={`h-4 w-4 shrink-0 ${active ? "text-blue-600" : "text-ink-muted"}`}
+                  />
+                  {!isCollapsed && <span className="truncate">{item}</span>}
+                </button>
+              </div>
             );
           })}
         </nav>
 
-        <div className="border-t border-white/[0.06] p-3">
+        {/* Rodapé da sidebar */}
+        <div className="border-t border-border-divider p-2">
           <button
-            className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-[13px] font-medium text-white/50 transition duration-150 hover:bg-red-900/40 hover:text-red-300 min-h-[44px] md:min-h-0"
+            className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-medium text-ink-muted transition duration-150 hover:bg-red-50 hover:text-red-600 min-h-[44px] md:min-h-0 ${
+              isCollapsed ? "justify-center" : ""
+            }`}
             onClick={() => void onLogout()}
+            title={isCollapsed ? "Sair da conta" : undefined}
             type="button"
           >
             <LogOut className="h-4 w-4 shrink-0" />
-            Sair da conta
+            {!isCollapsed && <span>Sair da conta</span>}
           </button>
         </div>
       </aside>
 
+      {/* ── Botão toggle collapse (desktop) ───────────────── */}
+      <button
+        className={`fixed z-50 hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-white shadow-sm text-ink-muted hover:text-ink transition-all duration-300 top-[30px] ${
+          isCollapsed ? "left-[60px]" : "left-[260px]"
+        }`}
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        title={isCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
+        type="button"
+      >
+        {isCollapsed ? (
+          <PanelLeft className="h-3 w-3" />
+        ) : (
+          <PanelLeftClose className="h-3 w-3" />
+        )}
+      </button>
+
+      {/* ── Overlay mobile ────────────────────────────────── */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 z-30 bg-[rgba(25,40,39,0.6)] backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-30 bg-slate-900/30 backdrop-blur-sm md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
-      <main className="w-full min-h-[100dvh] pt-14 md:pl-[240px] md:pt-0">
+      {/* ── Área principal ────────────────────────────────── */}
+      <main
+        className={`w-full min-h-[100dvh] pt-14 transition-all duration-300 ease-in-out md:pt-0 ${
+          isCollapsed ? "md:pl-[72px]" : "md:pl-72"
+        }`}
+      >
+        {/* Header sticky desktop */}
+        <div className="sticky top-0 z-20 hidden md:flex h-14 items-center justify-between border-b border-border bg-white/70 px-6 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted pointer-events-none" />
+              <input
+                className="h-9 w-72 rounded-2xl border border-transparent bg-surface-low pl-9 pr-4 text-sm text-ink placeholder-ink-muted transition focus:border-blue-200 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
+                placeholder="Buscar paciente, agendamento..."
+                type="search"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {clinicName && (
+              <div className="text-right">
+                <p className="text-[13px] font-medium text-ink">{clinicName}</p>
+                {userRole && (
+                  <p className="text-[11px] capitalize text-ink-muted">{userRole}</p>
+                )}
+              </div>
+            )}
+            {clinicaId && <NotificationBell clinicaId={clinicaId} />}
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white shadow-sm">
+              {avatarInitial}
+            </div>
+          </div>
+        </div>
+
+        {/* Conteúdo da página */}
         {noPadding ? (
-          <div className="h-[calc(100dvh-3.5rem)] overflow-hidden md:h-[100dvh]">{children}</div>
+          <div className="h-[calc(100dvh-3.5rem)] overflow-hidden">
+            {children}
+          </div>
         ) : (
           <div className="mx-auto w-full max-w-[1300px] px-4 py-6 sm:px-6 lg:px-8">
             <div className="min-w-0">{children}</div>

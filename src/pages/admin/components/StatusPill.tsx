@@ -37,7 +37,7 @@ export function StatusPill({ value }: { readonly value: string }) {
   const label = STATUS_LABELS[value] ?? value.replace(/_/g, " ");
 
   return (
-    <span className={`inline-flex h-[22px] items-center rounded-full px-2.5 text-[11px] font-semibold leading-none ${tone}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium leading-none ${tone}`}>
       {label}
     </span>
   );
