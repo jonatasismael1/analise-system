@@ -434,7 +434,7 @@ export function PatientsPanel({
               </div>
 
               {/* Programa de desconto (edição — só para pacientes já cadastrados) */}
-              {form.id && programas.length > 0 && (
+              {form.id && (
                 <PatientProgramSection
                   clinicId={clinicId}
                   patientId={form.id}
@@ -566,15 +566,13 @@ export function PatientsPanel({
               )}
 
               {/* Programa de desconto (leitura) */}
-              {programas.length > 0 && (
-                <PatientProgramSection
-                  clinicId={clinicId}
-                  patientId={detailPatient.id}
-                  patients={patients}
-                  programas={programas}
-                  readonly={readonly}
-                />
-              )}
+              <PatientProgramSection
+                clinicId={clinicId}
+                patientId={detailPatient.id}
+                patients={patients}
+                programas={programas}
+                readonly={readonly}
+              />
             </div>
 
             {/* Footer actions */}

@@ -288,7 +288,7 @@ export function PatientProgramSection({
           </div>
           <p className="text-sm font-semibold text-ink">Programa de Desconto</p>
         </div>
-        {!readonly && !editing && (
+        {!readonly && !editing && programas.length > 0 && (
           membership ? (
             <button
               className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-ink-secondary transition hover:border-primary hover:text-primary"
@@ -368,6 +368,12 @@ export function PatientProgramSection({
                 </div>
               )}
             </div>
+          ) : programas.length === 0 ? (
+            <p className="text-sm text-ink-muted">
+              Nenhum programa cadastrado ainda. Acesse{" "}
+              <span className="font-medium text-ink">Programas de Descontos</span>{" "}
+              no menu para criar o primeiro.
+            </p>
           ) : (
             <p className="text-sm text-ink-muted">
               {readonly ? "Nenhum programa vinculado." : "Nenhum programa vinculado. Clique em \"+ Vincular\" para associar."}
