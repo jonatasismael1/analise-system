@@ -75,7 +75,7 @@ export function ServicesPanel({ services, professionals, onSave, onDelete, canMa
                   <button className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium transition hover:border-primary hover:text-primary" onClick={() => setForm({ id: service.id, nome: service.nome, duracaoMin: service.duracaoMin, preco: service.preco, profissionalId: service.profissionalId ?? "" })} type="button">
                     Editar
                   </button>
-                  <button aria-label={`Excluir serviço ${service.nome}`} className="rounded-lg p-1.5 text-secondary transition hover:bg-red-50 hover:text-error" onClick={() => { if (confirmDangerAction(`Tem certeza que deseja excluir este serviço ${service.nome}? Essa ação não pode ser desfeita.`)) void onDelete(service.id); }} type="button">
+                  <button aria-label={`Excluir serviço ${service.nome}`} className="rounded-lg p-1.5 text-secondary transition hover:bg-red-50 hover:text-error" onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este serviço ${service.nome}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) onDelete(service.id); })} type="button">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </td>

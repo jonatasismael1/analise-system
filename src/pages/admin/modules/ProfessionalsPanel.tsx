@@ -47,7 +47,7 @@ export function ProfessionalsPanel({ professionals, onSave, onDelete, onCreateAc
               </div>
               <div className="flex gap-2">
                 <button className="rounded border border-outline-variant px-2 py-1 text-xs" onClick={() => setForm({ id: professional.id, nome: professional.nome, especialidade: professional.especialidade, email: professional.email ?? "", senha: "", telefone: professional.telefone ?? "", registro: professional.registro ?? "", conselho: professional.conselho ?? "CRM", fotoUrl: professional.fotoUrl ?? "" })} type="button">Editar</button>
-                <button aria-label={`Excluir profissional ${professional.nome}`} className="rounded p-2 text-secondary hover:bg-red-50 hover:text-error" onClick={() => { if (confirmDangerAction(`Tem certeza que deseja excluir este profissional ${professional.nome}? Essa ação não pode ser desfeita.`)) void onDelete(professional.id); }} type="button"><Trash2 className="h-4 w-4" /></button>
+                <button aria-label={`Excluir profissional ${professional.nome}`} className="rounded p-2 text-secondary hover:bg-red-50 hover:text-error" onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este profissional ${professional.nome}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) onDelete(professional.id); })} type="button"><Trash2 className="h-4 w-4" /></button>
               </div>
             </article>
           ))}

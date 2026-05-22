@@ -473,7 +473,7 @@ export function OrcamentosPanel({
                       aria-label="Excluir orçamento"
                       className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition"
                       type="button"
-                      onClick={() => { if (confirmDangerAction(`Excluir orçamento de ${orc.pacienteNome}?`)) void onDelete(orc.id); }}
+                      onClick={() => void confirmDangerAction(`Excluir orçamento de ${orc.pacienteNome}?`).then((ok) => { if (ok) onDelete(orc.id); })}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

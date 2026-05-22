@@ -208,7 +208,7 @@ export function PatientsPanel({
         observacoes: "Importado em massa"
       };
     });
-    if (parsed.length > 0 && confirmDangerAction(`Tem certeza que deseja importar ${parsed.length} pacientes? Essa ação não pode ser desfeita automaticamente.`)) {
+    if (parsed.length > 0 && await confirmDangerAction(`Tem certeza que deseja importar ${parsed.length} pacientes? Essa ação não pode ser desfeita automaticamente.`)) {
       await onImportMassively(parsed);
     }
   }
@@ -332,11 +332,7 @@ export function PatientsPanel({
                     <button
                       aria-label={`Excluir paciente ${patient.nome}`}
                       className="rounded p-1.5 text-secondary transition hover:bg-red-50 hover:text-error"
-                      onClick={() => {
-                        if (confirmDangerAction(`Tem certeza que deseja excluir ${patient.nome}? Essa ação não pode ser desfeita.`)) {
-                          void onDelete(patient.id);
-                        }
-                      }}
+                      onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir ${patient.nome}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) onDelete(patient.id); })}
                       type="button"
                     >
                       <Trash2 className="h-4 w-4" />

@@ -238,7 +238,7 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
                   <button
                     aria-label={`Excluir agendamento de ${appointment.pacienteNome}`}
                     className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition"
-                    onClick={() => { if (confirmDangerAction(`Tem certeza que deseja excluir este agendamento de ${appointment.pacienteNome}? Essa ação não pode ser desfeita.`)) void onDelete(appointment.id); }}
+                    onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este agendamento de ${appointment.pacienteNome}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) onDelete(appointment.id); })}
                     type="button"
                   >
                     <Trash2 className="h-4 w-4" />

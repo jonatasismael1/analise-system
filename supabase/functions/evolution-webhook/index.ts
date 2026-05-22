@@ -17,6 +17,17 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ ok: false, error: "Use POST." }, 405);
 
+  // Verificação de autenticidade: a Evolution API deve enviar o secret no header
+  // Configurar WEBHOOK_SECRET nas secrets do Supabase Edge Functions e no webhook da Evolution API
+  const webhookSecret = Deno.env.get("WEBHOOK_SECRET");
+  if (webhookSecret) {
+    const receivedSecret = req.headers.get("x-webhook-token") ?? req.headers.get("x-evolution-secret") ?? "";
+    if (receivedSecret !== webhookSecret) {
+      console.warn("[evolution-webhook] token invalido recebido");
+      return jsonResponse({ ok: false, error: "Nao autorizado." }, 401);
+    }
+  }
+
   const url = new URL(req.url);
   const clinicId = url.searchParams.get("clinicId");
   if (!clinicId) return jsonResponse({ ok: false, error: "clinicId obrigatorio." }, 400);

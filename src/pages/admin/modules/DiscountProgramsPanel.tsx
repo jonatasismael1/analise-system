@@ -97,7 +97,7 @@ function ProgramaCard({
             aria-label="Excluir programa"
             className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition"
             type="button"
-            onClick={() => { if (confirmDangerAction(`Tem certeza que deseja excluir o programa "${programa.nome}"?`)) onDelete(programa.id); }}
+            onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir o programa "${programa.nome}"?`).then((ok) => { if (ok) onDelete(programa.id); })}
           >
             <Trash2 className="h-4 w-4" />
           </button>

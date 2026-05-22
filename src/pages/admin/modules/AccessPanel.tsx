@@ -53,7 +53,7 @@ export function AccessPanel({ users, professionals, onCreate, onSave, onDelete }
               <td className="px-4 py-3"><StatusPill value={user.ativo ? "ativo" : "inativo"} /></td>
               <td className="px-4 py-3 text-right">
                 <button className="mr-2 rounded border border-outline-variant px-2 py-1 text-xs" onClick={() => void onSave({ ...user, ativo: !user.ativo })} type="button">{user.ativo ? "Desativar" : "Ativar"}</button>
-                <button aria-label={`Excluir usuário ${user.nome}`} onClick={() => { if (confirmDangerAction(`Tem certeza que deseja excluir este usuário ${user.nome}? Essa ação não pode ser desfeita.`)) void onDelete(user.id); }} type="button"><Trash2 className="h-4 w-4" /></button>
+                <button aria-label={`Excluir usuário ${user.nome}`} onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este usuário ${user.nome}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) onDelete(user.id); })} type="button"><Trash2 className="h-4 w-4" /></button>
               </td>
             </tr>
           ))}

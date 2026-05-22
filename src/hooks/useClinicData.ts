@@ -11,6 +11,7 @@ import { isDemoMode, productionDataErrorMessage } from "../lib/appConfig";
 import { monthBounds } from "../lib/formatters";
 import { getErrorMessage } from "../lib/getErrorMessage";
 import { supabase } from "../lib/supabaseClient";
+import { toast } from "../lib/toast";
 import { validateAppointment, validateFinance, validatePatient } from "../lib/validation";
 import { deleteAppointmentRecord, saveAppointmentRecord } from "../services/appointmentService";
 import { createExpenseRecord, createPaymentRecord, deleteExpenseRecord, deletePaymentRecord, updateExpenseRecord, updatePaymentRecord } from "../services/financeService";
@@ -256,51 +257,45 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     const result = values.id
       ? await supabase.from("profissionais").update(payload).eq("id", values.id)
       : await supabase.from("profissionais").insert(payload);
-    if (result.error) setMessage(getErrorMessage(result.error));
-    else setMessage("Profissional salvo.");
+    if (result.error) toast.error(getErrorMessage(result.error));
+    else toast.success("Profissional salvo com sucesso.");
     await loadAll();
   }
 
   async function deleteProfessional(id: string) {
     const { error } = await supabase.from("profissionais").delete().eq("id", id);
-    setMessage(error ? getErrorMessage(error) : "Profissional removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Profissional removido.");
     await loadAll();
   }
 
   async function saveService(values: Pick<Service, "nome" | "duracaoMin" | "preco" | "profissionalId" | "ativo"> & { id?: string }) {
     if (!clinicId) return;
     const validation = validateFinance({ valor: values.preco, descricao: values.nome });
-    if (!validation.valid) {
-      setMessage(validation.message ?? "Revise os dados do serviço.");
-      return;
-    }
+    if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados do serviço."); return; }
     const payload = { clinica_id: clinicId, nome: values.nome, duracao_min: values.duracaoMin, preco: values.preco, profissional_id: values.profissionalId ?? null, ativo: values.ativo };
     const result = values.id ? await supabase.from("servicos").update(payload).eq("id", values.id) : await supabase.from("servicos").insert(payload);
-    setMessage(result.error ? getErrorMessage(result.error) : "Serviço salvo.");
+    if (result.error) toast.error(getErrorMessage(result.error)); else toast.success("Serviço salvo com sucesso.");
     await loadAll();
   }
 
   async function deleteService(id: string) {
     const { error } = await supabase.from("servicos").delete().eq("id", id);
-    setMessage(error ? getErrorMessage(error) : "Serviço removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Serviço removido.");
     await loadAll();
   }
 
   async function savePatient(values: Patient & { id?: string }) {
     if (!clinicId) return;
     const validation = validatePatient(values);
-    if (!validation.valid) {
-      setMessage(validation.message ?? "Revise os dados do paciente.");
-      return;
-    }
+    if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados do paciente."); return; }
     const result = await savePatientRecord(clinicId, values);
-    setMessage(result.error ? getErrorMessage(result.error) : "Paciente salvo.");
+    if (result.error) toast.error(getErrorMessage(result.error)); else toast.success("Paciente salvo com sucesso.");
     await loadAll();
   }
 
   async function deletePatient(id: string) {
     const { error } = await deletePatientRecord(id);
-    setMessage(error ? getErrorMessage(error) : "Paciente removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Paciente removido.");
     await loadAll();
   }
 
@@ -309,99 +304,80 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     setLoading(true);
     const invalidPatient = newPatients.find((patient) => !validatePatient(patient).valid);
     if (invalidPatient) {
-      setMessage(`Importação interrompida: revise nome e WhatsApp de ${invalidPatient.nome || "um paciente"}.`);
+      toast.error(`Importação interrompida: revise nome e WhatsApp de ${invalidPatient.nome || "um paciente"}.`);
       setLoading(false);
       return;
     }
     const { error, failedBatchStart } = await importPatientRecords(clinicId, newPatients);
     if (error) {
-      setMessage(`Erro na importação (lote ${failedBatchStart}): ${getErrorMessage(error)}`);
+      toast.error(`Erro na importação (lote ${failedBatchStart}): ${getErrorMessage(error)}`);
       setLoading(false);
       return;
     }
-
-    setMessage(`${newPatients.length} pacientes importados com sucesso!`);
+    toast.success(`${newPatients.length} pacientes importados com sucesso!`);
     await loadAll();
   }
 
   async function saveAppointment(values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"] }): Promise<boolean> {
     if (!clinicId) return false;
     const validation = validateAppointment(values);
-    if (!validation.valid) {
-      setMessage(validation.message ?? "Revise os dados do agendamento.");
-      return false;
-    }
+    if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados do agendamento."); return false; }
     const result = await saveAppointmentRecord(clinicId, values);
-    if (result.error) {
-      setMessage(getErrorMessage(result.error));
-      return false;
-    }
-    setMessage("Agendamento salvo com sucesso.");
+    if (result.error) { toast.error(getErrorMessage(result.error)); return false; }
+    toast.success("Agendamento salvo com sucesso.");
     await loadAll();
     return true;
   }
 
   async function deleteAppointment(id: string) {
     const { error } = await deleteAppointmentRecord(id);
-    setMessage(error ? getErrorMessage(error) : "Agendamento removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Agendamento removido.");
     await loadAll();
   }
 
   async function savePayment(values: { valor: number; status: FinanceEntry["status"]; formaPagamento?: string; pacienteId?: string | null; servicoId?: string | null; profissionalId?: string | null; descricao?: string; data?: string | null }) {
     if (!clinicId) return;
     const validation = validateFinance(values);
-    if (!validation.valid) {
-      setMessage(validation.message ?? "Revise os dados financeiros.");
-      return;
-    }
+    if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados financeiros."); return; }
     const { error } = await createPaymentRecord(clinicId, values);
-    setMessage(error ? getErrorMessage(error) : "Pagamento criado.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Pagamento registrado.");
     await loadAll();
   }
 
   async function updatePayment(id: string, values: { valor: number; status: FinanceEntry["status"]; formaPagamento?: string | null; pacienteId?: string | null; servicoId?: string | null; profissionalId?: string | null; data?: string | null; descricao?: string }) {
     const validation = validateFinance(values);
-    if (!validation.valid) {
-      setMessage(validation.message ?? "Revise os dados financeiros.");
-      return;
-    }
+    if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados financeiros."); return; }
     const { error } = await updatePaymentRecord(id, values);
-    setMessage(error ? getErrorMessage(error) : "Pagamento atualizado.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Pagamento atualizado.");
     await loadAll();
   }
 
   async function deletePayment(id: string) {
     const { error } = await deletePaymentRecord(id);
-    setMessage(error ? getErrorMessage(error) : "Pagamento removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Pagamento removido.");
     await loadAll();
   }
 
   async function saveExpense(values: { descricao: string; categoria?: string; valor: number; status: FinanceEntry["status"]; data?: string | null }) {
     if (!clinicId) return;
     const validation = validateFinance(values);
-    if (!validation.valid) {
-      setMessage(validation.message ?? "Revise os dados da despesa.");
-      return;
-    }
+    if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados da despesa."); return; }
     const { error } = await createExpenseRecord(clinicId, values);
-    setMessage(error ? getErrorMessage(error) : "Despesa criada.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Despesa registrada.");
     await loadAll();
   }
 
   async function updateExpense(id: string, values: { descricao: string; categoria?: string | null; valor: number; status: FinanceEntry["status"]; data?: string | null }) {
     const validation = validateFinance(values);
-    if (!validation.valid) {
-      setMessage(validation.message ?? "Revise os dados da despesa.");
-      return;
-    }
+    if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados da despesa."); return; }
     const { error } = await updateExpenseRecord(id, values);
-    setMessage(error ? getErrorMessage(error) : "Despesa atualizada.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Despesa atualizada.");
     await loadAll();
   }
 
   async function deleteExpense(id: string) {
     const { error } = await deleteExpenseRecord(id);
-    setMessage(error ? getErrorMessage(error) : "Despesa removida.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Despesa removida.");
     await loadAll();
   }
 
@@ -410,19 +386,19 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     const done = values.sessoesRealizadas ?? 0;
     const status = done >= values.totalSessoes ? "finalizado" : values.status ?? "ativo";
     const { error } = await supabase.from("pacotes_sessoes").insert({ clinica_id: clinicId, paciente_id: values.pacienteId ?? null, servico_id: values.servicoId ?? null, total_sessoes: values.totalSessoes, sessoes_realizadas: done, validade: values.validade ?? null, status });
-    setMessage(error ? getErrorMessage(error) : "Pacote criado.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Pacote criado.");
     await loadAll();
   }
 
   async function updatePackage(id: string, values: { pacienteId?: string | null; servicoId?: string | null; totalSessoes: number; sessoesRealizadas: number; validade?: string | null; status: SessionPackage["status"] }) {
     const { error } = await supabase.from("pacotes_sessoes").update({ paciente_id: values.pacienteId ?? null, servico_id: values.servicoId ?? null, total_sessoes: values.totalSessoes, sessoes_realizadas: values.sessoesRealizadas, validade: values.validade ?? null, status: values.status }).eq("id", id);
-    setMessage(error ? getErrorMessage(error) : "Pacote atualizado.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Pacote atualizado.");
     await loadAll();
   }
 
   async function deletePackage(id: string) {
     const { error } = await supabase.from("pacotes_sessoes").delete().eq("id", id);
-    setMessage(error ? getErrorMessage(error) : "Pacote removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Pacote removido.");
     await loadAll();
   }
 
@@ -430,13 +406,13 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     if (!clinicId) return;
     const payload = { clinica_id: clinicId, user_id: values.userId || null, profissional_id: values.profissionalId || null, nome: values.nome, email: values.email, role: values.role, ativo: values.ativo };
     const result = values.id ? await supabase.from("usuarios").update(payload).eq("id", values.id) : await supabase.from("usuarios").insert(payload);
-    setMessage(result.error ? getErrorMessage(result.error) : "Acesso salvo. Crie o usuário no Supabase Auth e cole o UID aqui para liberar login.");
+    if (result.error) toast.error(getErrorMessage(result.error)); else toast.success("Acesso salvo.");
     await loadAll();
   }
 
   async function deleteUser(id: string) {
     const { error } = await supabase.from("usuarios").delete().eq("id", id);
-    setMessage(error ? getErrorMessage(error) : "Acesso removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Acesso removido.");
     await loadAll();
   }
 
@@ -466,7 +442,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         professional: values.professional ?? null
       }
     });
-    setMessage(error ? getErrorMessage(error) : data?.message ?? "Usuário criado com acesso ao SaaS.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success(data?.message ?? "Usuário criado com acesso ao sistema.");
     await loadAll();
   }
 
@@ -474,7 +450,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     const nextDone = Math.min(pkg.totalSessoes, pkg.sessoesRealizadas + 1);
     const status = nextDone >= pkg.totalSessoes ? "finalizado" : pkg.status;
     const { error } = await supabase.from("pacotes_sessoes").update({ sessoes_realizadas: nextDone, status }).eq("id", pkg.id);
-    setMessage(error ? getErrorMessage(error) : "Sessão registrada.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Sessão registrada.");
     await loadAll();
   }
 
@@ -484,25 +460,25 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     let programaId = form.id;
     if (form.id) {
       const { error } = await supabase.from("programas_desconto").update({ nome: form.nome, descricao: form.descricao, valor_total: valorTotal, valor_com_desconto: form.valorComDesconto, ativo: form.ativo }).eq("id", form.id);
-      if (error) { setMessage(getErrorMessage(error)); return; }
+      if (error) { toast.error(getErrorMessage(error)); return; }
       await supabase.from("programas_desconto_servicos").delete().eq("programa_id", form.id);
     } else {
       const { data, error } = await supabase.from("programas_desconto").insert({ clinica_id: clinicId, nome: form.nome, descricao: form.descricao, valor_total: valorTotal, valor_com_desconto: form.valorComDesconto, ativo: form.ativo }).select("id").single();
-      if (error || !data) { setMessage(getErrorMessage(error)); return; }
+      if (error || !data) { toast.error(getErrorMessage(error)); return; }
       programaId = data.id as string;
     }
     if (form.itens.length > 0 && programaId) {
       const itens = form.itens.map((item, idx) => ({ programa_id: programaId, clinica_id: clinicId, servico_id: item.servicoId, nome_servico: item.nomeServico, descricao: item.descricao, preco_individual: item.precoIndividual, ordem: idx }));
       const { error } = await supabase.from("programas_desconto_servicos").insert(itens);
-      if (error) { setMessage(getErrorMessage(error)); return; }
+      if (error) { toast.error(getErrorMessage(error)); return; }
     }
-    setMessage(form.id ? "Programa atualizado." : "Programa criado.");
+    toast.success(form.id ? "Programa atualizado." : "Programa criado.");
     await loadAll();
   }
 
   async function deletePrograma(id: string) {
     const { error } = await supabase.from("programas_desconto").delete().eq("id", id);
-    setMessage(error ? getErrorMessage(error) : "Programa removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Programa removido.");
     await loadAll();
   }
 
@@ -520,7 +496,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
       valor_com_desconto: form.valorComDesconto,
       validade: form.validade || null
     }).select("id").single();
-    if (error || !orc) { setMessage(getErrorMessage(error)); return; }
+    if (error || !orc) { toast.error(getErrorMessage(error)); return; }
     if (form.itens.length > 0) {
       const itens = form.itens.map((i) => ({
         orcamento_id: orc.id as string,
@@ -534,15 +510,15 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         tipo: i.tipo
       }));
       const { error: iErr } = await supabase.from("orcamentos_itens").insert(itens);
-      if (iErr) { setMessage(getErrorMessage(iErr)); return; }
+      if (iErr) { toast.error(getErrorMessage(iErr)); return; }
     }
-    setMessage("Orçamento criado com sucesso.");
+    toast.success("Orçamento criado com sucesso.");
     await loadAll();
   }
 
   async function deleteOrcamento(id: string) {
     const { error } = await supabase.from("orcamentos").delete().eq("id", id);
-    setMessage(error ? getErrorMessage(error) : "Orçamento removido.");
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Orçamento removido.");
     await loadAll();
   }
 
