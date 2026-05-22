@@ -30,7 +30,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <main className="flex min-h-screen items-center justify-center bg-background px-6 text-on-surface">
           <section className="w-full max-w-lg rounded-xl border border-surface-variant bg-white p-6 text-center shadow-clinical">
-            <img src="/logo-analise.png" alt="Análise Saúde System" className="mx-auto h-14 w-auto" />
+            <img src="/logo-deby-saude.png" alt="Deby Saúde" className="mx-auto h-14 w-auto" />
             <h1 className="mt-5 text-xl font-bold">Não foi possível carregar o painel</h1>
             <p className="mt-2 text-sm leading-6 text-secondary">
               Ocorreu um erro inesperado. Detalhes abaixo.

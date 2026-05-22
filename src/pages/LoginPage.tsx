@@ -75,14 +75,15 @@ export function LoginPage() {
           }}
         >
           <div>
-            <img src="/logo-analise.png" alt="Análise Saúde System" className="h-10 w-auto brightness-0 invert" />
+            <img src="/logo-deby-saude.png" alt="Deby Saúde" className="h-10 w-auto brightness-0 invert" />
             <div className="mt-8">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-200">
                 Sistema clínico
               </p>
               <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-white">
-                Análise Saúde<br />System
+                Deby Saúde
               </h1>
+
               <p className="mt-4 text-sm leading-relaxed text-blue-100">
                 Gestão clínica integrada para secretárias, médicos e administração.
               </p>
@@ -104,7 +105,7 @@ export function LoginPage() {
         {/* Painel direito — formulário */}
         <div className="bg-surface px-8 py-10">
           <div className="mb-8">
-            <img src="/logo-analise.png" alt="Análise Saúde" className="mb-6 h-9 w-auto md:hidden" />
+            <img src="/logo-deby-saude.png" alt="Deby Saúde" className="mb-6 h-9 w-auto md:hidden" />
             <h2 className="text-xl font-semibold tracking-tight text-ink">
               {isRegistering ? "Criar conta" : "Bem-vindo de volta"}
             </h2>
@@ -207,7 +208,7 @@ export function LoginPage() {
           ) : null}
 
           <p className="mt-8 text-center text-[10px] font-medium uppercase tracking-[0.15em] text-ink-muted">
-            Análise Saúde · Operação clínica integrada
+            Deby Saúde · Operação clínica integrada
           </p>
         </div>
       </div>

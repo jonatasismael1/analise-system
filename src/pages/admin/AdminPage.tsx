@@ -113,7 +113,7 @@ export function AdminPage() {
       onLogout={logout}
       clinicaId={clinic.id}
       noPadding={activeModule === "WhatsApp"}
-      clinicName={clinic.nome ?? "Análise Saúde"}
+      clinicName={clinic.nome ?? "Clínica Médica"}
       userRole={role ?? undefined}
     >
       {activeModule !== "WhatsApp" && (
@@ -121,11 +121,11 @@ export function AdminPage() {
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-                Análise Saúde System
+                Deby Saúde
               </p>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{activeModule}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
-                <span>{clinic.nome ?? "Análise Saúde"}</span>
+                <span>{clinic.nome ?? "Clínica Médica"}</span>
                 <span className="text-ink-muted">·</span>
                 <span className="capitalize">{role}</span>
                 {isDemoMode ? (
@@ -156,13 +156,13 @@ export function AdminPage() {
           {activeModule === "Agendamentos" ? <AppointmentsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} onSave={data.saveAppointment} onDelete={data.deleteAppointment} onDeleteSeries={data.deleteAppointmentSeries} /> : null}
           {activeModule === "Pacientes" ? <PatientsPanel clinicId={clinic.id} patients={data.patients} professionals={data.professionals} onSave={data.savePatient} onDelete={data.deletePatient} onImportMassively={data.importPatientsMassively} onAnonymize={data.anonymizePatient} role={role} /> : null}
           {activeModule === "Leads" ? <LeadKanbanPanel clinicId={clinic.id} onConvertToPatient={data.savePatient} /> : null}
-          {activeModule === "Deby AI" && role ? <AIPanel clinicId={clinic.id} clinicName={clinic.nome ?? "Análise Saúde"} role={role} profileProfessionalId={profile?.profissionalId} appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} financeEntries={data.financeEntries} growthAnalysis={growthAnalysis} /> : null}
+          {activeModule === "Deby AI" && role ? <AIPanel clinicId={clinic.id} clinicName={clinic.nome ?? "Clínica Médica"} role={role} profileProfessionalId={profile?.profissionalId} appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} financeEntries={data.financeEntries} growthAnalysis={growthAnalysis} /> : null}
           {activeModule === "Kanban Pacientes" ? <PatientKanbanPanel patients={data.patients} appointments={data.appointments} professionals={data.professionals} onSave={data.savePatient} /> : null}
           {activeModule === "Caixa" ? <CashPanel clinicId={clinic.id} role={role} /> : null}
-          {activeModule === "Financeiro" ? <FinancePanel entries={data.financeEntries} kpis={data.financialKpis} onPayment={data.savePayment} onExpense={data.saveExpense} onUpdatePayment={data.updatePayment} onUpdateExpense={data.updateExpense} onDeletePayment={data.deletePayment} onDeleteExpense={data.deleteExpense} professionals={data.professionals} services={data.services} clinicaNome={clinic.nome ?? "Análise Saúde"} clinicId={clinic.id} financeMonths={data.financeMonths} onChangeFinanceMonths={data.setFinanceMonths} /> : null}
+          {activeModule === "Financeiro" ? <FinancePanel entries={data.financeEntries} kpis={data.financialKpis} onPayment={data.savePayment} onExpense={data.saveExpense} onUpdatePayment={data.updatePayment} onUpdateExpense={data.updateExpense} onDeletePayment={data.deletePayment} onDeleteExpense={data.deleteExpense} professionals={data.professionals} services={data.services} clinicaNome={clinic.nome ?? "Clínica Médica"} clinicId={clinic.id} financeMonths={data.financeMonths} onChangeFinanceMonths={data.setFinanceMonths} /> : null}
           {activeModule === "Programas de Descontos" ? <DiscountProgramsPanel programas={data.programas} services={data.services} onSave={data.savePrograma} onDelete={data.deletePrograma} /> : null}
-          {activeModule === "Orçamentos" ? <OrcamentosPanel orcamentos={data.orcamentos} services={data.services} programas={data.programas} clinicaNome={clinic.nome ?? "Análise Saúde"} clinicaUrl={window.location.origin} onSave={data.saveOrcamento} onDelete={data.deleteOrcamento} /> : null}
-          {activeModule === "Relatórios" ? <ReportsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} entries={data.financeEntries} clinicaNome={clinic.nome ?? "Análise Saúde"} /> : null}
+          {activeModule === "Orçamentos" ? <OrcamentosPanel orcamentos={data.orcamentos} services={data.services} programas={data.programas} clinicaNome={clinic.nome ?? "Clínica Médica"} clinicaUrl={window.location.origin} onSave={data.saveOrcamento} onDelete={data.deleteOrcamento} /> : null}
+          {activeModule === "Relatórios" ? <ReportsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} entries={data.financeEntries} clinicaNome={clinic.nome ?? "Clínica Médica"} /> : null}
           {activeModule === "Acessos" ? <AccessPanel users={data.users} professionals={data.professionals} onCreate={data.createStaffUser} onSave={data.saveUser} onDelete={data.deleteUser} /> : null}
         </div>
       )}

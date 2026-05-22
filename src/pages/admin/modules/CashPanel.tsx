@@ -101,7 +101,7 @@ function printClosingReport(report: ClosingReport) {
 <body>
   <div class="header">
     <div>
-      <div class="brand">Análise Saúde<small>Sistema de Gestão Clínica</small></div>
+      <div class="brand">Deby Saúde<small>Sistema de Gestão Clínica</small></div>
     </div>
     <div class="doc-title">
       Relatório de Fechamento de Caixa
@@ -127,7 +127,7 @@ function printClosingReport(report: ClosingReport) {
     <tbody>${rows(despesas)}</tbody>
   </table>` : `<p class="empty">Nenhuma despesa no período.</p>`}
   ${report.notes ? `<div class="notes"><strong>Observações:</strong> ${report.notes}</div>` : ""}
-  <div class="footer">Relatório gerado em ${new Date().toLocaleString("pt-BR")} · Análise Saúde System</div>
+  <div class="footer">Relatório gerado em ${new Date().toLocaleString("pt-BR")} · Deby Saúde</div>
 </body>
 </html>`;
 

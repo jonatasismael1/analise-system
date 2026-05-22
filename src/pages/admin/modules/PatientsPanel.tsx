@@ -614,7 +614,7 @@ export function PatientsPanel({
                   rows={4}
                   value={msgText}
                   onChange={e => setMsgText(e.target.value)}
-                  placeholder={`Olá, ${msgPatient.nome.split(" ")[0]}! Aqui é da Análise Saúde...`}
+                  placeholder={`Olá, ${msgPatient.nome.split(" ")[0]}! Aqui é da Clínica Médica...`}
                   disabled={sendingMsg}
                 />
               </Field>

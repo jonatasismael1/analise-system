@@ -67,8 +67,13 @@ export function AdminShell({
 }: AdminShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // Controla expansão temporária ao passar o mouse sobre a sidebar recolhida
+  const [isHovering, setIsHovering] = useState(false);
 
-  const avatarInitial = clinicName ? clinicName.charAt(0).toUpperCase() : "A";
+  const avatarInitial = clinicName ? clinicName.charAt(0).toUpperCase() : "D";
+
+  // Sidebar aparece expandida se: não recolhida OU se recolhida mas com hover
+  const sidebarExpanded = !isCollapsed || isHovering;
 
   return (
     <div className="min-h-[100dvh] bg-canvas text-ink md:flex">
@@ -84,7 +89,7 @@ export function AdminShell({
           >
             {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
-          <img src="/logo-analise.png" alt="Análise Saúde" className="ml-1 h-7 w-auto" />
+          <img src="/logo-deby-saude.png" alt="Deby Saúde" className="ml-1 h-7 w-auto" />
         </div>
         <div className="flex items-center gap-2">
           {clinicaId && <NotificationBell clinicaId={clinicaId} />}
@@ -93,26 +98,28 @@ export function AdminShell({
 
       {/* ── Sidebar ───────────────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-white transition-all duration-300 ease-in-out md:translate-x-0 ${
-          isCollapsed ? "md:w-[72px]" : "md:w-72"
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-white transition-all duration-250 ease-in-out md:translate-x-0 ${
+          sidebarExpanded ? "md:w-72" : "md:w-[72px]"
         } w-72 ${isMobileMenuOpen ? "translate-x-0 shadow-xl" : "-translate-x-full md:translate-x-0"}`}
+        onMouseEnter={() => isCollapsed && setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
       >
         {/* Cabeçalho da sidebar */}
         <div
           className={`flex h-14 shrink-0 items-center border-b border-border-divider ${
-            isCollapsed ? "justify-center px-3" : "gap-3 px-4"
+            sidebarExpanded ? "gap-3 px-4" : "justify-center px-3"
           }`}
         >
           <img
-            src="/logo-analise.png"
-            alt="Análise Saúde System"
-            className={`shrink-0 w-auto ${isCollapsed ? "h-6" : "h-7"}`}
+            src="/logo-deby-saude.png"
+            alt="Deby Saúde"
+            className={`shrink-0 w-auto ${sidebarExpanded ? "h-7" : "h-6"}`}
           />
-          {!isCollapsed && (
-            <div className="min-w-0 flex-1 leading-none">
-              <p className="truncate text-[13px] font-semibold text-ink">Análise Saúde</p>
+          {sidebarExpanded && (
+            <div className="min-w-0 flex-1 leading-none overflow-hidden">
+              <p className="truncate text-[13px] font-semibold text-ink">Deby Saúde</p>
               <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-ink-muted">
-                System
+                Sistema Clínico
               </p>
             </div>
           )}
@@ -127,7 +134,7 @@ export function AdminShell({
               <div key={item} className="px-2 py-0.5">
                 <button
                   className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-150 min-h-[44px] md:min-h-0 ${
-                    isCollapsed ? "justify-center" : ""
+                    !sidebarExpanded ? "justify-center" : ""
                   } ${
                     active
                       ? "border border-blue-100 bg-blue-50 font-semibold text-blue-600"
@@ -137,13 +144,13 @@ export function AdminShell({
                     onModuleChange(item);
                     setIsMobileMenuOpen(false);
                   }}
-                  title={isCollapsed ? item : undefined}
+                  title={!sidebarExpanded ? item : undefined}
                   type="button"
                 >
                   <Icon
                     className={`h-4 w-4 shrink-0 ${active ? "text-blue-600" : "text-ink-muted"}`}
                   />
-                  {!isCollapsed && <span className="truncate">{item}</span>}
+                  {sidebarExpanded && <span className="truncate">{item}</span>}
                 </button>
               </div>
             );
@@ -154,24 +161,27 @@ export function AdminShell({
         <div className="border-t border-border-divider p-2">
           <button
             className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-medium text-ink-muted transition duration-150 hover:bg-red-50 hover:text-red-600 min-h-[44px] md:min-h-0 ${
-              isCollapsed ? "justify-center" : ""
+              !sidebarExpanded ? "justify-center" : ""
             }`}
             onClick={() => void onLogout()}
-            title={isCollapsed ? "Sair da conta" : undefined}
+            title={!sidebarExpanded ? "Sair da conta" : undefined}
             type="button"
           >
             <LogOut className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span>Sair da conta</span>}
+            {sidebarExpanded && <span>Sair da conta</span>}
           </button>
         </div>
       </aside>
 
       {/* ── Botão toggle collapse (desktop) ───────────────── */}
       <button
-        className={`fixed z-50 hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-white shadow-sm text-ink-muted hover:text-ink transition-all duration-300 top-[30px] ${
+        className={`fixed z-50 hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-white shadow-sm text-ink-muted hover:text-ink transition-all duration-250 top-[30px] ${
           isCollapsed ? "left-[60px]" : "left-[260px]"
         }`}
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        onClick={() => {
+          setIsCollapsed(!isCollapsed);
+          setIsHovering(false);
+        }}
         title={isCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
         type="button"
       >
@@ -192,7 +202,7 @@ export function AdminShell({
 
       {/* ── Área principal ────────────────────────────────── */}
       <main
-        className={`w-full min-h-[100dvh] pt-14 transition-all duration-300 ease-in-out md:pt-0 ${
+        className={`w-full min-h-[100dvh] pt-14 transition-all duration-250 ease-in-out md:pt-0 ${
           isCollapsed ? "md:pl-[72px]" : "md:pl-72"
         }`}
       >

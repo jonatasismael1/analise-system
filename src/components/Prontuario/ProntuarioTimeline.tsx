@@ -91,9 +91,9 @@ function buildReceitaHTML(patient: Patient, professional: Professional | undefin
 <body>
   <div class="page">
     <div class="header">
-      <img src="/logo-analise.png" alt="Análise Saúde" onerror="this.style.display='none'" />
+      <img src="/logo-deby-saude.png" alt="Deby Saúde" onerror="this.style.display='none'" />
       <div class="header-info">
-        <h1>Análise Saúde</h1>
+        <h1>Deby Saúde</h1>
         <p>Saúde e bem-estar com qualidade</p>
       </div>
     </div>
