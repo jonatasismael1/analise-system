@@ -75,7 +75,7 @@ export function LoginPage() {
           }}
         >
           <div>
-            <img src="/logo-deby-saude.png" alt="Deby Saúde" className="h-10 w-auto brightness-0 invert" />
+            <img src="/logo-deby-saude.png" alt="Deby Saúde" className="h-16 w-auto brightness-0 invert" />
             <div className="mt-8">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-200">
                 Sistema clínico
@@ -105,7 +105,7 @@ export function LoginPage() {
         {/* Painel direito — formulário */}
         <div className="bg-surface px-8 py-10">
           <div className="mb-8">
-            <img src="/logo-deby-saude.png" alt="Deby Saúde" className="mb-6 h-9 w-auto md:hidden" />
+            <img src="/logo-deby-saude.png" alt="Deby Saúde" className="mb-6 h-12 w-auto md:hidden" />
             <h2 className="text-xl font-semibold tracking-tight text-ink">
               {isRegistering ? "Criar conta" : "Bem-vindo de volta"}
             </h2>
