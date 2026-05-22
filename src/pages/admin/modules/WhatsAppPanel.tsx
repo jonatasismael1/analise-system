@@ -564,9 +564,9 @@ function AudioBubble({
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [loadError, setLoadError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Waveform determinístico baseado no ID da mensagem
   const bars = useMemo(() => {
     const seed = message.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
     return Array.from({ length: 28 }, (_, i) => {
@@ -576,17 +576,17 @@ function AudioBubble({
   }, [message.id]);
 
   const progress = duration > 0 ? currentTime / duration : 0;
+  const hasAudio = !!message.mediaUrl;
 
   function togglePlay() {
     const a = audioRef.current;
-    if (!a) return;
+    if (!a || loadError || !hasAudio) return;
     if (playing) a.pause();
-    else void a.play();
+    else void a.play().catch(() => setLoadError(true));
   }
 
   return (
     <div className={`flex items-end gap-2 animate-fade-in ${isOut ? "justify-end" : "justify-start"}`}>
-      {/* Avatar do remetente (só para mensagens recebidas) */}
       {!isOut && contact && <Avatar contact={contact} size="xs" />}
 
       <div
@@ -597,7 +597,8 @@ function AudioBubble({
         {/* Play / Pause */}
         <button
           onClick={togglePlay}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white transition hover:bg-primary-dark active:scale-95"
+          disabled={loadError || !hasAudio}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white transition hover:bg-primary-dark active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           type="button"
           aria-label={playing ? "Pausar" : "Reproduzir"}
         >
@@ -606,41 +607,53 @@ function AudioBubble({
             : <Play className="h-3.5 w-3.5 ml-0.5" />}
         </button>
 
-        {/* Waveform */}
-        <div className="flex flex-1 items-center gap-[2px]" style={{ height: 32 }}>
-          {bars.map((h, i) => (
-            <div
-              key={i}
-              className={`w-[2px] rounded-full transition-colors duration-75 ${
-                i / bars.length <= progress
-                  ? "bg-primary"
-                  : isOut ? "bg-[#9dd3b8]" : "bg-border-strong"
-              }`}
-              style={{ height: `${h}%` }}
-            />
-          ))}
-        </div>
+        {loadError || !hasAudio ? (
+          <span className="flex-1 text-[11px] text-ink-muted italic">
+            {!hasAudio ? "Áudio sem URL" : "Erro ao carregar áudio"}
+          </span>
+        ) : (
+          <>
+            {/* Waveform */}
+            <div className="flex flex-1 items-center gap-[2px]" style={{ height: 32 }}>
+              {bars.map((h, i) => (
+                <div
+                  key={i}
+                  className={`w-[2px] rounded-full transition-colors duration-75 ${
+                    i / bars.length <= progress
+                      ? "bg-primary"
+                      : isOut ? "bg-[#9dd3b8]" : "bg-border-strong"
+                  }`}
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
 
-        {/* Duração */}
-        <span className="shrink-0 font-mono text-[11px] text-ink-muted">
-          {fmtAudioTime(currentTime > 0 ? currentTime : duration)}
-        </span>
+            {/* Duração */}
+            <span className="shrink-0 font-mono text-[11px] text-ink-muted">
+              {fmtAudioTime(currentTime > 0 ? currentTime : duration)}
+            </span>
+          </>
+        )}
       </div>
 
-      {/* Timestamp fora da bolha para áudio */}
       <span className="self-end pb-1 font-mono text-[10px] text-[#667781]">
         {msgTime(message.sentAt)}
       </span>
 
-      <audio
-        ref={audioRef}
-        src={message.mediaUrl ?? ""}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => { setPlaying(false); setCurrentTime(0); }}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
-      />
+      {hasAudio && (
+        <audio
+          ref={audioRef}
+          src={message.mediaUrl!}
+          preload="metadata"
+          crossOrigin="anonymous"
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => { setPlaying(false); setCurrentTime(0); }}
+          onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
+          onLoadedMetadata={() => { setDuration(audioRef.current?.duration ?? 0); setLoadError(false); }}
+          onError={() => setLoadError(true)}
+        />
+      )}
     </div>
   );
 }

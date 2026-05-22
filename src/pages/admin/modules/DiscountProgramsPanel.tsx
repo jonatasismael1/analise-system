@@ -27,7 +27,7 @@ export interface ProgramaDesconto {
   itens: ProgramaItem[];
 }
 
-type ProgramaForm = {
+export type ProgramaForm = {
   id?: string;
   nome: string;
   descricao: string;

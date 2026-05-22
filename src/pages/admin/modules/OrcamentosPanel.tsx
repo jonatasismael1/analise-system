@@ -37,7 +37,7 @@ export interface Orcamento {
   itens: OrcamentoItem[];
 }
 
-type OrcamentoForm = {
+export type OrcamentoForm = {
   id?: string;
   pacienteNome: string;
   pacienteCpf: string;
