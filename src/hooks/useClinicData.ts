@@ -13,7 +13,7 @@ import { getErrorMessage } from "../lib/getErrorMessage";
 import { supabase } from "../lib/supabaseClient";
 import { toast } from "../lib/toast";
 import { validateAppointment, validateFinance, validatePatient } from "../lib/validation";
-import { deleteAppointmentRecord, saveAppointmentRecord } from "../services/appointmentService";
+import { deleteAppointmentRecord, deleteAppointmentSeriesRecord, saveAppointmentRecord, type RecurrenceFrequency } from "../services/appointmentService";
 import { createExpenseRecord, createPaymentRecord, deleteExpenseRecord, deletePaymentRecord, updateExpenseRecord, updatePaymentRecord } from "../services/financeService";
 import { deletePatientRecord, importPatientRecords, savePatientRecord } from "../services/patientService";
 import type { Appointment, ClinicUser, FinanceEntry, Patient, Professional, Service, SessionPackage, UserRole } from "../types/clinic";
@@ -87,6 +87,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
 
     try {
       const canSeeFinance = role === "admin";
+      const canSeeOwnRevenue = role === "profissional" && Boolean(profileProfessionalId);
       const canSeeOrcamentos = role === "admin" || role === "secretaria";
       const professionalFilter = role === "profissional" && profileProfessionalId ? profileProfessionalId : null;
       const [professionalsRes, servicesRes, patientsRes, appointmentsRes, packagesRes, paymentsRes, expensesRes, usersRes, programasRes, orcamentosRes] = await Promise.all([
@@ -95,7 +96,11 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         professionalFilter ? supabase.from("pacientes").select("*").eq("clinica_id", clinicId).eq("profissional_id", professionalFilter).order("nome") : supabase.from("pacientes").select("*").eq("clinica_id", clinicId).order("nome"),
         professionalFilter ? supabase.from("agendamentos").select("*").eq("clinica_id", clinicId).eq("profissional_id", professionalFilter).order("data", { ascending: false }).limit(200) : supabase.from("agendamentos").select("*").eq("clinica_id", clinicId).order("data", { ascending: false }).limit(200),
         supabase.from("pacotes_sessoes").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false }),
-        canSeeFinance ? supabase.from("pagamentos").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
+        canSeeFinance
+          ? supabase.from("pagamentos").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false })
+          : canSeeOwnRevenue
+            ? supabase.from("pagamentos").select("*").eq("clinica_id", clinicId).eq("profissional_id", profileProfessionalId as string).order("created_at", { ascending: false })
+            : Promise.resolve({ data: [], error: null }),
         canSeeFinance ? supabase.from("despesas").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
         role === "admin" ? supabase.from("usuarios").select("*").eq("clinica_id", clinicId).order("nome") : Promise.resolve({ data: [], error: null }),
         canSeeOrcamentos ? supabase.from("programas_desconto").select("*, programas_desconto_servicos(*)").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
@@ -126,7 +131,8 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         servico: row.servico_id ? servicesById.get(row.servico_id) ?? "Serviço" : "Serviço",
         data: row.data,
         horario: row.horario.slice(0, 5),
-        status: statusAsAppointment(row.status)
+        status: statusAsAppointment(row.status),
+        recorrenciaId: row.recorrencia_id
       })));
       setPackages((packagesRes.data ?? []).map((row: PackageRow) => ({
         id: row.id,
@@ -318,13 +324,14 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     await loadAll();
   }
 
-  async function saveAppointment(values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"] }): Promise<boolean> {
+  async function saveAppointment(values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"]; recorrencia?: { frequency: RecurrenceFrequency; occurrences: number } }): Promise<boolean> {
     if (!clinicId) return false;
     const validation = validateAppointment(values);
     if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados do agendamento."); return false; }
     const result = await saveAppointmentRecord(clinicId, values);
     if (result.error) { toast.error(getErrorMessage(result.error)); return false; }
-    toast.success("Agendamento salvo com sucesso.");
+    const createdCount = values.recorrencia && values.recorrencia.frequency !== "none" ? values.recorrencia.occurrences : 1;
+    toast.success(createdCount > 1 ? `${createdCount} agendamentos recorrentes criados.` : "Agendamento salvo com sucesso.");
     await loadAll();
     return true;
   }
@@ -332,6 +339,12 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
   async function deleteAppointment(id: string) {
     const { error } = await deleteAppointmentRecord(id);
     if (error) toast.error(getErrorMessage(error)); else toast.success("Agendamento removido.");
+    await loadAll();
+  }
+
+  async function deleteAppointmentSeries(recorrenciaId: string) {
+    const { error } = await deleteAppointmentSeriesRecord(recorrenciaId);
+    if (error) toast.error(getErrorMessage(error)); else toast.success("Série recorrente removida.");
     await loadAll();
   }
 
@@ -555,6 +568,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     importPatientsMassively,
     saveAppointment,
     deleteAppointment,
+    deleteAppointmentSeries,
     savePayment,
     updatePayment,
     deletePayment,

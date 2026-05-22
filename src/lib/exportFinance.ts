@@ -46,6 +46,21 @@ export interface PDFReportData {
   despesasPorCategoria: { categoria: string; valor: number }[];
 }
 
+export interface TabularPDFColumn {
+  key: string;
+  label: string;
+  align?: "left" | "right" | "center";
+}
+
+export interface TabularPDFReportData {
+  title: string;
+  subtitle: string;
+  clinicaNome: string;
+  columns: TabularPDFColumn[];
+  rows: ExportRow[];
+  summary?: { label: string; value: string | number }[];
+}
+
 // ─── CSV ──────────────────────────────────────────────────────────────────────
 
 function rowsToCSV(rows: ExportRow[]): string {
@@ -92,22 +107,36 @@ const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 const fmtDate = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR");
 
+function escapeHtml(value: string | number | null | undefined): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function cellText(value: string | number | null | undefined): string {
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  return String(value ?? "");
+}
+
 export function openPDFReport(data: PDFReportData): void {
   const { clinicaNome, clinicaCnpj, periodo, totalReceitas, totalDespesas, lucroBruto, receitasPorFonte, despesasPorCategoria } = data;
 
   const receitasRows = receitasPorFonte
-    .map((r) => `<tr><td>${r.fonte}</td><td style="text-align:right">${brl.format(r.valor)}</td></tr>`)
+    .map((r) => `<tr><td>${escapeHtml(r.fonte)}</td><td style="text-align:right">${escapeHtml(brl.format(r.valor))}</td></tr>`)
     .join("");
 
   const despesasRows = despesasPorCategoria
-    .map((d) => `<tr><td>${d.categoria}</td><td style="text-align:right">${brl.format(d.valor)}</td></tr>`)
+    .map((d) => `<tr><td>${escapeHtml(d.categoria)}</td><td style="text-align:right">${escapeHtml(brl.format(d.valor))}</td></tr>`)
     .join("");
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Relatório Mensal — ${clinicaNome}</title>
+  <title>Relatório Mensal — ${escapeHtml(clinicaNome)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #1e293b; padding: 40px; }
@@ -132,7 +161,7 @@ export function openPDFReport(data: PDFReportData): void {
   </style>
 </head>
 <body>
-  <h1>${clinicaNome}</h1>
+  <h1>${escapeHtml(clinicaNome)}</h1>
   <p class="subtitle">Relatório Contábil Mensal · Período: ${fmtDate(periodo.inicio)} a ${fmtDate(periodo.fim)}</p>
 
   <div class="summary">
@@ -167,7 +196,7 @@ export function openPDFReport(data: PDFReportData): void {
   </div>
 
   <footer>
-    <span>${clinicaNome}${clinicaCnpj ? ` · CNPJ/CPF: ${clinicaCnpj}` : ""}</span>
+    <span>${escapeHtml(clinicaNome)}${clinicaCnpj ? ` · CNPJ/CPF: ${escapeHtml(clinicaCnpj)}` : ""}</span>
     <span>Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
   </footer>
 
@@ -180,6 +209,74 @@ export function openPDFReport(data: PDFReportData): void {
     win.document.write(html);
     win.document.close();
   }
+}
+
+export function openRowsPDFReport(data: TabularPDFReportData): boolean {
+  const headerCells = data.columns
+    .map((column) => `<th style="text-align:${column.align ?? "left"}">${escapeHtml(column.label)}</th>`)
+    .join("");
+  const bodyRows = data.rows
+    .map((row) => {
+      const cells = data.columns
+        .map((column) => `<td style="text-align:${column.align ?? "left"}">${escapeHtml(cellText(row[column.key]))}</td>`)
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+  const summary = data.summary?.length
+    ? `<div class="summary">${data.summary.map((item) => `
+        <div class="card">
+          <p class="card-label">${escapeHtml(item.label)}</p>
+          <p class="card-value">${escapeHtml(cellText(item.value))}</p>
+        </div>
+      `).join("")}</div>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(data.title)}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; padding: 36px; }
+    h1 { font-size: 19px; font-weight: 700; color: #0f766e; margin-bottom: 4px; }
+    .subtitle { font-size: 11px; color: #64748b; margin-bottom: 18px; }
+    .summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 18px; }
+    .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }
+    .card-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+    .card-value { font-size: 15px; font-weight: 700; margin-top: 3px; color: #0f172a; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th { padding: 7px 8px; background: #f8fafc; color: #64748b; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e2e8f0; }
+    td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; word-break: break-word; }
+    footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; gap: 16px; }
+    @media print {
+      body { padding: 18px; }
+      @page { margin: 1cm; }
+    }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(data.title)}</h1>
+  <p class="subtitle">${escapeHtml(data.subtitle)}</p>
+  ${summary}
+  <table>
+    <thead><tr>${headerCells}</tr></thead>
+    <tbody>${bodyRows || `<tr><td colspan="${data.columns.length}">Nenhum registro encontrado.</td></tr>`}</tbody>
+  </table>
+  <footer>
+    <span>${escapeHtml(data.clinicaNome)}</span>
+    <span>Gerado em ${new Date().toLocaleString("pt-BR")}</span>
+  </footer>
+  <script>window.onload = () => window.print();</script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return false;
+  win.document.write(html);
+  win.document.close();
+  return true;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

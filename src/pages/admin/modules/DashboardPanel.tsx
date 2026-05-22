@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarCheck, TrendingUp, Users, Wallet } from "lucide-react";
+import { CalendarCheck, Clock, History, TrendingUp, Users, Wallet } from "lucide-react";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { brl, todayISO } from "../../../lib/formatters";
 import type { Appointment, FinanceEntry, Patient, Professional, UserRole } from "../../../types/clinic";
@@ -64,6 +64,200 @@ function chartFromAppointments(appointments: Appointment[]) {
     count,
     height: Math.max(10, Math.round((count / max) * 100))
   }));
+}
+
+function formatDate(value: string) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR");
+}
+
+function appointmentTime(value: Appointment) {
+  return `${value.data}T${value.horario}`;
+}
+
+function ProfessionalDashboard({
+  appointments,
+  patients,
+  financeEntries,
+}: {
+  readonly appointments: Appointment[];
+  readonly patients: Patient[];
+  readonly financeEntries: FinanceEntry[];
+}) {
+  const today = todayISO();
+  const month = monthBounds();
+
+  const todayAppointments = useMemo(() => appointments
+    .filter((appointment) => appointment.data === today && appointment.status !== "cancelado")
+    .sort((a, b) => a.horario.localeCompare(b.horario)), [appointments, today]);
+
+  const nextTodayAppointments = todayAppointments.filter((appointment) =>
+    ["pendente", "confirmado"].includes(appointment.status)
+  );
+
+  const completedAppointments = useMemo(() => appointments
+    .filter((appointment) => appointment.status === "concluido")
+    .sort((a, b) => appointmentTime(b).localeCompare(appointmentTime(a))), [appointments]);
+
+  const patientHistory = useMemo(() => {
+    const byPatient = new Map<string, { name: string; lastDate: string; lastService: string; count: number }>();
+    completedAppointments.forEach((appointment) => {
+      const key = appointment.pacienteId ?? appointment.pacienteNome.toLowerCase();
+      const current = byPatient.get(key);
+      if (!current) {
+        byPatient.set(key, {
+          name: appointment.pacienteNome,
+          lastDate: appointment.data,
+          lastService: appointment.servico,
+          count: 1
+        });
+        return;
+      }
+      current.count += 1;
+      if (appointment.data > current.lastDate) {
+        current.lastDate = appointment.data;
+        current.lastService = appointment.servico;
+      }
+    });
+    return [...byPatient.values()].sort((a, b) => b.lastDate.localeCompare(a.lastDate)).slice(0, 8);
+  }, [completedAppointments]);
+
+  const revenue = useMemo(() => {
+    const monthEntries = financeEntries.filter((entry) =>
+      entry.tipo !== "despesa" &&
+      inRange(entry.data, month.start, month.end)
+    );
+    const paid = monthEntries
+      .filter((entry) => entry.status === "pago")
+      .reduce((sum, entry) => sum + entry.valor, 0);
+    const forecast = monthEntries
+      .filter((entry) => entry.status !== "cancelado")
+      .reduce((sum, entry) => sum + entry.valor, 0);
+    return { paid, forecast };
+  }, [financeEntries, month.end, month.start]);
+
+  const activePatients = patients.filter((patient) => patient.status === "ativo").length;
+  const cards: KpiCard[] = [
+    {
+      label: "Atendimentos hoje",
+      value: todayAppointments.length.toString(),
+      detail: `${nextTodayAppointments.length} ainda pendente(s)`,
+      accentClass: "border-l-primary text-primary",
+      bgAccent: "bg-primary-wash",
+      Icon: CalendarCheck,
+    },
+    {
+      label: "Proximos do dia",
+      value: nextTodayAppointments.length.toString(),
+      detail: nextTodayAppointments[0] ? `as ${nextTodayAppointments[0].horario}` : "agenda livre",
+      accentClass: "border-l-[#4A8FBB] text-[#4A8FBB]",
+      bgAccent: "bg-[#EDF4FA]",
+      Icon: Clock,
+    },
+    {
+      label: "Pacientes atendidos",
+      value: patientHistory.length.toString(),
+      detail: `${activePatients} pacientes ativos`,
+      accentClass: "border-l-success text-success",
+      bgAccent: "bg-success-wash",
+      Icon: History,
+    },
+    {
+      label: "Receita propria",
+      value: brl.format(revenue.paid),
+      detail: `${brl.format(revenue.forecast)} previsto no mes`,
+      accentClass: "border-l-primary text-primary",
+      bgAccent: "bg-primary-wash",
+      Icon: Wallet,
+    },
+  ];
+
+  return (
+    <>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map(({ label, value, detail, accentClass, bgAccent, Icon }) => (
+          <div
+            className={`group relative overflow-hidden rounded-lg border-l-[3px] bg-surface shadow-card transition-shadow duration-200 hover:shadow-[0_4px_16px_rgba(25,40,39,0.10)] ${accentClass.split(" ")[0]}`}
+            key={label}
+          >
+            <div className={`absolute right-4 top-4 rounded-lg p-2 ${bgAccent}`}>
+              <Icon className={`h-4 w-4 ${accentClass.split(" ")[1]}`} />
+            </div>
+            <div className="px-5 pb-5 pt-5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-muted">{label}</p>
+              <p className="mt-2 font-mono text-[28px] font-bold tabular-nums leading-none tracking-tight text-ink">{value}</p>
+              <p className={`mt-2 text-[12px] font-medium ${accentClass.split(" ")[1]}`}>{detail}</p>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <SectionCard title="Proximos atendimentos de hoje" description={todayAppointments.length ? `${formatDate(today)} · agenda propria` : "Nenhum atendimento para hoje."}>
+          {todayAppointments.length ? (
+            <div className="space-y-3">
+              {todayAppointments.map((appointment) => (
+                <div className="flex flex-col justify-between gap-3 rounded-lg border border-surface-variant bg-surface-container-lowest p-3 md:flex-row md:items-center" key={appointment.id}>
+                  <div>
+                    <p className="font-semibold text-ink">{appointment.horario} · {appointment.pacienteNome}</p>
+                    <p className="mt-1 text-sm text-secondary">{appointment.servico}</p>
+                  </div>
+                  <StatusPill value={appointment.status} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-[180px] items-center justify-center text-sm text-secondary">
+              Agenda livre para hoje.
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Receita do mes" description={`${month.start} ate ${month.end}`}>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-primary/20 bg-primary-soft p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.05em] text-primary-dark">Receita paga</p>
+              <p className="mt-2 text-3xl font-bold text-ink">{brl.format(revenue.paid)}</p>
+            </div>
+            <div className="rounded-lg border border-surface-variant p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.05em] text-secondary">Receita prevista</p>
+              <p className="mt-2 text-xl font-bold text-ink">{brl.format(revenue.forecast)}</p>
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard title="Historico recente de pacientes" description="Ultimos pacientes atendidos por voce, com base em agendamentos concluidos.">
+        {patientHistory.length ? (
+          <div className="overflow-hidden rounded-lg border border-surface-variant">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-container-lowest text-left text-xs uppercase tracking-[0.05em] text-secondary">
+                <tr>
+                  <th className="px-4 py-3">Paciente</th>
+                  <th className="px-4 py-3">Ultimo atendimento</th>
+                  <th className="px-4 py-3">Servico</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patientHistory.map((patient) => (
+                  <tr className="border-t border-surface-variant" key={`${patient.name}-${patient.lastDate}`}>
+                    <td className="px-4 py-3 font-medium text-ink">{patient.name}</td>
+                    <td className="px-4 py-3 text-secondary">{formatDate(patient.lastDate)}</td>
+                    <td className="px-4 py-3 text-secondary">{patient.lastService}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-ink">{patient.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex min-h-[160px] items-center justify-center text-sm text-secondary">
+            Nenhum atendimento concluido encontrado.
+          </div>
+        )}
+      </SectionCard>
+    </>
+  );
 }
 
 export function DashboardPanel({
@@ -148,6 +342,16 @@ export function DashboardPanel({
           Icon: Wallet,
         },
   ];
+
+  if (role === "profissional") {
+    return (
+      <ProfessionalDashboard
+        appointments={appointments}
+        patients={patients}
+        financeEntries={financeEntries}
+      />
+    );
+  }
 
   return (
     <>

@@ -1,9 +1,10 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
 import { todayISO } from "../../../lib/formatters";
+import { buildRecurringDates, type RecurrenceFrequency } from "../../../services/appointmentService";
 import type { Appointment, Patient, Professional, Service } from "../../../types/clinic";
 import { Field, inputClass } from "../components/Field";
 import { RefinedTable } from "../components/RefinedTable";
@@ -85,15 +86,18 @@ const EMPTY_FORM = (professionals: Professional[], services: Service[]) => ({
   data: todayISO(),
   horario: "09:00",
   status: "confirmado" as Appointment["status"],
+  recorrenciaFrequency: "none" as RecurrenceFrequency,
+  recorrenciaOccurrences: 4,
 });
 
-export function AppointmentsPanel({ appointments, patients, professionals, services, onSave, onDelete }: {
+export function AppointmentsPanel({ appointments, patients, professionals, services, onSave, onDelete, onDeleteSeries }: {
   readonly appointments: Appointment[];
   readonly patients: Patient[];
   readonly professionals: Professional[];
   readonly services: Service[];
-  readonly onSave: (values: { profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"] }) => Promise<boolean>;
+  readonly onSave: (values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"]; recorrencia?: { frequency: RecurrenceFrequency; occurrences: number } }) => Promise<boolean>;
   readonly onDelete: (id: string) => Promise<void>;
+  readonly onDeleteSeries: (recorrenciaId: string) => Promise<void>;
 }) {
   const [form, setForm] = useState(() => EMPTY_FORM(professionals, services));
   const [filters, setFilters] = useState({ search: "", status: "todos", professional: "todos", date: "" });
@@ -108,17 +112,43 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
     return matchesSearch && matchesStatus && matchesProfessional && matchesDate;
   });
 
+  const recurrenceDates = useMemo(() => {
+    if (form.id || form.recorrenciaFrequency === "none") return [form.data];
+    return buildRecurringDates(form.data, form.recorrenciaFrequency, form.recorrenciaOccurrences);
+  }, [form.data, form.id, form.recorrenciaFrequency, form.recorrenciaOccurrences]);
+
+  const recurrenceConflicts = useMemo(() => {
+    if (form.id || form.recorrenciaFrequency === "none") return [];
+    return recurrenceDates.filter((date) => appointments.some((appointment) =>
+      appointment.profissionalId === form.profissionalId &&
+      appointment.data === date &&
+      appointment.horario === form.horario &&
+      appointment.status !== "cancelado"
+    ));
+  }, [appointments, form.horario, form.id, form.profissionalId, form.recorrenciaFrequency, recurrenceDates]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLocalError(null);
     if (!form.profissionalId) { setLocalError("Selecione um profissional."); return; }
     if ((form.pacienteNome || "").trim().length < 3) { setLocalError("Informe o nome do paciente (mín. 3 caracteres)."); return; }
+    if (!form.id && form.recorrenciaFrequency !== "none" && recurrenceConflicts.length > 0) {
+      setLocalError(`Já existe agendamento para este profissional/horário em: ${recurrenceConflicts.slice(0, 4).map((date) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR")).join(", ")}.`);
+      return;
+    }
     setSaving(true);
     try {
       const ok = await onSave({
-        ...form,
+        id: form.id || undefined,
+        profissionalId: form.profissionalId,
+        servicoId: form.servicoId || null,
+        pacienteId: form.pacienteId || null,
         pacienteNome: form.pacienteNome.trim() || "Paciente",
         pacienteWhatsapp: form.pacienteWhatsapp,
+        data: form.data,
+        horario: form.horario,
+        status: form.status,
+        recorrencia: form.id ? undefined : { frequency: form.recorrenciaFrequency, occurrences: form.recorrenciaOccurrences },
       });
       if (ok) setForm(EMPTY_FORM(professionals, services));
     } finally {
@@ -199,8 +229,38 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
             <option value="cancelado">Cancelado</option>
           </select>
         </Field>
+        <Field label="Recorrência">
+          <select
+            className={inputClass()}
+            disabled={Boolean(form.id)}
+            value={form.recorrenciaFrequency}
+            onChange={(e) => setForm({ ...form, recorrenciaFrequency: e.target.value as RecurrenceFrequency })}
+          >
+            <option value="none">Não repetir</option>
+            <option value="weekly">Semanal</option>
+            <option value="biweekly">Quinzenal</option>
+            <option value="monthly">Mensal</option>
+          </select>
+        </Field>
+        <Field label="Quantidade">
+          <input
+            className={inputClass()}
+            disabled={Boolean(form.id) || form.recorrenciaFrequency === "none"}
+            max={24}
+            min={2}
+            type="number"
+            value={form.recorrenciaOccurrences}
+            onChange={(e) => setForm({ ...form, recorrenciaOccurrences: Math.min(24, Math.max(2, Number(e.target.value) || 2)) })}
+          />
+        </Field>
+        {!form.id && form.recorrenciaFrequency !== "none" ? (
+          <div className="rounded-lg border border-primary/20 bg-primary-soft px-3 py-2 text-xs text-primary-dark sm:col-span-2 lg:col-span-2">
+            Série com {recurrenceDates.length} horários: {recurrenceDates.slice(0, 4).map((date) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR")).join(", ")}
+            {recurrenceDates.length > 4 ? "..." : ""}
+          </div>
+        ) : null}
         <button className="h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-dark transition disabled:opacity-60 disabled:cursor-not-allowed sm:col-span-2 lg:col-span-4" type="submit" disabled={saving}>
-          {saving ? "Salvando..." : form.id ? "Atualizar" : "Salvar"}
+          {saving ? "Salvando..." : form.id ? "Atualizar" : form.recorrenciaFrequency === "none" ? "Salvar" : "Criar série recorrente"}
         </button>
       </form>
 
@@ -216,7 +276,16 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
                 <td className="px-4 py-3 text-secondary">{appointment.profissional}</td>
                 <td className="px-4 py-3 text-secondary">{appointment.servico}</td>
                 <td className="px-4 py-3 text-secondary">{new Date(`${appointment.data}T12:00:00`).toLocaleDateString("pt-BR")} {appointment.horario}</td>
-                <td className="px-4 py-3"><StatusPill value={appointment.status} /></td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusPill value={appointment.status} />
+                    {appointment.recorrenciaId ? (
+                      <span className="rounded-full border border-primary/20 bg-primary-soft px-2 py-0.5 text-[11px] font-semibold text-primary-dark">
+                        Série
+                      </span>
+                    ) : null}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-right">
                   <button
                     className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary transition"
@@ -230,6 +299,8 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
                       data: appointment.data,
                       horario: appointment.horario,
                       status: appointment.status,
+                      recorrenciaFrequency: "none",
+                      recorrenciaOccurrences: 4,
                     })}
                     type="button"
                   >
@@ -243,6 +314,15 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
+                  {appointment.recorrenciaId ? (
+                    <button
+                      className="ml-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-error hover:text-error transition"
+                      onClick={() => void confirmDangerAction(`Excluir toda a série recorrente de ${appointment.pacienteNome}? Todos os horários vinculados serão removidos.`).then((ok) => { if (ok && appointment.recorrenciaId) onDeleteSeries(appointment.recorrenciaId); })}
+                      type="button"
+                    >
+                      Excluir série
+                    </button>
+                  ) : null}
                 </td>
               </tr>
             ))}

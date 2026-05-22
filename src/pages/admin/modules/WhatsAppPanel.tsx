@@ -173,37 +173,6 @@ function Avatar({
 
 // ─── Toggle de IA ─────────────────────────────────────────────────────────────
 
-function AiToggle({
-  label,
-  description,
-  checked,
-  onChange,
-  icon,
-}: {
-  readonly label: string;
-  readonly description?: string;
-  readonly checked: boolean;
-  readonly onChange: (v: boolean) => void;
-  readonly icon?: React.ReactNode;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-border-strong bg-surface px-3 py-2.5 transition hover:border-primary/40">
-      <div className="flex items-start gap-2.5">
-        {icon && <span className="mt-0.5 text-ink-secondary">{icon}</span>}
-        <div>
-          <span className="block text-[13px] font-medium text-ink">{label}</span>
-          {description && <span className="block text-[11px] text-ink-muted">{description}</span>}
-        </div>
-      </div>
-      <div className="relative mt-0.5 shrink-0">
-        <input className="sr-only" type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
-        <div className={`h-5 w-9 rounded-full transition-colors duration-200 ${checked ? "bg-primary" : "bg-border-strong"}`} />
-        <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
-      </div>
-    </label>
-  );
-}
-
 // ─── ConversationItem ─────────────────────────────────────────────────────────
 
 function ConversationItem({
@@ -717,6 +686,8 @@ function DebyPromptEditor({
 // está em fase de estabilização. A lógica de backend permanece intacta.
 // Para reativar: remover os comentários {/* [OCULTO-TEMP] ... */} abaixo.
 
+void DebyPromptEditor;
+
 type ContactAiTab = "observacoes" | "deby";
 
 function ContactAiPanel({
@@ -764,6 +735,10 @@ function ContactAiPanel({
   readonly onUpdateObservacao: (id: string, texto: string) => Promise<void>;
   readonly onDeleteObservacao: (id: string) => Promise<void>;
 }) {
+  void debyAgent;
+  void onUpdateAiSettings;
+  void onSaveAgent;
+
   const name = bestName(conversation.contact.name, conversation.contact.phone);
   const ai = conversation.aiSettings;
   const [activeTab, setActiveTab] = useState<ContactAiTab>("observacoes");

@@ -35,6 +35,7 @@ export interface Appointment {
   data: string;
   horario: string;
   status: "pendente" | "confirmado" | "cancelado" | "faltou" | "concluido";
+  recorrenciaId?: string | null;
 }
 
 export interface Patient {

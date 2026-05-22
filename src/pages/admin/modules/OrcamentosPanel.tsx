@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Check, Copy, ExternalLink, FileText, MessageCircle, Printer, Plus, Trash2, X } from "lucide-react";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
-import { brl, todayISO } from "../../../lib/formatters";
+import { brl } from "../../../lib/formatters";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
 import type { Service } from "../../../types/clinic";
 import type { ProgramaDesconto } from "./DiscountProgramsPanel";

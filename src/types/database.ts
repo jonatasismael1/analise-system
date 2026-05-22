@@ -24,8 +24,8 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["pacientes"]["Insert"]>;
       };
       agendamentos: {
-        Row: { id: string; clinica_id: string; profissional_id: string; servico_id: string | null; paciente_id: string | null; paciente_nome: string; paciente_whatsapp: string; data: string; horario: string; status: string; created_at: string; updated_at: string };
-        Insert: { id?: string; clinica_id: string; profissional_id: string; servico_id?: string | null; paciente_id?: string | null; paciente_nome: string; paciente_whatsapp: string; data: string; horario: string; status?: string; created_at?: string; updated_at?: string };
+        Row: { id: string; clinica_id: string; profissional_id: string; servico_id: string | null; paciente_id: string | null; paciente_nome: string; paciente_whatsapp: string; data: string; horario: string; status: string; recorrencia_id: string | null; lembrete_whatsapp_enviado_em: string | null; lembrete_whatsapp_status: string | null; lembrete_whatsapp_erro: string | null; lembrete_whatsapp_tentativas: number; created_at: string; updated_at: string };
+        Insert: { id?: string; clinica_id: string; profissional_id: string; servico_id?: string | null; paciente_id?: string | null; paciente_nome: string; paciente_whatsapp: string; data: string; horario: string; status?: string; recorrencia_id?: string | null; lembrete_whatsapp_enviado_em?: string | null; lembrete_whatsapp_status?: string | null; lembrete_whatsapp_erro?: string | null; lembrete_whatsapp_tentativas?: number; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["agendamentos"]["Insert"]>;
       };
       pacotes_sessoes: {
