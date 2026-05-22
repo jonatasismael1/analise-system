@@ -34,7 +34,13 @@ const statusCardClass: Record<Appointment["status"], string> = {
   cancelado: "border-slate-200 bg-slate-100 text-secondary",
 };
 
-export function ClinicCalendar({ appointments, professionals }: { readonly appointments: Appointment[]; readonly professionals: Professional[] }) {
+interface ClinicCalendarProps {
+  readonly appointments: Appointment[];
+  readonly professionals: Professional[];
+  readonly onClickAppointment?: (appointment: Appointment) => void;
+}
+
+export function ClinicCalendar({ appointments, professionals, onClickAppointment }: ClinicCalendarProps) {
   const [anchorDate, setAnchorDate] = useState(todayISO());
   const [professionalId, setProfessionalId] = useState("todos");
   const [status, setStatus] = useState<Appointment["status"] | "todos">("todos");
@@ -59,7 +65,7 @@ export function ClinicCalendar({ appointments, professionals }: { readonly appoi
           <h3 className="mt-1 text-lg font-semibold text-on-surface">Calendário operacional</h3>
           <p className="mt-1 text-sm text-secondary">{formatDay(week[0])} até {formatDay(week[6])}</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-[180px_180px_170px_auto_auto_auto] xl:items-end">
+        <div className="flex flex-wrap items-end gap-3">
           <Field label="Data">
             <input className={inputClass()} type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
           </Field>
@@ -88,36 +94,45 @@ export function ClinicCalendar({ appointments, professionals }: { readonly appoi
       {filteredAppointments.length === 0 ? (
         <EmptyState title="Semana sem agendamentos" message="Ajuste os filtros ou crie um novo agendamento para preencher a agenda." />
       ) : (
-        <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
-          {week.map((date) => {
-            const dayAppointments = filteredAppointments.filter((appointment) => appointment.data === date);
-            const isToday = date === todayISO();
-            return (
-              <div className={`min-h-[190px] rounded-xl border p-3 ${isToday ? "border-primary bg-teal-50/40" : "border-surface-variant bg-surface-container-lowest"}`} key={date}>
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <p className={`text-xs font-black uppercase tracking-wide ${isToday ? "text-primary" : "text-secondary"}`}>{formatDay(date)}</p>
-                  {isToday ? <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">Hoje</span> : null}
+        <div className="overflow-x-auto">
+          <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7" style={{ minWidth: "700px" }}>
+            {week.map((date) => {
+              const dayAppointments = filteredAppointments.filter((appointment) => appointment.data === date);
+              const isToday = date === todayISO();
+              return (
+                <div className={`min-h-[190px] rounded-xl border p-3 ${isToday ? "border-primary bg-teal-50/40" : "border-surface-variant bg-surface-container-lowest"}`} key={date}>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <p className={`text-xs font-black uppercase tracking-wide ${isToday ? "text-primary" : "text-secondary"}`}>{formatDay(date)}</p>
+                    {isToday ? <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">Hoje</span> : null}
+                  </div>
+                  <div className="space-y-2">
+                    {dayAppointments.length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-outline-variant bg-white/70 px-3 py-6 text-center text-xs text-secondary">Sem agenda</p>
+                    ) : (
+                      dayAppointments.map((appointment) => (
+                        <article
+                          className={`rounded-lg border p-2.5 text-xs leading-snug ${statusCardClass[appointment.status]} ${onClickAppointment ? "cursor-pointer transition hover:opacity-80 hover:shadow-sm" : ""}`}
+                          key={appointment.id}
+                          onClick={() => onClickAppointment?.(appointment)}
+                          role={onClickAppointment ? "button" : undefined}
+                          tabIndex={onClickAppointment ? 0 : undefined}
+                          onKeyDown={onClickAppointment ? (e) => { if (e.key === "Enter" || e.key === " ") onClickAppointment(appointment); } : undefined}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-bold">{appointment.horario}</p>
+                            <StatusPill value={appointment.status} />
+                          </div>
+                          <p className="mt-2 font-semibold text-on-surface">{appointment.pacienteNome}</p>
+                          <p className="mt-1 text-secondary">{appointment.profissional}</p>
+                          <p className="text-secondary">{appointment.servico}</p>
+                        </article>
+                      ))
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {dayAppointments.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-outline-variant bg-white/70 px-3 py-6 text-center text-xs text-secondary">Sem agenda</p>
-                  ) : (
-                    dayAppointments.map((appointment) => (
-                      <article className={`rounded-lg border p-2.5 text-xs leading-snug ${statusCardClass[appointment.status]}`} key={appointment.id}>
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-bold">{appointment.horario}</p>
-                          <StatusPill value={appointment.status} />
-                        </div>
-                        <p className="mt-2 font-semibold text-on-surface">{appointment.pacienteNome}</p>
-                        <p className="mt-1 text-secondary">{appointment.profissional}</p>
-                        <p className="text-secondary">{appointment.servico}</p>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </section>

@@ -1,20 +1,44 @@
 import { useMemo, useRef, useState } from "react";
-import { Trash2 } from "lucide-react";
-import { EmptyState } from "../../../components/ui/EmptyState";
-import { SectionCard } from "../../../components/ui/SectionCard";
+import {
+  AlignLeft,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+import { ClinicCalendar } from "../components/ClinicCalendar";
+import { ProgramBadge } from "../../../components/ui/ProgramBadge";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
 import { todayISO } from "../../../lib/formatters";
 import { buildRecurringDates, type RecurrenceFrequency } from "../../../services/appointmentService";
-import { ProgramBadge } from "../../../components/ui/ProgramBadge";
 import type { Appointment, Patient, PatientProgramMembership, Professional, Service } from "../../../types/clinic";
 import type { ProgramaDesconto } from "./DiscountProgramsPanel";
 import { Field, inputClass } from "../components/Field";
 import { Pagination, usePagination } from "../components/Pagination";
-import { RefinedTable } from "../components/RefinedTable";
-import { StatusPill } from "../components/StatusPill";
-import { ClinicCalendar } from "../components/ClinicCalendar";
 
-// Campo de busca de paciente com autocomplete
+// ── Status badge ────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<Appointment["status"], { label: string; cls: string }> = {
+  confirmado: { label: "Confirmado", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  pendente:   { label: "Pendente",   cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  concluido:  { label: "Concluído",  cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  cancelado:  { label: "Cancelado",  cls: "bg-slate-100 text-slate-500 border-slate-200" },
+  faltou:     { label: "Faltou",     cls: "bg-red-50 text-red-600 border-red-200" },
+};
+
+function ApptStatus({ status }: { readonly status: Appointment["status"] }) {
+  const { label, cls } = STATUS_CONFIG[status] ?? STATUS_CONFIG.pendente;
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+// ── Patient autocomplete ─────────────────────────────────────────────────────
+
 function PatientSearch({
   patients,
   selectedId,
@@ -56,11 +80,11 @@ function PatientSearch({
         autoComplete="off"
       />
       {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-border-strong bg-surface shadow-modal">
+        <ul className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-border bg-white shadow-modal">
           {filtered.map((p) => (
             <li key={p.id}>
               <button
-                className="flex w-full flex-col px-3 py-2 text-left text-[13px] hover:bg-primary-wash transition"
+                className="flex w-full flex-col px-3 py-2 text-left text-[13px] hover:bg-surface-low transition"
                 type="button"
                 onMouseDown={(e) => { e.preventDefault(); pick(p); }}
               >
@@ -79,6 +103,8 @@ function PatientSearch({
   );
 }
 
+// ── Form defaults ────────────────────────────────────────────────────────────
+
 const EMPTY_FORM = (professionals: Professional[], services: Service[]) => ({
   id: "",
   profissionalId: professionals[0]?.id ?? "",
@@ -93,21 +119,55 @@ const EMPTY_FORM = (professionals: Professional[], services: Service[]) => ({
   recorrenciaOccurrences: 4,
 });
 
-export function AppointmentsPanel({ appointments, patients, professionals, services, memberships = [], programas = [], onSave, onDelete, onDeleteSeries }: {
+// ── Main panel ────────────────────────────────────────────────────────────────
+
+export function AppointmentsPanel({
+  appointments,
+  patients,
+  professionals,
+  services,
+  memberships = [],
+  programas = [],
+  onSave,
+  onDelete,
+  onDeleteSeries,
+}: {
   readonly appointments: Appointment[];
   readonly patients: Patient[];
   readonly professionals: Professional[];
   readonly services: Service[];
   readonly memberships?: PatientProgramMembership[];
   readonly programas?: ProgramaDesconto[];
-  readonly onSave: (values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"]; recorrencia?: { frequency: RecurrenceFrequency; occurrences: number } }) => Promise<boolean>;
+  readonly onSave: (values: {
+    id?: string;
+    profissionalId: string;
+    servicoId?: string | null;
+    pacienteId?: string | null;
+    pacienteNome: string;
+    pacienteWhatsapp: string;
+    data: string;
+    horario: string;
+    status: Appointment["status"];
+    recorrencia?: { frequency: RecurrenceFrequency; occurrences: number };
+  }) => Promise<boolean>;
   readonly onDelete: (id: string) => Promise<void>;
   readonly onDeleteSeries: (recorrenciaId: string) => Promise<void>;
 }) {
-  const [form, setForm] = useState(() => EMPTY_FORM(professionals, services));
-  const [filters, setFilters] = useState({ search: "", status: "todos", professional: "todos", date: "" });
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"lista" | "calendario">("lista");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerForm, setDrawerForm] = useState(() => EMPTY_FORM(professionals, services));
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    search: "",
+    status: "todos",
+    profissionalId: "todos",
+    date: "",
+    servicoId: "todos",
+    patientType: "todos",
+  });
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
 
@@ -116,252 +176,615 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
     setPage(0);
   }
 
-  const filteredAppointments = appointments.filter((appointment) => {
-    const matchesSearch = `${appointment.pacienteNome} ${appointment.profissional} ${appointment.servico}`.toLowerCase().includes(filters.search.toLowerCase());
-    const matchesStatus = filters.status === "todos" || appointment.status === filters.status;
-    const matchesProfessional = filters.professional === "todos" || appointment.profissional === professionals.find((item) => item.id === filters.professional)?.nome;
-    const matchesDate = !filters.date || appointment.data === filters.date;
-    return matchesSearch && matchesStatus && matchesProfessional && matchesDate;
-  });
+  // ── Summary cards (based on full list, not filtered) ──────────────────────
+  const summary = useMemo(() => {
+    const today = todayISO();
+    return {
+      today: appointments.filter((a) => a.data === today && a.status !== "cancelado").length,
+      confirmed: appointments.filter((a) => a.status === "confirmado").length,
+      pending: appointments.filter((a) => a.status === "pendente").length,
+      cancelled: appointments.filter((a) => a.status === "cancelado").length,
+    };
+  }, [appointments]);
+
+  // ── Filtered list ──────────────────────────────────────────────────────────
+  const filteredAppointments = useMemo(() =>
+    appointments
+      .filter((a) => {
+        const profName = professionals.find((p) => p.id === filters.profissionalId)?.nome;
+        const matchSearch = `${a.pacienteNome} ${a.profissional} ${a.servico}`.toLowerCase().includes(filters.search.toLowerCase());
+        const matchStatus = filters.status === "todos" || a.status === filters.status;
+        const matchProf = filters.profissionalId === "todos" || a.profissional === profName;
+        const matchDate = !filters.date || a.data === filters.date;
+        const matchService = filters.servicoId === "todos" || a.servicoId === filters.servicoId;
+        const matchType =
+          filters.patientType === "todos" ||
+          (filters.patientType === "cadastrado" && Boolean(a.pacienteId)) ||
+          (filters.patientType === "avulso" && !a.pacienteId);
+        return matchSearch && matchStatus && matchProf && matchDate && matchService && matchType;
+      })
+      .sort((a, b) => `${b.data} ${b.horario}`.localeCompare(`${a.data} ${a.horario}`)),
+  [appointments, filters, professionals]);
 
   const paginatedAppointments = usePagination(filteredAppointments, page, pageSize);
 
+  // ── Recurrence ─────────────────────────────────────────────────────────────
   const recurrenceDates = useMemo(() => {
-    if (form.id || form.recorrenciaFrequency === "none") return [form.data];
-    return buildRecurringDates(form.data, form.recorrenciaFrequency, form.recorrenciaOccurrences);
-  }, [form.data, form.id, form.recorrenciaFrequency, form.recorrenciaOccurrences]);
+    if (drawerForm.id || drawerForm.recorrenciaFrequency === "none") return [drawerForm.data];
+    return buildRecurringDates(drawerForm.data, drawerForm.recorrenciaFrequency, drawerForm.recorrenciaOccurrences);
+  }, [drawerForm.data, drawerForm.id, drawerForm.recorrenciaFrequency, drawerForm.recorrenciaOccurrences]);
 
   const recurrenceConflicts = useMemo(() => {
-    if (form.id || form.recorrenciaFrequency === "none") return [];
-    return recurrenceDates.filter((date) => appointments.some((appointment) =>
-      appointment.profissionalId === form.profissionalId &&
-      appointment.data === date &&
-      appointment.horario === form.horario &&
-      appointment.status !== "cancelado"
-    ));
-  }, [appointments, form.horario, form.id, form.profissionalId, form.recorrenciaFrequency, recurrenceDates]);
+    if (drawerForm.id || drawerForm.recorrenciaFrequency === "none") return [];
+    return recurrenceDates.filter((date) =>
+      appointments.some(
+        (a) =>
+          a.profissionalId === drawerForm.profissionalId &&
+          a.data === date &&
+          a.horario === drawerForm.horario &&
+          a.status !== "cancelado"
+      )
+    );
+  }, [appointments, drawerForm, recurrenceDates]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // ── Drawer helpers ─────────────────────────────────────────────────────────
+  function openCreate() {
+    setDrawerForm(EMPTY_FORM(professionals, services));
     setLocalError(null);
-    if (!form.profissionalId) { setLocalError("Selecione um profissional."); return; }
-    if ((form.pacienteNome || "").trim().length < 3) { setLocalError("Informe o nome do paciente (mín. 3 caracteres)."); return; }
-    if (!form.id && form.recorrenciaFrequency !== "none" && recurrenceConflicts.length > 0) {
-      setLocalError(`Já existe agendamento para este profissional/horário em: ${recurrenceConflicts.slice(0, 4).map((date) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR")).join(", ")}.`);
+    setDrawerOpen(true);
+  }
+
+  function openEdit(appointment: Appointment) {
+    setDrawerForm({
+      id: appointment.id,
+      profissionalId: professionals.find((p) => p.nome === appointment.profissional)?.id ?? "",
+      servicoId: appointment.servicoId ?? services[0]?.id ?? "",
+      pacienteId: appointment.pacienteId ?? "",
+      pacienteNome: appointment.pacienteNome,
+      pacienteWhatsapp: appointment.pacienteWhatsapp ?? "",
+      data: appointment.data,
+      horario: appointment.horario,
+      status: appointment.status,
+      recorrenciaFrequency: "none",
+      recorrenciaOccurrences: 4,
+    });
+    setLocalError(null);
+    setDrawerOpen(true);
+  }
+
+  async function handleSubmit() {
+    setLocalError(null);
+    if (!drawerForm.profissionalId) { setLocalError("Selecione um profissional."); return; }
+    if ((drawerForm.pacienteNome || "").trim().length < 3) { setLocalError("Informe o nome do paciente (mín. 3 caracteres)."); return; }
+    if (!drawerForm.id && drawerForm.recorrenciaFrequency !== "none" && recurrenceConflicts.length > 0) {
+      setLocalError(`Conflito nos dias: ${recurrenceConflicts.slice(0, 3).map((d) => new Date(`${d}T12:00:00`).toLocaleDateString("pt-BR")).join(", ")}.`);
       return;
     }
     setSaving(true);
     try {
       const ok = await onSave({
-        id: form.id || undefined,
-        profissionalId: form.profissionalId,
-        servicoId: form.servicoId || null,
-        pacienteId: form.pacienteId || null,
-        pacienteNome: form.pacienteNome.trim() || "Paciente",
-        pacienteWhatsapp: form.pacienteWhatsapp,
-        data: form.data,
-        horario: form.horario,
-        status: form.status,
-        recorrencia: form.id ? undefined : { frequency: form.recorrenciaFrequency, occurrences: form.recorrenciaOccurrences },
+        id: drawerForm.id || undefined,
+        profissionalId: drawerForm.profissionalId,
+        servicoId: drawerForm.servicoId || null,
+        pacienteId: drawerForm.pacienteId || null,
+        pacienteNome: drawerForm.pacienteNome.trim() || "Paciente",
+        pacienteWhatsapp: drawerForm.pacienteWhatsapp,
+        data: drawerForm.data,
+        horario: drawerForm.horario,
+        status: drawerForm.status,
+        recorrencia: drawerForm.id ? undefined : { frequency: drawerForm.recorrenciaFrequency, occurrences: drawerForm.recorrenciaOccurrences },
       });
-      if (ok) setForm(EMPTY_FORM(professionals, services));
+      if (ok) setDrawerOpen(false);
     } finally {
       setSaving(false);
     }
   }
 
+  async function handleCancelAppointment() {
+    if (!drawerForm.id) return;
+    setSaving(true);
+    try {
+      const ok = await onSave({
+        id: drawerForm.id,
+        profissionalId: drawerForm.profissionalId,
+        servicoId: drawerForm.servicoId || null,
+        pacienteId: drawerForm.pacienteId || null,
+        pacienteNome: drawerForm.pacienteNome.trim() || "Paciente",
+        pacienteWhatsapp: drawerForm.pacienteWhatsapp,
+        data: drawerForm.data,
+        horario: drawerForm.horario,
+        status: "cancelado",
+      });
+      if (ok) setDrawerOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Active filter count ────────────────────────────────────────────────────
+  const activeFilterCount = [
+    filters.search,
+    filters.status !== "todos" ? filters.status : "",
+    filters.profissionalId !== "todos" ? filters.profissionalId : "",
+    filters.date,
+  ].filter(Boolean).length;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <SectionCard title="Agendamentos" description="Agenda operacional filtrada pela clínica logada.">
-      {/* Filtros */}
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Buscar">
-          <input className={inputClass()} placeholder="Paciente, profissional ou serviço" value={filters.search} onChange={(e) => updateFilter({ search: e.target.value })} />
-        </Field>
-        <Field label="Status">
-          <select className={inputClass()} value={filters.status} onChange={(e) => updateFilter({ status: e.target.value })}>
-            <option value="todos">Todos</option>
-            <option value="pendente">Pendente</option>
-            <option value="confirmado">Confirmado</option>
-            <option value="concluido">Concluído</option>
-            <option value="faltou">Faltou</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
-        </Field>
-        <Field label="Profissional">
-          <select className={inputClass()} value={filters.professional} onChange={(e) => updateFilter({ professional: e.target.value })}>
-            <option value="todos">Todos</option>
-            {professionals.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}
-          </select>
-        </Field>
-        <Field label="Data">
-          <input className={inputClass()} type="date" value={filters.date} onChange={(e) => updateFilter({ date: e.target.value })} />
-        </Field>
+    <div className="space-y-4">
+
+      {/* ── Barra de ação topo ─────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-ink-secondary">
+          Gerencie os horários, profissionais e status dos atendimentos.
+        </p>
+        <button
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark active:-translate-y-px"
+          type="button"
+          onClick={openCreate}
+        >
+          <Plus className="h-4 w-4" />
+          Novo agendamento
+        </button>
       </div>
 
-      {/* Formulário */}
-      {localError && (
-        <div className="mb-3 rounded-lg border border-error/30 bg-red-50 px-4 py-2.5 text-sm font-medium text-error">
-          {localError}
-        </div>
-      )}
-      <form className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(e) => { void handleSubmit(e); }}>
-        <Field label="Paciente cadastrado">
-          <PatientSearch
-            patients={patients}
-            selectedId={form.pacienteId}
-            onSelect={(id, nome, whatsapp) => setForm((f) => ({ ...f, pacienteId: id, pacienteNome: nome, pacienteWhatsapp: whatsapp }))}
+      {/* ── Filtros ────────────────────────────────────────────────────────── */}
+      <div className="rounded-3xl border border-border bg-white p-4 shadow-card">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <input
+              className={inputClass()}
+              placeholder="Buscar paciente, profissional..."
+              value={filters.search}
+              onChange={(e) => updateFilter({ search: e.target.value })}
+            />
+          </div>
+          <input
+            className={inputClass()}
+            type="date"
+            value={filters.date}
+            onChange={(e) => updateFilter({ date: e.target.value })}
           />
-        </Field>
-        <Field label="Nome avulso">
-          <input className={inputClass()} placeholder="Ou digite um nome livre" value={form.pacienteNome} onChange={(e) => setForm({ ...form, pacienteNome: e.target.value })} />
-        </Field>
-        <Field label="WhatsApp">
-          <input className={inputClass()} value={form.pacienteWhatsapp} onChange={(e) => setForm({ ...form, pacienteWhatsapp: e.target.value })} />
-        </Field>
-        <Field label="Profissional">
-          <select className={inputClass()} value={form.profissionalId} onChange={(e) => setForm({ ...form, profissionalId: e.target.value })}>
-            {professionals.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}
+          <select
+            className={inputClass()}
+            value={filters.profissionalId}
+            onChange={(e) => updateFilter({ profissionalId: e.target.value })}
+          >
+            <option value="todos">Todos os profissionais</option>
+            {professionals.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
           </select>
-        </Field>
-        <Field label="Serviço">
-          <select className={inputClass()} value={form.servicoId} onChange={(e) => setForm({ ...form, servicoId: e.target.value })}>
-            {services.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}
-          </select>
-        </Field>
-        <Field label="Data">
-          <input className={inputClass()} type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} />
-        </Field>
-        <Field label="Horário">
-          <input className={inputClass()} type="time" value={form.horario} onChange={(e) => setForm({ ...form, horario: e.target.value })} />
-        </Field>
-        <Field label="Status">
-          <select className={inputClass()} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Appointment["status"] })}>
-            <option value="pendente">Pendente</option>
+          <select
+            className={inputClass()}
+            value={filters.status}
+            onChange={(e) => updateFilter({ status: e.target.value })}
+          >
+            <option value="todos">Todos os status</option>
             <option value="confirmado">Confirmado</option>
+            <option value="pendente">Pendente</option>
             <option value="concluido">Concluído</option>
             <option value="faltou">Faltou</option>
             <option value="cancelado">Cancelado</option>
           </select>
-        </Field>
-        <Field label="Recorrência">
-          <select
-            className={inputClass()}
-            disabled={Boolean(form.id)}
-            value={form.recorrenciaFrequency}
-            onChange={(e) => setForm({ ...form, recorrenciaFrequency: e.target.value as RecurrenceFrequency })}
-          >
-            <option value="none">Não repetir</option>
-            <option value="weekly">Semanal</option>
-            <option value="biweekly">Quinzenal</option>
-            <option value="monthly">Mensal</option>
-          </select>
-        </Field>
-        <Field label="Quantidade">
-          <input
-            className={inputClass()}
-            disabled={Boolean(form.id) || form.recorrenciaFrequency === "none"}
-            max={24}
-            min={2}
-            type="number"
-            value={form.recorrenciaOccurrences}
-            onChange={(e) => setForm({ ...form, recorrenciaOccurrences: Math.min(24, Math.max(2, Number(e.target.value) || 2)) })}
-          />
-        </Field>
-        {!form.id && form.recorrenciaFrequency !== "none" ? (
-          <div className="rounded-lg border border-primary/20 bg-primary-soft px-3 py-2 text-xs text-primary-dark sm:col-span-2 lg:col-span-2">
-            Série com {recurrenceDates.length} horários: {recurrenceDates.slice(0, 4).map((date) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR")).join(", ")}
-            {recurrenceDates.length > 4 ? "..." : ""}
-          </div>
-        ) : null}
-        <button className="h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-dark transition disabled:opacity-60 disabled:cursor-not-allowed sm:col-span-2 lg:col-span-4" type="submit" disabled={saving}>
-          {saving ? "Salvando..." : form.id ? "Atualizar" : form.recorrenciaFrequency === "none" ? "Salvar" : "Criar série recorrente"}
+        </div>
+
+        {/* Mais filtros */}
+        <button
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-ink-secondary transition hover:text-primary"
+          type="button"
+          onClick={() => setShowMoreFilters(!showMoreFilters)}
+        >
+          {showMoreFilters ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          {showMoreFilters ? "Ocultar filtros" : "Mais filtros"}
+          {activeFilterCount > 0 && (
+            <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">{activeFilterCount}</span>
+          )}
         </button>
-      </form>
 
-      <ClinicCalendar appointments={filteredAppointments} professionals={professionals} />
+        {showMoreFilters && (
+          <div className="mt-3 grid gap-3 border-t border-border-divider pt-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-secondary">Serviço</label>
+              <select
+                className={inputClass()}
+                value={filters.servicoId}
+                onChange={(e) => updateFilter({ servicoId: e.target.value })}
+              >
+                <option value="todos">Todos os serviços</option>
+                {services.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-secondary">Tipo de paciente</label>
+              <select
+                className={inputClass()}
+                value={filters.patientType}
+                onChange={(e) => updateFilter({ patientType: e.target.value })}
+              >
+                <option value="todos">Todos</option>
+                <option value="cadastrado">Cadastrado</option>
+                <option value="avulso">Avulso</option>
+              </select>
+            </div>
+            {(filters.search || filters.date || filters.status !== "todos" || filters.profissionalId !== "todos" || filters.servicoId !== "todos" || filters.patientType !== "todos") && (
+              <div className="flex items-end">
+                <button
+                  className="h-9 rounded-xl border border-border px-3 text-xs font-medium text-ink-secondary transition hover:border-error hover:text-error"
+                  type="button"
+                  onClick={() => { setFilters({ search: "", status: "todos", profissionalId: "todos", date: "", servicoId: "todos", patientType: "todos" }); setPage(0); }}
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-      {filteredAppointments.length === 0
-        ? <EmptyState title="Sem agendamentos" message="Agendamentos públicos e internos aparecerão aqui." />
-        : (
-          <RefinedTable headers={["Paciente", "Profissional", "Serviço", "Data", "Status", "Ações"]}>
-            {paginatedAppointments.items.map((appointment) => (
-              <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={appointment.id}>
-                <td className="px-4 py-3 font-medium">
-                  <span>{appointment.pacienteNome}</span>
-                  {appointment.pacienteId && (
-                    <ProgramBadge
-                      membership={memberships.find((m) => m.patientId === appointment.pacienteId) ?? null}
-                      programas={programas}
-                      patients={patients}
-                      compact
-                    />
-                  )}
-                </td>
-                <td className="px-4 py-3 text-secondary">{appointment.profissional}</td>
-                <td className="px-4 py-3 text-secondary">{appointment.servico}</td>
-                <td className="px-4 py-3 text-secondary">{new Date(`${appointment.data}T12:00:00`).toLocaleDateString("pt-BR")} {appointment.horario}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusPill value={appointment.status} />
-                    {appointment.recorrenciaId ? (
-                      <span className="rounded-full border border-primary/20 bg-primary-soft px-2 py-0.5 text-[11px] font-semibold text-primary-dark">
-                        Série
-                      </span>
-                    ) : null}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary transition"
-                    onClick={() => setForm({
-                      id: appointment.id,
-                      profissionalId: professionals.find((item) => item.nome === appointment.profissional)?.id ?? "",
-                      servicoId: services.find((item) => item.nome === appointment.servico)?.id ?? "",
-                      pacienteId: "",
-                      pacienteNome: appointment.pacienteNome,
-                      pacienteWhatsapp: "",
-                      data: appointment.data,
-                      horario: appointment.horario,
-                      status: appointment.status,
-                      recorrenciaFrequency: "none",
-                      recorrenciaOccurrences: 4,
-                    })}
-                    type="button"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    aria-label={`Excluir agendamento de ${appointment.pacienteNome}`}
-                    className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition"
-                    onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este agendamento de ${appointment.pacienteNome}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) onDelete(appointment.id); })}
-                    type="button"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                  {appointment.recorrenciaId ? (
-                    <button
-                      className="ml-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-error hover:text-error transition"
-                      onClick={() => void confirmDangerAction(`Excluir toda a série recorrente de ${appointment.pacienteNome}? Todos os horários vinculados serão removidos.`).then((ok) => { if (ok && appointment.recorrenciaId) onDeleteSeries(appointment.recorrenciaId); })}
-                      type="button"
+      {/* ── Cards de resumo ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: "Hoje", value: summary.today, color: "text-primary", bg: "bg-blue-50" },
+          { label: "Confirmados", value: summary.confirmed, color: "text-emerald-700", bg: "bg-emerald-50" },
+          { label: "Pendentes", value: summary.pending, color: "text-amber-700", bg: "bg-amber-50" },
+          { label: "Cancelados", value: summary.cancelled, color: "text-slate-500", bg: "bg-slate-50" },
+        ].map(({ label, value, color, bg }) => (
+          <div key={label} className={`rounded-2xl border border-border ${bg} px-4 py-3`}>
+            <p className="text-xs font-medium text-ink-muted">{label}</p>
+            <p className={`mt-0.5 text-2xl font-bold ${color}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Tabs ───────────────────────────────────────────────────────────── */}
+      <div className="flex gap-1 rounded-2xl border border-border bg-surface-low p-1 w-fit">
+        {(["lista", "calendario"] as const).map((tab) => (
+          <button
+            key={tab}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
+              activeTab === tab
+                ? "bg-white text-primary shadow-sm"
+                : "text-ink-secondary hover:text-ink"
+            }`}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === "lista" ? <AlignLeft className="h-3.5 w-3.5" /> : <CalendarDays className="h-3.5 w-3.5" />}
+            {tab === "lista" ? "Lista" : "Calendário"}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Aba Lista ──────────────────────────────────────────────────────── */}
+      {activeTab === "lista" && (
+        filteredAppointments.length === 0 ? (
+          <div className="rounded-3xl border border-border bg-white p-10 text-center shadow-card">
+            <CalendarDays className="mx-auto h-10 w-10 text-ink-muted opacity-40" />
+            <h3 className="mt-4 text-base font-semibold text-ink">Nenhum agendamento encontrado</h3>
+            <p className="mt-1 text-sm text-ink-secondary">
+              Não há horários cadastrados para os filtros selecionados.
+            </p>
+            <button
+              className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+              type="button"
+              onClick={openCreate}
+            >
+              <Plus className="h-4 w-4" />
+              Novo agendamento
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-border bg-white shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-surface-low">
+                    {["Horário", "Paciente", "Profissional", "Serviço", "Status", ""].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedAppointments.items.map((appointment) => (
+                    <tr
+                      key={appointment.id}
+                      className="group border-b border-border-divider transition hover:bg-surface-low"
                     >
-                      Excluir série
-                    </button>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </RefinedTable>
+                      <td className="px-4 py-3 text-ink-secondary">
+                        <p className="font-mono text-[13px] font-semibold text-ink">{appointment.horario}</p>
+                        <p className="text-[11px] text-ink-muted">
+                          {new Date(`${appointment.data}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-ink">{appointment.pacienteNome}</p>
+                        {appointment.pacienteId && (
+                          <ProgramBadge
+                            membership={memberships.find((m) => m.patientId === appointment.pacienteId) ?? null}
+                            programas={programas}
+                            patients={patients}
+                            compact
+                          />
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-ink-secondary">{appointment.profissional}</td>
+                      <td className="px-4 py-3 text-ink-secondary">{appointment.servico}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <ApptStatus status={appointment.status} />
+                          {appointment.recorrenciaId && (
+                            <span className="rounded-full border border-primary/20 bg-primary-wash px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                              Série
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5 opacity-0 transition group-hover:opacity-100">
+                          <button
+                            className="rounded-xl border border-border px-2.5 py-1 text-xs font-medium text-ink-secondary transition hover:border-primary hover:text-primary"
+                            type="button"
+                            onClick={() => openEdit(appointment)}
+                          >
+                            Editar
+                          </button>
+                          {appointment.recorrenciaId && (
+                            <button
+                              className="rounded-xl border border-border px-2.5 py-1 text-xs font-medium text-ink-secondary transition hover:border-error hover:text-error"
+                              type="button"
+                              onClick={() => void confirmDangerAction(`Excluir toda a série recorrente de ${appointment.pacienteNome}? Todos os horários vinculados serão removidos.`).then((ok) => { if (ok && appointment.recorrenciaId) onDeleteSeries(appointment.recorrenciaId); })}
+                            >
+                              Excluir série
+                            </button>
+                          )}
+                          <button
+                            aria-label={`Excluir agendamento de ${appointment.pacienteNome}`}
+                            className="rounded-xl p-1.5 text-ink-muted transition hover:bg-red-50 hover:text-error"
+                            type="button"
+                            onClick={() => void confirmDangerAction(`Excluir agendamento de ${appointment.pacienteNome}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) onDelete(appointment.id); })}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {filteredAppointments.length > pageSize && (
+              <div className="border-t border-border-divider px-4 py-3">
+                <Pagination
+                  total={filteredAppointments.length}
+                  page={paginatedAppointments.page}
+                  pageSize={pageSize}
+                  onPage={(p) => setPage(p)}
+                  onPageSize={(s) => { setPageSize(s); setPage(0); }}
+                />
+              </div>
+            )}
+          </div>
         )
-      }
-      {filteredAppointments.length > 0 && (
-        <Pagination
-          total={filteredAppointments.length}
-          page={paginatedAppointments.page}
-          pageSize={pageSize}
-          onPage={(p) => setPage(p)}
-          onPageSize={(s) => { setPageSize(s); setPage(0); }}
+      )}
+
+      {/* ── Aba Calendário ─────────────────────────────────────────────────── */}
+      {activeTab === "calendario" && (
+        <ClinicCalendar
+          appointments={appointments}
+          professionals={professionals}
+          onClickAppointment={openEdit}
         />
       )}
-    </SectionCard>
+
+      {/* ── Drawer ─────────────────────────────────────────────────────────── */}
+      {drawerOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-sm"
+            onClick={() => setDrawerOpen(false)}
+          />
+          {/* Panel */}
+          <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Agendamentos</p>
+                <h2 className="text-base font-semibold text-ink">
+                  {drawerForm.id ? "Editar agendamento" : "Novo agendamento"}
+                </h2>
+              </div>
+              <button
+                className="rounded-xl p-2 text-ink-muted transition hover:bg-surface-low hover:text-ink"
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-4 p-5">
+                {localError && (
+                  <div className="rounded-xl border border-error/30 bg-red-50 px-4 py-2.5 text-sm text-error">
+                    {localError}
+                  </div>
+                )}
+
+                {/* Paciente */}
+                <div className="space-y-3 rounded-2xl border border-border-divider bg-surface-low p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Paciente</p>
+                  <Field label="Buscar paciente cadastrado">
+                    <PatientSearch
+                      patients={patients}
+                      selectedId={drawerForm.pacienteId}
+                      onSelect={(id, nome, whatsapp) =>
+                        setDrawerForm((f) => ({ ...f, pacienteId: id, pacienteNome: nome, pacienteWhatsapp: whatsapp }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Nome (avulso)">
+                    <input
+                      className={inputClass()}
+                      placeholder="Ou digite um nome livre"
+                      value={drawerForm.pacienteNome}
+                      onChange={(e) => setDrawerForm({ ...drawerForm, pacienteNome: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="WhatsApp">
+                    <input
+                      className={inputClass()}
+                      placeholder="(11) 99999-9999"
+                      value={drawerForm.pacienteWhatsapp}
+                      onChange={(e) => setDrawerForm({ ...drawerForm, pacienteWhatsapp: e.target.value })}
+                    />
+                  </Field>
+                </div>
+
+                {/* Detalhes */}
+                <div className="space-y-3 rounded-2xl border border-border-divider bg-surface-low p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Detalhes do atendimento</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Profissional *">
+                      <select
+                        className={inputClass()}
+                        value={drawerForm.profissionalId}
+                        onChange={(e) => setDrawerForm({ ...drawerForm, profissionalId: e.target.value })}
+                      >
+                        {professionals.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Serviço">
+                      <select
+                        className={inputClass()}
+                        value={drawerForm.servicoId}
+                        onChange={(e) => setDrawerForm({ ...drawerForm, servicoId: e.target.value })}
+                      >
+                        <option value="">Sem serviço específico</option>
+                        {services.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Data *">
+                      <input
+                        className={inputClass()}
+                        type="date"
+                        value={drawerForm.data}
+                        onChange={(e) => setDrawerForm({ ...drawerForm, data: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Horário *">
+                      <input
+                        className={inputClass()}
+                        type="time"
+                        value={drawerForm.horario}
+                        onChange={(e) => setDrawerForm({ ...drawerForm, horario: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Status">
+                      <select
+                        className={inputClass()}
+                        value={drawerForm.status}
+                        onChange={(e) => setDrawerForm({ ...drawerForm, status: e.target.value as Appointment["status"] })}
+                      >
+                        <option value="confirmado">Confirmado</option>
+                        <option value="pendente">Pendente</option>
+                        <option value="concluido">Concluído</option>
+                        <option value="faltou">Faltou</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                    </Field>
+                  </div>
+                </div>
+
+                {/* Recorrência (só para novo) */}
+                {!drawerForm.id && (
+                  <div className="space-y-3 rounded-2xl border border-border-divider bg-surface-low p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Recorrência</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Frequência">
+                        <select
+                          className={inputClass()}
+                          value={drawerForm.recorrenciaFrequency}
+                          onChange={(e) => setDrawerForm({ ...drawerForm, recorrenciaFrequency: e.target.value as RecurrenceFrequency })}
+                        >
+                          <option value="none">Não repetir</option>
+                          <option value="weekly">Semanal</option>
+                          <option value="biweekly">Quinzenal</option>
+                          <option value="monthly">Mensal</option>
+                        </select>
+                      </Field>
+                      {drawerForm.recorrenciaFrequency !== "none" && (
+                        <Field label="Quantidade">
+                          <input
+                            className={inputClass()}
+                            max={24}
+                            min={2}
+                            type="number"
+                            value={drawerForm.recorrenciaOccurrences}
+                            onChange={(e) =>
+                              setDrawerForm({
+                                ...drawerForm,
+                                recorrenciaOccurrences: Math.min(24, Math.max(2, Number(e.target.value) || 2)),
+                              })
+                            }
+                          />
+                        </Field>
+                      )}
+                    </div>
+                    {drawerForm.recorrenciaFrequency !== "none" && (
+                      <div className="rounded-xl border border-primary/20 bg-primary-wash px-3 py-2 text-xs text-primary">
+                        <p className="font-semibold">{recurrenceDates.length} horários serão criados</p>
+                        <p className="mt-0.5 text-primary/70">
+                          {recurrenceDates.slice(0, 3).map((d) => new Date(`${d}T12:00:00`).toLocaleDateString("pt-BR")).join(", ")}
+                          {recurrenceDates.length > 3 ? "..." : ""}
+                        </p>
+                        {recurrenceConflicts.length > 0 && (
+                          <p className="mt-1 font-semibold text-error">
+                            ⚠ Conflito em: {recurrenceConflicts.slice(0, 2).map((d) => new Date(`${d}T12:00:00`).toLocaleDateString("pt-BR")).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between gap-2 border-t border-border bg-surface-low px-5 py-4">
+              <div className="flex gap-2">
+                <button
+                  className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink-secondary transition hover:bg-surface-low"
+                  type="button"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  Fechar
+                </button>
+                {drawerForm.id && drawerForm.status !== "cancelado" && (
+                  <button
+                    className="rounded-xl border border-amber-200 px-4 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void confirmDangerAction("Cancelar este agendamento? O histórico será mantido com status Cancelado.").then((ok) => { if (ok) void handleCancelAppointment(); })}
+                  >
+                    Cancelar agendamento
+                  </button>
+                )}
+              </div>
+              <button
+                className="rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark disabled:opacity-60"
+                type="button"
+                disabled={saving}
+                onClick={() => void handleSubmit()}
+              >
+                {saving ? "Salvando..." : drawerForm.id ? "Salvar alterações" : drawerForm.recorrenciaFrequency !== "none" ? "Criar série" : "Salvar agendamento"}
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+    </div>
   );
 }
