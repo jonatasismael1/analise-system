@@ -79,6 +79,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
   const [users, setUsers] = useState<ClinicUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [financeMonths, setFinanceMonths] = useState(3);
 
   const loadAll = useCallback(async () => {
     if (!clinicId || !role) return;
@@ -90,6 +91,12 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
       const canSeeOwnRevenue = role === "profissional" && Boolean(profileProfessionalId);
       const canSeeOrcamentos = role === "admin" || role === "secretaria";
       const professionalFilter = role === "profissional" && profileProfessionalId ? profileProfessionalId : null;
+
+      // Limite de período para finance: evita carregar histórico completo de anos
+      const financeStart = new Date();
+      financeStart.setMonth(financeStart.getMonth() - financeMonths);
+      const financeStartISO = financeStart.toISOString().slice(0, 10);
+
       const [professionalsRes, servicesRes, patientsRes, appointmentsRes, packagesRes, paymentsRes, expensesRes, usersRes, programasRes, orcamentosRes] = await Promise.all([
         supabase.from("profissionais").select("*").eq("clinica_id", clinicId).order("nome"),
         supabase.from("servicos").select("*").eq("clinica_id", clinicId).order("nome"),
@@ -97,11 +104,11 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         professionalFilter ? supabase.from("agendamentos").select("*").eq("clinica_id", clinicId).eq("profissional_id", professionalFilter).order("data", { ascending: false }).limit(200) : supabase.from("agendamentos").select("*").eq("clinica_id", clinicId).order("data", { ascending: false }).limit(200),
         supabase.from("pacotes_sessoes").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false }),
         canSeeFinance
-          ? supabase.from("pagamentos").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false })
+          ? supabase.from("pagamentos").select("*").eq("clinica_id", clinicId).gte("created_at", financeStartISO).order("created_at", { ascending: false })
           : canSeeOwnRevenue
-            ? supabase.from("pagamentos").select("*").eq("clinica_id", clinicId).eq("profissional_id", profileProfessionalId as string).order("created_at", { ascending: false })
+            ? supabase.from("pagamentos").select("*").eq("clinica_id", clinicId).eq("profissional_id", profileProfessionalId as string).gte("created_at", financeStartISO).order("created_at", { ascending: false })
             : Promise.resolve({ data: [], error: null }),
-        canSeeFinance ? supabase.from("despesas").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
+        canSeeFinance ? supabase.from("despesas").select("*").eq("clinica_id", clinicId).gte("created_at", financeStartISO).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
         role === "admin" ? supabase.from("usuarios").select("*").eq("clinica_id", clinicId).order("nome") : Promise.resolve({ data: [], error: null }),
         canSeeOrcamentos ? supabase.from("programas_desconto").select("*, programas_desconto_servicos(*)").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
         canSeeOrcamentos ? supabase.from("orcamentos").select("*, orcamentos_itens(*)").eq("clinica_id", clinicId).order("created_at", { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null })
@@ -251,11 +258,38 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     } finally {
       setLoading(false);
     }
-  }, [clinicId, profileProfessionalId, role]);
+  }, [clinicId, financeMonths, profileProfessionalId, role]);
 
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  // Realtime: recarrega agendamentos e pacientes quando outro usuário faz alterações
+  useEffect(() => {
+    if (!clinicId || isDemoMode) return;
+    let debounceTimer: ReturnType<typeof setTimeout>;
+    function scheduleReload() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => { void loadAll(); }, 1500);
+    }
+    const channel = supabase
+      .channel(`clinic-realtime-${clinicId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "agendamentos", filter: `clinica_id=eq.${clinicId}` }, scheduleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pacientes", filter: `clinica_id=eq.${clinicId}` }, scheduleReload)
+      .subscribe();
+    return () => {
+      clearTimeout(debounceTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [clinicId, loadAll]);
+
+  async function anonymizePatient(patientId: string) {
+    if (!clinicId) return;
+    const { error } = await supabase.rpc("anonimizar_paciente", { p_patient_id: patientId, p_clinica_id: clinicId });
+    if (error) toast.error(getErrorMessage(error));
+    else toast.success("Paciente anonimizado com sucesso. Dados pessoais removidos.");
+    await loadAll();
+  }
 
   async function saveProfessional(values: Pick<Professional, "nome" | "especialidade" | "email" | "telefone" | "registro" | "conselho" | "fotoUrl" | "ativo"> & { id?: string }) {
     if (!clinicId) return;
@@ -586,6 +620,9 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     saveUser,
     deleteUser,
     createStaffUser,
+    anonymizePatient,
+    financeMonths,
+    setFinanceMonths,
     clearMessage: () => setMessage(null)
   };
 }

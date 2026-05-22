@@ -55,7 +55,9 @@ export function FinancePanel({
   services,
   clinicaNome,
   clinicaCnpj,
-  clinicId
+  clinicId,
+  financeMonths,
+  onChangeFinanceMonths
 }: {
   readonly entries: FinanceEntry[];
   readonly kpis: { revenue: number; expenses: number; profit: number; overdue: number; forecast: number };
@@ -70,6 +72,8 @@ export function FinancePanel({
   readonly clinicaNome: string;
   readonly clinicaCnpj?: string;
   readonly clinicId: string;
+  readonly financeMonths?: number;
+  readonly onChangeFinanceMonths?: (months: number) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"lancamentos" | "exportar">("lancamentos");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -223,6 +227,23 @@ export function FinancePanel({
           </SectionCard>
 
           <SectionCard title="Financeiro">
+            {financeMonths && onChangeFinanceMonths && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary-soft px-4 py-2.5 text-sm text-primary-dark">
+                <span>Exibindo últimos <strong>{financeMonths} meses</strong>. Relatórios históricos disponíveis no módulo Relatórios.</span>
+                <div className="flex items-center gap-2">
+                  {([3, 6, 12] as const).map((m) => (
+                    <button
+                      key={m}
+                      className={`rounded px-2 py-0.5 text-xs font-semibold transition ${financeMonths === m ? "bg-primary text-white" : "border border-primary/30 hover:bg-primary/10"}`}
+                      onClick={() => onChangeFinanceMonths(m)}
+                      type="button"
+                    >
+                      {m}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mb-4 grid gap-3 md:grid-cols-3">
               <Field label="Buscar"><input className={inputClass()} placeholder="Descrição" value={filters.search} onChange={(event) => updateFilter({ search: event.target.value })} /></Field>
               <Field label="Status"><select className={inputClass()} value={filters.status} onChange={(event) => updateFilter({ status: event.target.value })}><option value="todos">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></Field>

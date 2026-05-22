@@ -134,6 +134,7 @@ export function PatientsPanel({
   onSave,
   onDelete,
   onImportMassively,
+  onAnonymize,
   role
 }: {
   readonly clinicId: string;
@@ -142,6 +143,7 @@ export function PatientsPanel({
   readonly onSave: (values: Patient) => Promise<void>;
   readonly onDelete: (id: string) => Promise<void>;
   readonly onImportMassively: (patients: Omit<Patient, "id" | "clinicaId">[]) => Promise<void>;
+  readonly onAnonymize?: (id: string) => Promise<void>;
   readonly role?: UserRole;
 }) {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -563,6 +565,17 @@ export function PatientsPanel({
                   onClick={() => { openEditModal(detailPatient); setDetailPatient(null); }}
                 >
                   Editar
+                </button>
+              )}
+              {role === "admin" && onAnonymize && (
+                <button
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-error hover:bg-red-50"
+                  type="button"
+                  onClick={() => void confirmDangerAction(
+                    `Anonimizar ${detailPatient.nome}? Todos os dados pessoais (nome, CPF, WhatsApp, e-mail, endereço) serão apagados permanentemente. Esta ação não pode ser desfeita.`
+                  ).then((ok) => { if (ok) { void onAnonymize(detailPatient.id); setDetailPatient(null); } })}
+                >
+                  Anonimizar (LGPD)
                 </button>
               )}
             </div>
