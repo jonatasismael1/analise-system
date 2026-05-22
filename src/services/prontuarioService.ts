@@ -7,6 +7,7 @@ interface ProntuarioRow {
   queixa: string | null;
   evolucao: string | null;
   conduta: string | null;
+  imagens: string[] | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -21,7 +22,8 @@ function mapProntuarioRow(row: ProntuarioRow): ProntuarioData {
     conduta: row.conduta ?? "",
     profissionalId: row.profissional_id ?? "",
     data: row.criado_em,
-    atualizadoEm: row.atualizado_em
+    atualizadoEm: row.atualizado_em,
+    imagens: row.imagens ?? [],
   };
 }
 
@@ -55,7 +57,7 @@ export async function logProntuarioAccess(
 export async function loadProntuarios(clinicId: string, patientId: string): Promise<ProntuarioData[]> {
   const { data, error } = await supabase
     .from("prontuarios")
-    .select("id, profissional_id, queixa, evolucao, conduta, criado_em, atualizado_em")
+    .select("id, profissional_id, queixa, evolucao, conduta, imagens, criado_em, atualizado_em")
     .eq("clinica_id", clinicId)
     .eq("paciente_id", patientId)
     .order("criado_em", { ascending: false });
@@ -82,6 +84,7 @@ export async function saveProntuario(
     queixa: values.queixa || null,
     evolucao: values.evolucao || null,
     conduta: values.conduta || null,
+    imagens: values.imagens ?? [],
     atualizado_em: now
   };
 
@@ -92,12 +95,12 @@ export async function saveProntuario(
         .eq("id", values.id)
         .eq("clinica_id", clinicId)
         .eq("paciente_id", patientId)
-        .select("id, profissional_id, queixa, evolucao, conduta, criado_em, atualizado_em")
+        .select("id, profissional_id, queixa, evolucao, conduta, imagens, criado_em, atualizado_em")
         .single()
     : supabase
         .from("prontuarios")
         .insert(payload)
-        .select("id, profissional_id, queixa, evolucao, conduta, criado_em, atualizado_em")
+        .select("id, profissional_id, queixa, evolucao, conduta, imagens, criado_em, atualizado_em")
         .single();
 
   const { data, error } = await query;

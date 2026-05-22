@@ -3,6 +3,7 @@ import { Calendar, ChevronRight, Download, Loader2, MapPin, MessageCircle, Plus,
 import { ProntuarioTimeline } from "../../../components/Prontuario/ProntuarioTimeline";
 import { PatientProgramSection } from "../../../components/PatientProgramSection";
 import { ProgramBadge } from "../../../components/ui/ProgramBadge";
+import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
@@ -98,7 +99,8 @@ function patientPayload(form: PatientForm): Patient {
     ultimoAtendimento: form.ultimoAtendimento ?? null,
     proximoRetorno: form.proximoRetorno ?? null,
     kanbanStage: form.kanbanStage ?? null,
-    observacoes: form.observacoes || null
+    observacoes: form.observacoes || null,
+    fotoUrl: form.fotoUrl ?? null,
   };
 }
 
@@ -316,9 +318,18 @@ export function PatientsPanel({
               onClick={() => setDetailPatient(patient)}
             >
               <td className="px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-ink">{patient.nome}</span>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-muted opacity-0 transition group-hover:opacity-100" />
+                <div className="flex items-center gap-2.5">
+                  {patient.fotoUrl ? (
+                    <img src={patient.fotoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                  ) : (
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-wash text-sm font-semibold text-primary">
+                      {patient.nome.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium text-ink">{patient.nome}</span>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-muted opacity-0 transition group-hover:opacity-100" />
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                   {patient.whatsapp && (
@@ -397,7 +408,27 @@ export function PatientsPanel({
               e.preventDefault();
               void onSave(patientPayload(form));
               setIsPatientModalOpen(false);
+              // foto já foi salva via upload direto
             }}>
+              {/* Foto do paciente */}
+              <div className="flex justify-center pb-2">
+                <div className="flex flex-col items-center gap-1">
+                  <ImageUpload
+                    currentUrl={form.fotoUrl ?? null}
+                    bucket="clinic-photos"
+                    path={`patients/${form.id || "novo"}`}
+                    onUpload={(url) => setForm((f) => ({ ...f, fotoUrl: url }))}
+                    onRemove={() => setForm((f) => ({ ...f, fotoUrl: null }))}
+                    shape="circle"
+                    size="lg"
+                    placeholder="Foto do paciente"
+                  />
+                  {form.fotoUrl && (
+                    <p className="text-[10px] text-ink-muted">Passe o mouse para trocar ou remover</p>
+                  )}
+                </div>
+              </div>
+
               <div className="grid gap-3 md:grid-cols-3">
                 <Field label="Nome"><input className={inputClass()} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></Field>
                 <Field label="WhatsApp"><input className={inputClass()} value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} required /></Field>
@@ -462,9 +493,13 @@ export function PatientsPanel({
             {/* Header */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-outline-variant bg-surface px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-wash text-primary">
-                  <User className="h-5 w-5" />
-                </div>
+                {detailPatient.fotoUrl ? (
+                  <img src={detailPatient.fotoUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-wash text-primary">
+                    <User className="h-5 w-5" />
+                  </div>
+                )}
                 <div>
                   <h3 className="font-bold text-on-surface">{detailPatient.nome}</h3>
                   <StatusPill value={detailPatient.status} />

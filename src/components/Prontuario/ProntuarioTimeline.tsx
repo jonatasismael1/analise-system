@@ -337,6 +337,27 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
                       <p className="bg-surface-container-low p-2 rounded">{item.conduta}</p>
                     </div>
                   )}
+
+                  {item.imagens && item.imagens.length > 0 && (
+                    <div>
+                      <span className="font-bold text-secondary uppercase text-[10px] tracking-wider block mb-2">
+                        Imagens ({item.imagens.length})
+                      </span>
+                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                        {item.imagens.map((url, i) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="aspect-square overflow-hidden rounded-lg border border-surface-variant transition hover:opacity-80"
+                          >
+                            <img src={url} alt={`Imagem ${i + 1}`} className="h-full w-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

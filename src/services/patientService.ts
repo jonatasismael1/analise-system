@@ -16,7 +16,8 @@ export function savePatientRecord(clinicId: string, values: Patient & { id?: str
     proximo_retorno: values.proximoRetorno ?? null,
     kanban_stage: values.kanbanStage ?? null,
     valor_total_gasto: values.valorTotalGasto,
-    observacoes: values.observacoes ?? null
+    observacoes: values.observacoes ?? null,
+    foto_url: values.fotoUrl ?? null,
   };
 
   return values.id ? supabase.from("pacientes").update(payload).eq("id", values.id) : supabase.from("pacientes").insert(payload);

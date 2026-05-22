@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { Bold, Italic, List, Check, X } from "lucide-react";
+import { Bold, Italic, List, Check, X, ImagePlus, Trash2 } from "lucide-react";
+import { supabase } from "../../lib/supabaseClient";
 
 export interface ProntuarioData {
   id?: string;
@@ -9,6 +10,7 @@ export interface ProntuarioData {
   profissionalId: string;
   data?: string;
   atualizadoEm?: string;
+  imagens?: string[];
 }
 
 interface ProntuarioEditorProps {
@@ -24,8 +26,29 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel,
   const [evolucao, setEvolucao] = useState(initialData?.evolucao ?? "");
   const [conduta, setConduta] = useState(initialData?.conduta ?? "");
   const [profissionalId, setProfissionalId] = useState(initialData?.profissionalId ?? professionals[0]?.id ?? "");
+  const [imagens, setImagens] = useState<string[]>(initialData?.imagens ?? []);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const imgInputRef = useRef<HTMLInputElement>(null);
 
   const editorRef = useRef<HTMLDivElement>(null);
+
+  async function handleImageFile(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 10 * 1024 * 1024) { alert("Máximo 10 MB por imagem."); return; }
+    setUploadingImg(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `prontuarios/${initialData?.id ?? "novo"}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("prontuarios").upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("prontuarios").getPublicUrl(path);
+      setImagens((prev) => [...prev, data.publicUrl]);
+    } catch {
+      alert("Erro ao enviar imagem.");
+    } finally {
+      setUploadingImg(false);
+    }
+  }
 
   const execCommand = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
@@ -39,7 +62,8 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel,
       queixa,
       evolucao: content,
       conduta,
-      profissionalId
+      profissionalId,
+      imagens,
     });
   };
 
@@ -132,6 +156,66 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel,
           />
         </div>
       </div>
+
+        {/* Imagens do prontuário */}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-xs font-semibold uppercase tracking-[0.05em] text-secondary">
+              Imagens anexadas
+            </label>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-secondary transition hover:border-primary hover:text-primary disabled:opacity-50"
+              disabled={isSaving || uploadingImg}
+              onClick={() => imgInputRef.current?.click()}
+            >
+              <ImagePlus className="h-3.5 w-3.5" />
+              {uploadingImg ? "Enviando..." : "Adicionar imagem"}
+            </button>
+          </div>
+          {imagens.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {imagens.map((url, i) => (
+                <div key={url} className="group relative aspect-square overflow-hidden rounded-lg border border-outline-variant">
+                  <img src={url} alt={`Imagem ${i + 1}`} className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1 rounded-full bg-red-500 p-1 text-white opacity-0 transition group-hover:opacity-100"
+                    onClick={() => setImagens((prev) => prev.filter((u) => u !== url))}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 flex items-end justify-center bg-black/0 pb-1 transition group-hover:bg-black/20"
+                  >
+                    <span className="rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white opacity-0 group-hover:opacity-100">
+                      Ver original
+                    </span>
+                  </a>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest px-4 py-3 text-center text-xs text-secondary">
+              Nenhuma imagem. Clique em "Adicionar imagem" para anexar fotos, exames ou documentos.
+            </p>
+          )}
+          <input
+            ref={imgInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              files.forEach((f) => void handleImageFile(f));
+              e.target.value = "";
+            }}
+          />
+        </div>
 
       <div className="mt-6 flex justify-end gap-3">
         <button

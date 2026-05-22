@@ -54,6 +54,7 @@ export interface Patient {
   proximoRetorno?: string | null;
   kanbanStage?: "novo" | "agendado" | "atendido" | "retorno" | "faltou" | "inativo" | null;
   observacoes?: string | null;
+  fotoUrl?: string | null;
 }
 
 export type UserRole = "admin" | "profissional" | "secretaria";

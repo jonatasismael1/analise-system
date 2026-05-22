@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
+import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
 import type { Professional, UserRole } from "../../../types/clinic";
 import { Field, inputClass } from "../components/Field";
@@ -34,7 +35,19 @@ export function ProfessionalsPanel({ professionals, onSave, onDelete, onCreateAc
         <Field label="Telefone"><input className={inputClass()} value={form.telefone} onChange={(event) => setForm({ ...form, telefone: event.target.value })} /></Field>
         <Field label="Conselho"><select className={inputClass()} value={form.conselho} onChange={(event) => setForm({ ...form, conselho: event.target.value })}><option>CRM</option><option>CRO</option><option>CRP</option><option>CREFITO</option><option>COREN</option><option>Outro</option></select></Field>
         <Field label="Registro"><input className={inputClass()} value={form.registro} onChange={(event) => setForm({ ...form, registro: event.target.value })} /></Field>
-        <Field label="Foto URL"><input className={inputClass()} value={form.fotoUrl} onChange={(event) => setForm({ ...form, fotoUrl: event.target.value })} /></Field>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold uppercase tracking-wide text-ink-secondary">Foto</label>
+          <ImageUpload
+            currentUrl={form.fotoUrl || null}
+            bucket="clinic-photos"
+            path={`professionals/${form.id || "novo"}`}
+            onUpload={(url) => setForm({ ...form, fotoUrl: url })}
+            onRemove={() => setForm({ ...form, fotoUrl: "" })}
+            shape="circle"
+            size="md"
+            placeholder="Foto"
+          />
+        </div>
         <button className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded bg-primary px-4 text-sm font-medium text-white" type="submit"><Plus className="h-4 w-4" />{form.id ? "Atualizar" : form.email && form.senha ? "Criar com acesso" : "Adicionar"}</button>
       </form>
       {filteredProfessionals.length === 0 ? <EmptyState title="Nenhum profissional" message="Cadastre o primeiro profissional para abrir a agenda." /> : (

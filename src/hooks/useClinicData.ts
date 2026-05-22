@@ -53,7 +53,8 @@ function mapPatient(row: PatientRow): Patient {
     proximoRetorno: row.proximo_retorno,
     kanbanStage: row.kanban_stage as Patient["kanbanStage"],
     valorTotalGasto: Number(row.valor_total_gasto),
-    observacoes: row.observacoes
+    observacoes: row.observacoes,
+    fotoUrl: (row as Record<string, unknown>).foto_url as string | null ?? null,
   };
 }
 
