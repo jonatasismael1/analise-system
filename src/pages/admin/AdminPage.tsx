@@ -25,8 +25,6 @@ import { AccessPanel } from "./modules/AccessPanel";
 
 const modules = [
   "Dashboard",
-  "Profissionais",
-  "Serviços",
   "Agendamentos",
   "Pacientes",
   "Leads",
@@ -36,8 +34,10 @@ const modules = [
   "Orçamentos",
   "Caixa",
   "Financeiro",
+  "Serviços",
   "Programas de Descontos",
   "Relatórios",
+  "Profissionais",
   "Acessos"
 ] as const;
 
@@ -58,7 +58,7 @@ export function AdminPage() {
   const visibleModules = useMemo(() => modules.filter((module) => {
     if (!role) return false;
     if (role === "admin") return true;
-    if (role === "secretaria") return ["Dashboard", "Agendamentos", "Pacientes", "Leads", "WhatsApp", "Deby AI", "Kanban Pacientes", "Orçamentos", "Caixa", "Serviços", "Programas de Descontos"].includes(module);
+    if (role === "secretaria") return ["Dashboard", "Agendamentos", "Pacientes", "Leads", "WhatsApp", "Deby AI", "Kanban Pacientes", "Orçamentos", "Caixa", "Serviços", "Programas de Descontos", "Relatórios"].includes(module);
     return ["Dashboard", "Agendamentos", "Pacientes", "Deby AI", "Kanban Pacientes"].includes(module);
   }), [role]);
 

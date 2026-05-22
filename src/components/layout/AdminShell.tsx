@@ -23,6 +23,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { OfflineBanner } from "../OfflineBanner";
 import { NotificationBell } from "../NotificationBell";
+import { ProfilePanel } from "./ProfilePanel";
 
 const iconByModule: Record<string, React.ComponentType<{ className?: string }>> = {
   Dashboard: LayoutDashboard,
@@ -67,10 +68,8 @@ export function AdminShell({
 }: AdminShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  // Controla expansão temporária ao passar o mouse sobre a sidebar recolhida
   const [isHovering, setIsHovering] = useState(false);
-
-  const avatarInitial = clinicName ? clinicName.charAt(0).toUpperCase() : "D";
+  const [localClinicName, setLocalClinicName] = useState(clinicName ?? "");
 
   // Sidebar aparece expandida se: não recolhida OU se recolhida mas com hover
   const sidebarExpanded = !isCollapsed || isHovering;
@@ -219,18 +218,28 @@ export function AdminShell({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {clinicName && (
+            {localClinicName && (
               <div className="text-right">
-                <p className="text-[13px] font-medium text-ink">{clinicName}</p>
+                <p className="text-[13px] font-medium text-ink">{localClinicName}</p>
                 {userRole && (
                   <p className="text-[11px] capitalize text-ink-muted">{userRole}</p>
                 )}
               </div>
             )}
             {clinicaId && <NotificationBell clinicaId={clinicaId} />}
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white shadow-sm">
-              {avatarInitial}
-            </div>
+            {clinicaId ? (
+              <ProfilePanel
+                clinicaId={clinicaId}
+                clinicName={localClinicName || "Clínica"}
+                userRole={userRole}
+                onLogout={onLogout}
+                onClinicNameChange={setLocalClinicName}
+              />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white shadow-sm">
+                {(localClinicName || "D").charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
         </div>
 

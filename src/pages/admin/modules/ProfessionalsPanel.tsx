@@ -17,7 +17,7 @@ export function ProfessionalsPanel({ professionals, onSave, onDelete, onCreateAc
       <div className="mb-4">
         <Field label="Filtrar profissionais"><input className={inputClass()} placeholder="Nome, especialidade, e-mail ou registro" value={search} onChange={(event) => setSearch(event.target.value)} /></Field>
       </div>
-      <form className="mb-5 grid gap-3 md:grid-cols-3 xl:grid-cols-8" onSubmit={(event) => {
+      <form className="mb-5 grid gap-3 md:grid-cols-3 xl:grid-cols-9" onSubmit={(event) => {
         event.preventDefault();
         if (form.id) {
           void onSave({ id: form.id, nome: form.nome, especialidade: form.especialidade, email: form.email, telefone: form.telefone, registro: form.registro, conselho: form.conselho, fotoUrl: form.fotoUrl, ativo: true });
@@ -44,7 +44,7 @@ export function ProfessionalsPanel({ professionals, onSave, onDelete, onCreateAc
             onUpload={(url) => setForm({ ...form, fotoUrl: url })}
             onRemove={() => setForm({ ...form, fotoUrl: "" })}
             shape="circle"
-            size="md"
+            size="sm"
             placeholder="Foto"
           />
         </div>

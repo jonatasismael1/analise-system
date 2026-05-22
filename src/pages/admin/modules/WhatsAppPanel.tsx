@@ -1608,6 +1608,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
         id: "", clinicaId: clinicId,
         nome: bestName(selected.contact.name, selected.contact.phone),
         whatsapp: phone, status: "ativo", valorTotalGasto: 0,
+        fotoUrl: selected.contact.profilePicUrl ?? null,
       });
       if (error) throw error;
       setNotice({ type: "success", text: "Paciente criado! Acesse Pacientes para completar." });
