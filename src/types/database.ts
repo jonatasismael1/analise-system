@@ -48,6 +48,26 @@ export interface Database {
         Insert: { id?: string; clinica_id: string; user_id?: string | null; profissional_id?: string | null; nome: string; email: string; role?: string; ativo?: boolean; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["usuarios"]["Insert"]>;
       };
+      programas_desconto: {
+        Row: { id: string; clinica_id: string; nome: string; descricao: string | null; valor_total: number; valor_com_desconto: number; ativo: boolean; created_at: string; updated_at: string };
+        Insert: { id?: string; clinica_id: string; nome: string; descricao?: string | null; valor_total?: number; valor_com_desconto?: number; ativo?: boolean; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["programas_desconto"]["Insert"]>;
+      };
+      programas_desconto_servicos: {
+        Row: { id: string; programa_id: string; clinica_id: string; servico_id: string | null; nome_servico: string; descricao: string | null; preco_individual: number; ordem: number; created_at: string };
+        Insert: { id?: string; programa_id: string; clinica_id: string; servico_id?: string | null; nome_servico: string; descricao?: string | null; preco_individual?: number; ordem?: number; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["programas_desconto_servicos"]["Insert"]>;
+      };
+      orcamentos: {
+        Row: { id: string; clinica_id: string; paciente_id: string | null; paciente_nome: string; paciente_cpf: string | null; paciente_whatsapp: string | null; atendente_nome: string; observacoes: string | null; valor_total: number; valor_com_desconto: number | null; token_publico: string; status: string; validade: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; clinica_id: string; paciente_id?: string | null; paciente_nome: string; paciente_cpf?: string | null; paciente_whatsapp?: string | null; atendente_nome?: string; observacoes?: string | null; valor_total?: number; valor_com_desconto?: number | null; token_publico?: string; status?: string; validade?: string | null; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["orcamentos"]["Insert"]>;
+      };
+      orcamentos_itens: {
+        Row: { id: string; orcamento_id: string; clinica_id: string; servico_id: string | null; programa_id: string | null; nome: string; descricao: string | null; preco_individual: number; quantidade: number; tipo: string; created_at: string };
+        Insert: { id?: string; orcamento_id: string; clinica_id: string; servico_id?: string | null; programa_id?: string | null; nome: string; descricao?: string | null; preco_individual?: number; quantidade?: number; tipo?: string; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["orcamentos_itens"]["Insert"]>;
+      };
     };
   };
 }

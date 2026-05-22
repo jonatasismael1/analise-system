@@ -17,6 +17,8 @@ import { createExpenseRecord, createPaymentRecord, deleteExpenseRecord, deletePa
 import { deletePatientRecord, importPatientRecords, savePatientRecord } from "../services/patientService";
 import type { Appointment, ClinicUser, FinanceEntry, Patient, Professional, Service, SessionPackage, UserRole } from "../types/clinic";
 import type { Database } from "../types/database";
+import type { ProgramaDesconto, ProgramaItem, ProgramaForm } from "../pages/admin/modules/DiscountProgramsPanel";
+import type { Orcamento, OrcamentoItem, OrcamentoForm } from "../pages/admin/modules/OrcamentosPanel";
 
 type ProfessionalRow = Database["public"]["Tables"]["profissionais"]["Row"];
 type ServiceRow = Database["public"]["Tables"]["servicos"]["Row"];
@@ -71,6 +73,8 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
   const [appointments, setAppointments] = useState<Appointment[]>(() => isDemoMode ? mockAppointments : []);
   const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>(() => isDemoMode ? mockFinanceEntries : []);
   const [packages, setPackages] = useState<SessionPackage[]>(() => isDemoMode ? mockPackages : []);
+  const [programas, setProgramas] = useState<ProgramaDesconto[]>([]);
+  const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [users, setUsers] = useState<ClinicUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -82,8 +86,9 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
 
     try {
       const canSeeFinance = role === "admin";
+      const canSeeOrcamentos = role === "admin" || role === "secretaria";
       const professionalFilter = role === "profissional" && profileProfessionalId ? profileProfessionalId : null;
-      const [professionalsRes, servicesRes, patientsRes, appointmentsRes, packagesRes, paymentsRes, expensesRes, usersRes] = await Promise.all([
+      const [professionalsRes, servicesRes, patientsRes, appointmentsRes, packagesRes, paymentsRes, expensesRes, usersRes, programasRes, orcamentosRes] = await Promise.all([
         supabase.from("profissionais").select("*").eq("clinica_id", clinicId).order("nome"),
         supabase.from("servicos").select("*").eq("clinica_id", clinicId).order("nome"),
         professionalFilter ? supabase.from("pacientes").select("*").eq("clinica_id", clinicId).eq("profissional_id", professionalFilter).order("nome") : supabase.from("pacientes").select("*").eq("clinica_id", clinicId).order("nome"),
@@ -91,7 +96,9 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         supabase.from("pacotes_sessoes").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false }),
         canSeeFinance ? supabase.from("pagamentos").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
         canSeeFinance ? supabase.from("despesas").select("*").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
-        role === "admin" ? supabase.from("usuarios").select("*").eq("clinica_id", clinicId).order("nome") : Promise.resolve({ data: [], error: null })
+        role === "admin" ? supabase.from("usuarios").select("*").eq("clinica_id", clinicId).order("nome") : Promise.resolve({ data: [], error: null }),
+        canSeeOrcamentos ? supabase.from("programas_desconto").select("*, programas_desconto_servicos(*)").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
+        canSeeOrcamentos ? supabase.from("orcamentos").select("*, orcamentos_itens(*)").eq("clinica_id", clinicId).order("created_at", { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null })
       ]);
 
       const firstError = [professionalsRes, servicesRes, patientsRes, appointmentsRes, packagesRes, paymentsRes, expensesRes, usersRes].find((res) => res.error)?.error;
@@ -131,6 +138,55 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         sessoesRealizadas: row.sessoes_realizadas,
         validade: row.validade,
         status: row.status as SessionPackage["status"]
+      })));
+
+      // Mapeia programas de desconto com seus itens
+      setProgramas((programasRes.data ?? []).map((row: any): ProgramaDesconto => ({
+        id: row.id,
+        clinicaId: row.clinica_id,
+        nome: row.nome,
+        descricao: row.descricao ?? "",
+        valorTotal: row.programas_desconto_servicos
+          ? (row.programas_desconto_servicos as any[]).reduce((s: number, i: any) => s + Number(i.preco_individual), 0)
+          : Number(row.valor_total ?? 0),
+        valorComDesconto: Number(row.valor_com_desconto),
+        ativo: row.ativo,
+        itens: ((row.programas_desconto_servicos ?? []) as any[]).map((i: any): ProgramaItem => ({
+          id: i.id,
+          servicoId: i.servico_id,
+          nomeServico: i.nome_servico,
+          descricao: i.descricao ?? "",
+          precoIndividual: Number(i.preco_individual),
+          ordem: i.ordem
+        })).sort((a, b) => a.ordem - b.ordem)
+      })));
+
+      // Mapeia orçamentos com seus itens
+      setOrcamentos((orcamentosRes.data ?? []).map((row: any): Orcamento => ({
+        id: row.id,
+        clinicaId: row.clinica_id,
+        pacienteId: row.paciente_id,
+        pacienteNome: row.paciente_nome,
+        pacienteCpf: row.paciente_cpf ?? "",
+        pacienteWhatsapp: row.paciente_whatsapp ?? "",
+        atendenteNome: row.atendente_nome ?? "",
+        observacoes: row.observacoes ?? "",
+        valorTotal: Number(row.valor_total),
+        valorComDesconto: row.valor_com_desconto !== null ? Number(row.valor_com_desconto) : null,
+        tokenPublico: row.token_publico,
+        status: row.status as Orcamento["status"],
+        validade: row.validade,
+        createdAt: row.created_at,
+        itens: ((row.orcamentos_itens ?? []) as any[]).map((i: any): OrcamentoItem => ({
+          id: i.id,
+          servicoId: i.servico_id,
+          programaId: i.programa_id,
+          nome: i.nome,
+          descricao: i.descricao ?? "",
+          precoIndividual: Number(i.preco_individual),
+          quantidade: i.quantidade,
+          tipo: i.tipo as OrcamentoItem["tipo"]
+        }))
       })));
 
       const payments = (paymentsRes.data ?? []).map((row: PaymentRow & { descricao?: string }) => ({
@@ -268,16 +324,21 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     await loadAll();
   }
 
-  async function saveAppointment(values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"] }) {
-    if (!clinicId) return;
+  async function saveAppointment(values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"] }): Promise<boolean> {
+    if (!clinicId) return false;
     const validation = validateAppointment(values);
     if (!validation.valid) {
       setMessage(validation.message ?? "Revise os dados do agendamento.");
-      return;
+      return false;
     }
     const result = await saveAppointmentRecord(clinicId, values);
-    setMessage(result.error ? getErrorMessage(result.error) : "Agendamento salvo.");
+    if (result.error) {
+      setMessage(getErrorMessage(result.error));
+      return false;
+    }
+    setMessage("Agendamento salvo com sucesso.");
     await loadAll();
+    return true;
   }
 
   async function deleteAppointment(id: string) {
@@ -417,6 +478,74 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     await loadAll();
   }
 
+  async function savePrograma(form: ProgramaForm) {
+    if (!clinicId) return;
+    const valorTotal = form.itens.reduce((s, i) => s + i.precoIndividual, 0);
+    let programaId = form.id;
+    if (form.id) {
+      const { error } = await supabase.from("programas_desconto").update({ nome: form.nome, descricao: form.descricao, valor_total: valorTotal, valor_com_desconto: form.valorComDesconto, ativo: form.ativo }).eq("id", form.id);
+      if (error) { setMessage(getErrorMessage(error)); return; }
+      await supabase.from("programas_desconto_servicos").delete().eq("programa_id", form.id);
+    } else {
+      const { data, error } = await supabase.from("programas_desconto").insert({ clinica_id: clinicId, nome: form.nome, descricao: form.descricao, valor_total: valorTotal, valor_com_desconto: form.valorComDesconto, ativo: form.ativo }).select("id").single();
+      if (error || !data) { setMessage(getErrorMessage(error)); return; }
+      programaId = data.id as string;
+    }
+    if (form.itens.length > 0 && programaId) {
+      const itens = form.itens.map((item, idx) => ({ programa_id: programaId, clinica_id: clinicId, servico_id: item.servicoId, nome_servico: item.nomeServico, descricao: item.descricao, preco_individual: item.precoIndividual, ordem: idx }));
+      const { error } = await supabase.from("programas_desconto_servicos").insert(itens);
+      if (error) { setMessage(getErrorMessage(error)); return; }
+    }
+    setMessage(form.id ? "Programa atualizado." : "Programa criado.");
+    await loadAll();
+  }
+
+  async function deletePrograma(id: string) {
+    const { error } = await supabase.from("programas_desconto").delete().eq("id", id);
+    setMessage(error ? getErrorMessage(error) : "Programa removido.");
+    await loadAll();
+  }
+
+  async function saveOrcamento(form: OrcamentoForm) {
+    if (!clinicId) return;
+    const valorTotal = form.itens.reduce((s, i) => s + i.precoIndividual * i.quantidade, 0);
+    const { data: orc, error } = await supabase.from("orcamentos").insert({
+      clinica_id: clinicId,
+      paciente_nome: form.pacienteNome,
+      paciente_cpf: form.pacienteCpf || null,
+      paciente_whatsapp: form.pacienteWhatsapp || null,
+      atendente_nome: form.atendenteNome,
+      observacoes: form.observacoes || null,
+      valor_total: valorTotal,
+      valor_com_desconto: form.valorComDesconto,
+      validade: form.validade || null
+    }).select("id").single();
+    if (error || !orc) { setMessage(getErrorMessage(error)); return; }
+    if (form.itens.length > 0) {
+      const itens = form.itens.map((i) => ({
+        orcamento_id: orc.id as string,
+        clinica_id: clinicId,
+        servico_id: i.servicoId,
+        programa_id: i.programaId,
+        nome: i.nome,
+        descricao: i.descricao || null,
+        preco_individual: i.precoIndividual,
+        quantidade: i.quantidade,
+        tipo: i.tipo
+      }));
+      const { error: iErr } = await supabase.from("orcamentos_itens").insert(itens);
+      if (iErr) { setMessage(getErrorMessage(iErr)); return; }
+    }
+    setMessage("Orçamento criado com sucesso.");
+    await loadAll();
+  }
+
+  async function deleteOrcamento(id: string) {
+    const { error } = await supabase.from("orcamentos").delete().eq("id", id);
+    setMessage(error ? getErrorMessage(error) : "Orçamento removido.");
+    await loadAll();
+  }
+
   const financialKpis = useMemo(() => {
     const { start, end } = monthBounds();
     const monthEntries = financeEntries.filter((entry) => !entry.data || (entry.data >= start && entry.data <= end));
@@ -434,6 +563,8 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     appointments,
     financeEntries,
     packages,
+    programas,
+    orcamentos,
     users,
     loading,
     message,
@@ -458,6 +589,10 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     updatePackage,
     deletePackage,
     registerSession,
+    savePrograma,
+    deletePrograma,
+    saveOrcamento,
+    deleteOrcamento,
     saveUser,
     deleteUser,
     createStaffUser,

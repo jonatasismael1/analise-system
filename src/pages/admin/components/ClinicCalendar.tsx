@@ -53,13 +53,13 @@ export function ClinicCalendar({ appointments, professionals }: { readonly appoi
 
   return (
     <section className="mb-5 rounded-xl border border-surface-variant bg-white p-4 shadow-clinical">
-      <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-primary">Agenda da semana</p>
           <h3 className="mt-1 text-lg font-semibold text-on-surface">Calendário operacional</h3>
           <p className="mt-1 text-sm text-secondary">{formatDay(week[0])} até {formatDay(week[6])}</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[180px_180px_170px_auto_auto_auto] lg:items-end">
+        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-[180px_180px_170px_auto_auto_auto] xl:items-end">
           <Field label="Data">
             <input className={inputClass()} type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
           </Field>
@@ -88,7 +88,7 @@ export function ClinicCalendar({ appointments, professionals }: { readonly appoi
       {filteredAppointments.length === 0 ? (
         <EmptyState title="Semana sem agendamentos" message="Ajuste os filtros ou crie um novo agendamento para preencher a agenda." />
       ) : (
-        <div className="grid gap-3 lg:grid-cols-7">
+        <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
           {week.map((date) => {
             const dayAppointments = filteredAppointments.filter((appointment) => appointment.data === date);
             const isToday = date === todayISO();

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Download, Loader2, MessageCircle, Plus, Send, Trash2, Upload, X } from "lucide-react";
+import { Calendar, ChevronRight, Download, Loader2, MapPin, MessageCircle, Plus, Send, Trash2, Upload, User, X } from "lucide-react";
 import { ProntuarioTimeline } from "../../../components/Prontuario/ProntuarioTimeline";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
@@ -144,6 +144,7 @@ export function PatientsPanel({
   readonly role?: UserRole;
 }) {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [detailPatient, setDetailPatient] = useState<Patient | null>(null);
   const [form, setForm] = useState<PatientForm>(() => blankPatient(professionals[0]?.id ?? null));
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [filters, setFilters] = useState({ search: "", status: "todos", professionalId: "todos" });
@@ -286,38 +287,32 @@ export function PatientsPanel({
         <EmptyState title="Nenhum paciente" message="Nenhum paciente encontrado para os filtros aplicados." />
       ) : (
         <RefinedTable headers={readonly
-          ? ["Nome", "WhatsApp", "Status", "Fase", ""]
-          : ["Nome", "CPF", "WhatsApp", "Endereço", "Status", "Observações", "Total gasto", ""]
+          ? ["Nome", "Status", "Fase", ""]
+          : ["Nome", "CPF", "Status", ""]
         }>
           {filteredPatients.map((patient) => (
-            <tr className="border-b border-surface-variant hover:bg-teal-50" key={patient.id}>
-              <td className="px-4 py-3 font-medium">{patient.nome}</td>
-              {!readonly ? <td className="px-4 py-3">{patient.cpf ?? "-"}</td> : null}
+            <tr
+              className="group cursor-pointer border-b border-surface-variant transition hover:bg-teal-50"
+              key={patient.id}
+              onClick={() => setDetailPatient(patient)}
+            >
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <span>{patient.whatsapp}</span>
-                  {patient.whatsapp && (
-                    <button
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] transition hover:bg-[#25D366]/20"
-                      title={`Enviar mensagem para ${patient.nome}`}
-                      type="button"
-                      onClick={() => { setMsgPatient(patient); setMsgText(""); setMsgFeedback(null); }}
-                    >
-                      <MessageCircle className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                  <span className="font-medium text-ink">{patient.nome}</span>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-muted opacity-0 transition group-hover:opacity-100" />
                 </div>
+                {patient.whatsapp && (
+                  <span className="font-mono text-[11px] text-ink-muted">{patient.whatsapp}</span>
+                )}
               </td>
-              {!readonly ? <td className="max-w-[240px] truncate px-4 py-3">{patient.endereco ?? "-"}</td> : null}
+              {!readonly ? <td className="px-4 py-3 font-mono text-sm text-secondary">{patient.cpf ?? "-"}</td> : null}
               <td className="px-4 py-3"><StatusPill value={patient.status} /></td>
               {readonly ? (
                 <td className="px-4 py-3 text-sm text-secondary">
                   {patient.kanbanStage ? (KANBAN_LABEL[patient.kanbanStage] ?? patient.kanbanStage) : "-"}
                 </td>
               ) : null}
-              {!readonly ? <td className="px-4 py-3">{patient.observacoes ?? "-"}</td> : null}
-              {!readonly ? <td className="px-4 py-3 text-right">{brl.format(patient.valorTotalGasto)}</td> : null}
-              <td className="px-4 py-3 text-right">
+              <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                 <button
                   className="mr-2 rounded border border-outline-variant px-2 py-1 text-xs transition hover:border-primary hover:text-primary"
                   onClick={() => setSelectedPatient(patient)}
@@ -418,6 +413,147 @@ export function PatientsPanel({
           </div>
         </div>
       ) : null}
+
+      {detailPatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-surface shadow-xl">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-outline-variant bg-surface px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-wash text-primary">
+                  <User className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-on-surface">{detailPatient.nome}</h3>
+                  <StatusPill value={detailPatient.status} />
+                </div>
+              </div>
+              <button className="rounded p-1 hover:bg-surface-container-low" onClick={() => setDetailPatient(null)} type="button">
+                <X className="h-5 w-5 text-on-surface-variant" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-4 p-5">
+              {/* Contato */}
+              <section>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-secondary">Contato</p>
+                <div className="grid gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm">
+                  <div className="flex items-center gap-2 text-ink">
+                    <MessageCircle className="h-4 w-4 shrink-0 text-secondary" />
+                    <span className="font-mono">{detailPatient.whatsapp || "—"}</span>
+                  </div>
+                  {detailPatient.email && (
+                    <div className="flex items-center gap-2 text-ink">
+                      <span className="h-4 w-4 shrink-0 text-center text-secondary text-xs">@</span>
+                      <span>{detailPatient.email}</span>
+                    </div>
+                  )}
+                  {detailPatient.cpf && (
+                    <div className="flex items-center gap-2 text-ink">
+                      <User className="h-4 w-4 shrink-0 text-secondary" />
+                      <span className="font-mono">CPF: {detailPatient.cpf}</span>
+                    </div>
+                  )}
+                  {detailPatient.dataNascimento && (
+                    <div className="flex items-center gap-2 text-ink">
+                      <Calendar className="h-4 w-4 shrink-0 text-secondary" />
+                      <span>
+                        {new Date(`${detailPatient.dataNascimento}T12:00:00`).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                  )}
+                  {detailPatient.endereco && (
+                    <div className="flex items-start gap-2 text-ink">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+                      <span>{detailPatient.endereco}</span>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* Clínica */}
+              <section>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-secondary">Clínica</p>
+                <div className="grid gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm">
+                  {detailPatient.profissionalId && (
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Profissional</span>
+                      <span className="font-medium text-ink">
+                        {professionals.find((p) => p.id === detailPatient.profissionalId)?.nome ?? "—"}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-secondary">Total gasto</span>
+                    <span className="font-semibold text-ink">{brl.format(detailPatient.valorTotalGasto ?? 0)}</span>
+                  </div>
+                  {detailPatient.ultimoAtendimento && (
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Último atendimento</span>
+                      <span className="text-ink">
+                        {new Date(`${detailPatient.ultimoAtendimento}T12:00:00`).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                  )}
+                  {detailPatient.proximoRetorno && (
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Próximo retorno</span>
+                      <span className="text-ink">
+                        {new Date(`${detailPatient.proximoRetorno}T12:00:00`).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                  )}
+                  {detailPatient.kanbanStage && (
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Fase</span>
+                      <span className="text-ink">{KANBAN_LABEL[detailPatient.kanbanStage] ?? detailPatient.kanbanStage}</span>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* Observações */}
+              {detailPatient.observacoes && (
+                <section>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-secondary">Observações</p>
+                  <p className="rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-ink">
+                    {detailPatient.observacoes}
+                  </p>
+                </section>
+              )}
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex flex-wrap gap-2 border-t border-outline-variant px-5 py-4">
+              <button
+                className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1ebe5d]"
+                type="button"
+                onClick={() => { setMsgPatient(detailPatient); setDetailPatient(null); }}
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant hover:border-primary hover:text-primary"
+                type="button"
+                onClick={() => { setSelectedPatient(detailPatient); setDetailPatient(null); }}
+              >
+                Prontuário
+              </button>
+              {!readonly && (
+                <button
+                  className="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant hover:border-primary hover:text-primary"
+                  type="button"
+                  onClick={() => { openEditModal(detailPatient); setDetailPatient(null); }}
+                >
+                  Editar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {msgPatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

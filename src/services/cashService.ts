@@ -8,6 +8,7 @@ export interface CashEntry {
   status: string;
   data: string;
   formaPagamento: string | null;
+  tipo: "pagamento" | "despesa";
 }
 
 export async function loadOperationalCash(clinicId: string, startDate: string, endDate: string) {
@@ -23,7 +24,8 @@ export async function loadOperationalCash(clinicId: string, startDate: string, e
     valor: Number(row.valor),
     status: row.status,
     data: row.data,
-    formaPagamento: row.forma_pagamento
+    formaPagamento: row.forma_pagamento,
+    tipo: (row.tipo ?? "pagamento") as CashEntry["tipo"]
   }));
 }
 

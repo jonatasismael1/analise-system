@@ -18,7 +18,8 @@ import { AIPanel } from "./modules/AIPanel";
 import { PatientKanbanPanel } from "./modules/PatientKanbanPanel";
 import { CashPanel } from "./modules/CashPanel";
 import { FinancePanel } from "./modules/FinancePanel";
-import { PackagesPanel } from "./modules/PackagesPanel";
+import { DiscountProgramsPanel } from "./modules/DiscountProgramsPanel";
+import { OrcamentosPanel } from "./modules/OrcamentosPanel";
 import { ReportsPanel } from "./modules/ReportsPanel";
 import { AccessPanel } from "./modules/AccessPanel";
 
@@ -32,9 +33,10 @@ const modules = [
   "WhatsApp",
   "Deby AI",
   "Kanban Pacientes",
+  "Orçamentos",
   "Caixa",
   "Financeiro",
-  "Pacotes & Sessões",
+  "Programas de Descontos",
   "Relatórios",
   "Acessos"
 ] as const;
@@ -56,7 +58,7 @@ export function AdminPage() {
   const visibleModules = useMemo(() => modules.filter((module) => {
     if (!role) return false;
     if (role === "admin") return true;
-    if (role === "secretaria") return ["Dashboard", "Agendamentos", "Pacientes", "Leads", "WhatsApp", "Deby AI", "Kanban Pacientes", "Caixa", "Serviços", "Pacotes & Sessões"].includes(module);
+    if (role === "secretaria") return ["Dashboard", "Agendamentos", "Pacientes", "Leads", "WhatsApp", "Deby AI", "Kanban Pacientes", "Orçamentos", "Caixa", "Serviços", "Programas de Descontos"].includes(module);
     return ["Dashboard", "Agendamentos", "Pacientes", "Deby AI", "Kanban Pacientes"].includes(module);
   }), [role]);
 
@@ -148,7 +150,8 @@ export function AdminPage() {
           {activeModule === "Kanban Pacientes" ? <PatientKanbanPanel patients={data.patients} appointments={data.appointments} professionals={data.professionals} onSave={data.savePatient} /> : null}
           {activeModule === "Caixa" ? <CashPanel clinicId={clinic.id} role={role} /> : null}
           {activeModule === "Financeiro" ? <FinancePanel entries={data.financeEntries} kpis={data.financialKpis} onPayment={data.savePayment} onExpense={data.saveExpense} onUpdatePayment={data.updatePayment} onUpdateExpense={data.updateExpense} onDeletePayment={data.deletePayment} onDeleteExpense={data.deleteExpense} professionals={data.professionals} services={data.services} clinicaNome={clinic.nome ?? "Análise Saúde"} clinicId={clinic.id} /> : null}
-          {activeModule === "Pacotes & Sessões" ? <PackagesPanel packages={data.packages} patients={data.patients} services={data.services} onSave={data.savePackage} onRegister={data.registerSession} /> : null}
+          {activeModule === "Programas de Descontos" ? <DiscountProgramsPanel programas={data.programas} services={data.services} onSave={data.savePrograma} onDelete={data.deletePrograma} /> : null}
+          {activeModule === "Orçamentos" ? <OrcamentosPanel orcamentos={data.orcamentos} services={data.services} programas={data.programas} clinicaNome={clinic.nome ?? "Análise Saúde"} clinicaUrl={window.location.origin} onSave={data.saveOrcamento} onDelete={data.deleteOrcamento} /> : null}
           {activeModule === "Relatórios" ? <ReportsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} entries={data.financeEntries} /> : null}
           {activeModule === "Acessos" ? <AccessPanel users={data.users} professionals={data.professionals} onCreate={data.createStaffUser} onSave={data.saveUser} onDelete={data.deleteUser} /> : null}
         </div>

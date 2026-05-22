@@ -42,6 +42,8 @@ Deno.serve(async (req: Request) => {
   try {
     if (eventKey === "messagesupsert" || eventKey === "messagesupserted") {
       await handleMessagesUpsert(supabase, clinicId, instanceName, evolutionUrl, evolutionKey, data);
+    } else if (eventKey === "messagesupdate" || eventKey === "messagesupdated") {
+      await handleMessagesUpdate(supabase, clinicId, data);
     } else if (eventKey === "contactsupsert" || eventKey === "contactsupserted" || eventKey === "contactsupdate") {
       await handleContactsUpsert(supabase, clinicId, data);
     }
@@ -184,6 +186,101 @@ async function handleContactsUpsert(supabase: any, clinicId: string, data: any) 
     else saved++;
   }
   console.log(`[evolution-webhook] contacts.upsert: ${saved}/${contacts.length} salvos`);
+}
+
+/**
+ * Processa MESSAGES_UPDATE da Evolution API.
+ * Trata dois casos:
+ *   - Revogação (exclusão no WhatsApp): protocolMessage.type === "REVOKE"
+ *   - Edição de mensagem: editedMessage presente
+ */
+async function handleMessagesUpdate(supabase: any, clinicId: string, data: any) {
+  const updates: any[] = Array.isArray(data) ? data : [data];
+
+  for (const upd of updates) {
+    const key = upd?.key ?? {};
+    const waha_message_id: string = key.id ?? "";
+    const fromMe: boolean = Boolean(key.fromMe);
+
+    if (!waha_message_id) continue;
+
+    const innerMsg = upd?.update?.message ?? {};
+    const protocol = innerMsg.protocolMessage ?? null;
+    const editedMessage = innerMsg.editedMessage ?? null;
+
+    // --- Revogação (paciente apagou do próprio lado) ---
+    if (protocol?.type === "REVOKE") {
+      // O campo key dentro do protocolMessage identifica a mensagem original
+      const originalId: string = protocol?.key?.id ?? waha_message_id;
+
+      const { data: rows } = await supabase
+        .from("whatsapp_mensagens")
+        .select("id")
+        .eq("clinica_id", clinicId)
+        .eq("waha_message_id", originalId)
+        .limit(1);
+
+      if (!rows?.length) {
+        console.warn("[evolution-webhook] REVOKE: mensagem nao encontrada:", originalId);
+        continue;
+      }
+
+      const { error } = await supabase
+        .from("whatsapp_mensagens")
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          // fromMe = true → equipe apagou; fromMe = false → paciente apagou
+          deleted_by: fromMe ? "equipe" : "paciente",
+          delete_origin: "webhook",
+        })
+        .eq("id", rows[0].id);
+
+      if (error) console.error("[evolution-webhook] REVOKE update:", error.message);
+      else console.log("[evolution-webhook] REVOKE marcado:", originalId);
+      continue;
+    }
+
+    // --- Edição de mensagem ---
+    if (editedMessage) {
+      const newText: string =
+        editedMessage.conversation
+        ?? editedMessage.extendedTextMessage?.text
+        ?? editedMessage.message?.extendedTextMessage?.text
+        ?? "";
+
+      if (!newText) continue;
+
+      // Busca a mensagem pelo waha_message_id para capturar o texto atual antes de sobrescrever
+      const { data: rows } = await supabase
+        .from("whatsapp_mensagens")
+        .select("id, texto, is_edited, original_content")
+        .eq("clinica_id", clinicId)
+        .eq("waha_message_id", waha_message_id)
+        .limit(1);
+
+      if (!rows?.length) {
+        console.warn("[evolution-webhook] EDIT: mensagem nao encontrada:", waha_message_id);
+        continue;
+      }
+
+      const row = rows[0];
+      const { error } = await supabase
+        .from("whatsapp_mensagens")
+        .update({
+          texto: newText,
+          is_edited: true,
+          edited_at: new Date().toISOString(),
+          edit_origin: fromMe ? "equipe" : "paciente",
+          // Preserva o conteúdo original (apenas na primeira edição)
+          original_content: row.is_edited ? row.original_content : row.texto,
+        })
+        .eq("id", row.id);
+
+      if (error) console.error("[evolution-webhook] EDIT update:", error.message);
+      else console.log("[evolution-webhook] EDIT salvo:", waha_message_id);
+    }
+  }
 }
 
 async function handleMessagesUpsert(

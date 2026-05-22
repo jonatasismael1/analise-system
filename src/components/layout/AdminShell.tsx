@@ -4,13 +4,14 @@ import {
   Bot,
   CalendarDays,
   CreditCard,
+  FileText,
   HandCoins,
   KeyRound,
   KanbanSquare,
   LayoutDashboard,
   LogOut,
   MessageCircle,
-  PackageCheck,
+  Percent,
   Stethoscope,
   Users,
   Menu,
@@ -30,9 +31,10 @@ const iconByModule: Record<string, React.ComponentType<{ className?: string }>> 
   WhatsApp: MessageCircle,
   "Deby AI": Bot,
   "Kanban Pacientes": KanbanSquare,
+  Orçamentos: FileText,
   Caixa: HandCoins,
   Financeiro: CreditCard,
-  "Pacotes & Sessões": PackageCheck,
+  "Programas de Descontos": Percent,
   Relatórios: BarChart3,
   Acessos: KeyRound,
 };
@@ -131,11 +133,13 @@ export function AdminShell({ children, activeModule, modules, onModuleChange, on
         />
       )}
 
-      <main className="w-full pt-14 md:pl-[240px] md:pt-0">
+      <main className="w-full min-h-[100dvh] pt-14 md:pl-[240px] md:pt-0">
         {noPadding ? (
           <div className="h-[calc(100dvh-3.5rem)] overflow-hidden md:h-[100dvh]">{children}</div>
         ) : (
-          <div className="mx-auto max-w-[1300px] px-5 py-6 sm:px-7">{children}</div>
+          <div className="mx-auto w-full max-w-[1300px] px-4 py-6 sm:px-6 lg:px-8">
+            <div className="min-w-0">{children}</div>
+          </div>
         )}
       </main>
     </div>

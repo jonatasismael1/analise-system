@@ -160,11 +160,41 @@ Deno.serve(async (req: Request) => {
         break;
       }
 
+      // Edita mensagem enviada pela equipe no WhatsApp (best-effort — depende da versão da API)
+      case "edit_message": {
+        if (!instanceName) return jsonResponse({ ok: false, error: "instanceName obrigatório." }, 400);
+        const { messageId: editMsgId, remoteJid: editJid, text: editText } = body;
+        if (!editMsgId || !editJid || !editText) {
+          return jsonResponse({ ok: false, error: "messageId, remoteJid e text obrigatórios." }, 400);
+        }
+        result = await callEvolution(`/message/update/${instanceName}`, "PUT", {
+          number: String(editJid).replace("@s.whatsapp.net", "").replace("@c.us", ""),
+          text: editText,
+          key: { id: editMsgId, fromMe: true, remoteJid: editJid },
+        });
+        break;
+      }
+
+      // Apaga mensagem no WhatsApp (apenas mensagens enviadas pela equipe, fromMe=true)
+      case "delete_message": {
+        if (!instanceName) return jsonResponse({ ok: false, error: "instanceName obrigatório." }, 400);
+        const { messageId: delMsgId, remoteJid: delJid } = body;
+        if (!delMsgId || !delJid) {
+          return jsonResponse({ ok: false, error: "messageId e remoteJid obrigatórios." }, 400);
+        }
+        result = await callEvolution(`/message/delete/${instanceName}`, "DELETE", {
+          id: delMsgId,
+          remoteJid: delJid,
+          fromMe: true,
+        });
+        break;
+      }
+
       default:
         return jsonResponse({
           ok: false,
           error: `Action inválida: ${action}`,
-          allowedActions: ["fetch_instances","create_instance","connect_instance","get_status","logout_instance","delete_instance","set_webhook","send_text","send_media","fetch_profile_picture","fetch_contacts"]
+          allowedActions: ["fetch_instances","create_instance","connect_instance","get_status","logout_instance","delete_instance","set_webhook","send_text","send_media","fetch_profile_picture","fetch_contacts","delete_message"]
         }, 400);
     }
 

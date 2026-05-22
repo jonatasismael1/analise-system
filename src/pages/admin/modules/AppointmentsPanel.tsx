@@ -92,11 +92,13 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
   readonly patients: Patient[];
   readonly professionals: Professional[];
   readonly services: Service[];
-  readonly onSave: (values: { profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"] }) => Promise<void>;
+  readonly onSave: (values: { profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"] }) => Promise<boolean>;
   readonly onDelete: (id: string) => Promise<void>;
 }) {
   const [form, setForm] = useState(() => EMPTY_FORM(professionals, services));
   const [filters, setFilters] = useState({ search: "", status: "todos", professional: "todos", date: "" });
+  const [saving, setSaving] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const filteredAppointments = appointments.filter((appointment) => {
     const matchesSearch = `${appointment.pacienteNome} ${appointment.profissional} ${appointment.servico}`.toLowerCase().includes(filters.search.toLowerCase());
@@ -106,20 +108,28 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
     return matchesSearch && matchesStatus && matchesProfessional && matchesDate;
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    void onSave({
-      ...form,
-      pacienteNome: form.pacienteNome || "Paciente",
-      pacienteWhatsapp: form.pacienteWhatsapp,
-    });
-    setForm(EMPTY_FORM(professionals, services));
+    setLocalError(null);
+    if (!form.profissionalId) { setLocalError("Selecione um profissional."); return; }
+    if ((form.pacienteNome || "").trim().length < 3) { setLocalError("Informe o nome do paciente (mín. 3 caracteres)."); return; }
+    setSaving(true);
+    try {
+      const ok = await onSave({
+        ...form,
+        pacienteNome: form.pacienteNome.trim() || "Paciente",
+        pacienteWhatsapp: form.pacienteWhatsapp,
+      });
+      if (ok) setForm(EMPTY_FORM(professionals, services));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <SectionCard title="Agendamentos" description="Agenda operacional filtrada pela clínica logada.">
       {/* Filtros */}
-      <div className="mb-4 grid gap-3 md:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Buscar">
           <input className={inputClass()} placeholder="Paciente, profissional ou serviço" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
         </Field>
@@ -145,7 +155,12 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
       </div>
 
       {/* Formulário */}
-      <form className="mb-5 grid gap-3 md:grid-cols-4 xl:grid-cols-8" onSubmit={handleSubmit}>
+      {localError && (
+        <div className="mb-3 rounded-lg border border-error/30 bg-red-50 px-4 py-2.5 text-sm font-medium text-error">
+          {localError}
+        </div>
+      )}
+      <form className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(e) => { void handleSubmit(e); }}>
         <Field label="Paciente cadastrado">
           <PatientSearch
             patients={patients}
@@ -184,8 +199,8 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
             <option value="cancelado">Cancelado</option>
           </select>
         </Field>
-        <button className="mt-5 h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-dark transition" type="submit">
-          {form.id ? "Atualizar" : "Salvar"}
+        <button className="h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-dark transition disabled:opacity-60 disabled:cursor-not-allowed sm:col-span-2 lg:col-span-4" type="submit" disabled={saving}>
+          {saving ? "Salvando..." : form.id ? "Atualizar" : "Salvar"}
         </button>
       </form>
 

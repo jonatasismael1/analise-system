@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import {
-  ArrowLeft, Bot, Calendar, CheckCheck, ChevronDown, FileUp,
-  Loader2, MessageCircle, MessageSquarePlus, Mic, Pause, Phone,
+  ArrowLeft, Ban, Bot, Calendar, CheckCheck, ChevronDown, FileUp,
+  Loader2, MessageCircle, MessageSquarePlus, Mic, MoreVertical, Pause, Pencil, Phone,
   Play, PlusCircle, RefreshCcw, Search, Send, Sparkles,
-  Tag, UserPlus, UserRound, Users, Wifi, WifiOff, X,
+  StickyNote, Tag, Trash2, UserPlus, UserRound, Users, Wifi, WifiOff, X,
 } from "lucide-react";
 import { askDeby } from "../../../services/debyService";
 import { savePatientRecord } from "../../../services/patientService";
 import {
+  deleteWhatsAppMessage,
+  editWhatsAppMessage,
   findOrCreateConversation,
   loadAiAgents,
+  loadConversaObservacoes,
   loadWhatsAppContacts,
   loadWhatsAppConversations,
   loadWhatsAppMessages,
@@ -18,12 +21,16 @@ import {
   saveAiAgent,
   saveConversationAiSettings,
   saveContactProfilePic,
+  saveConversaObservacao,
   updateContactAtendimentoStatus,
+  updateConversaObservacao,
+  deleteConversaObservacao,
   uploadMediaFile,
   upsertWhatsAppContact,
   type AiAgent,
   type AiMode,
   type AtendimentoStatus,
+  type ConversaObservacao,
   type MessageType,
   type WhatsAppContactRecord,
   type WhatsAppConversation,
@@ -328,29 +335,161 @@ function linkify(text: string): React.ReactNode[] {
 function MessageBubble({
   message,
   contact,
+  onDelete,
+  onEdit,
 }: {
   readonly message: WhatsAppMessage;
   readonly contact?: WhatsAppConversation["contact"];
+  readonly onDelete?: (msg: WhatsAppMessage, forEveryone: boolean) => void;
+  readonly onEdit?: (msg: WhatsAppMessage, newText: string) => Promise<void>;
 }) {
-  // Áudio tem componente próprio com avatar + waveform
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editingText, setEditingText] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (editingText !== null) editRef.current?.focus();
+  }, [editingText !== null]);
+
+  async function handleSaveEdit() {
+    if (!onEdit || editingText === null || !editingText.trim()) return;
+    setSaving(true);
+    try {
+      await onEdit(message, editingText.trim());
+      setEditingText(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isOut = message.direction === "out";
+
+  // Estado deletado
+  if (message.isDeleted) {
+    return (
+      <div className={`flex ${isOut ? "justify-end" : "justify-start"}`}>
+        {!isOut && contact && (
+          <div className="mr-2 self-end"><Avatar contact={contact} size="xs" /></div>
+        )}
+        <div className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-2.5 opacity-70 shadow-sm ${isOut ? "rounded-br-sm bg-[#d9fdd3]" : "rounded-bl-sm bg-white"}`}>
+          <Ban className="h-3.5 w-3.5 shrink-0 text-[#8696a0]" />
+          <span className="text-[13px] italic text-[#8696a0]">
+            {message.deletedBy === "paciente" ? "Mensagem apagada pelo contato" : "Mensagem excluída"}
+          </span>
+          <span className="ml-1 font-mono text-[10px] text-[#8696a0]">{msgTime(message.sentAt)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Áudio tem componente próprio
   if (message.messageType === "audio") {
     return <AudioBubble message={message} contact={contact} />;
   }
 
-  const isOut = message.direction === "out";
+  // Modo de edição inline
+  if (editingText !== null) {
+    return (
+      <div className={`flex items-end gap-1 ${isOut ? "justify-end" : "justify-start"} animate-fade-in`}>
+        <div className="w-full max-w-[72%]">
+          <div className="rounded-2xl rounded-br-sm bg-[#d9fdd3] px-3 py-2.5 shadow-sm">
+            <textarea
+              ref={editRef}
+              className="w-full resize-none bg-transparent text-[13.5px] text-[#111b21] focus:outline-none"
+              rows={Math.max(2, (editingText.match(/\n/g) ?? []).length + 1)}
+              value={editingText}
+              onChange={e => setEditingText(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void handleSaveEdit(); }
+                if (e.key === "Escape") setEditingText(null);
+              }}
+              disabled={saving}
+            />
+            <div className="mt-1.5 flex items-center justify-end gap-2">
+              <button className="text-[11px] text-[#8696a0] transition hover:text-[#111b21]" type="button" onClick={() => setEditingText(null)}>Cancelar</button>
+              <button
+                className="rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
+                type="button"
+                disabled={saving || !editingText.trim()}
+                onClick={() => void handleSaveEdit()}
+              >
+                {saving ? "..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+          <p className="mt-0.5 text-right text-[10px] italic text-[#8696a0]">Ctrl+Enter para salvar · Esc para cancelar</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`flex ${isOut ? "justify-end" : "justify-start"} animate-fade-in`}>
+    <div className={`group flex items-end gap-1 ${isOut ? "justify-end" : "justify-start"} animate-fade-in`}>
       {!isOut && contact && (
-        <div className="mr-2 self-end">
-          <Avatar contact={contact} size="xs" />
+        <div className="mr-1 self-end"><Avatar contact={contact} size="xs" /></div>
+      )}
+
+      {/* Menu de ações — somente mensagens enviadas pela equipe */}
+      {isOut && (onDelete ?? onEdit) && (
+        <div className="relative order-first mb-1 shrink-0" ref={menuRef}>
+          <button
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[#8696a0] opacity-0 transition group-hover:opacity-100 hover:bg-black/10"
+            type="button"
+            onClick={() => setMenuOpen(v => !v)}
+            title="Opções da mensagem"
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </button>
+          {menuOpen && (
+            <div className="absolute bottom-full right-0 z-20 mb-1 min-w-[170px] overflow-hidden rounded-lg border border-border bg-surface shadow-modal">
+              {onEdit && (
+                <button
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[12px] text-ink transition hover:bg-surface-low"
+                  type="button"
+                  onClick={() => { setMenuOpen(false); setEditingText(message.content ?? ""); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 shrink-0" />
+                  Editar mensagem
+                </button>
+              )}
+              {onDelete && (
+                <>
+                  <button
+                    className="flex w-full items-center gap-2.5 border-t border-border-divider px-3 py-2 text-[12px] text-ink-secondary transition hover:bg-surface-low"
+                    type="button"
+                    onClick={() => { setMenuOpen(false); onDelete(message, false); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                    Apagar para mim
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-2.5 border-t border-border-divider px-3 py-2 text-[12px] text-danger transition hover:bg-danger-wash"
+                    type="button"
+                    onClick={() => { setMenuOpen(false); onDelete(message, true); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                    Apagar para todos
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
+
       <div
-        className={`relative max-w-[72%] rounded-2xl px-3.5 py-2.5 shadow-sm ${
-          isOut
-            ? "rounded-br-sm bg-[#d9fdd3] text-[#111b21]"
-            : "rounded-bl-sm bg-white text-[#111b21]"
-        }`}
+        className={`relative max-w-[72%] rounded-2xl px-3.5 py-2.5 shadow-sm ${isOut ? "rounded-br-sm bg-[#d9fdd3] text-[#111b21]" : "rounded-bl-sm bg-white text-[#111b21]"}`}
         style={{ wordBreak: "break-word" }}
       >
         {message.mediaUrl && <MediaPreview message={message} />}
@@ -358,6 +497,7 @@ function MessageBubble({
           <p className="whitespace-pre-wrap text-[13.5px] leading-snug">{linkify(message.content)}</p>
         )}
         <div className="mt-1 flex items-center justify-end gap-1">
+          {message.isEdited && <span className="text-[10px] italic text-[#8696a0]">editada</span>}
           <span className="font-mono text-[10px] text-[#667781]">{msgTime(message.sentAt)}</span>
           {isOut && <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" />}
         </div>
@@ -559,6 +699,12 @@ function DebyPromptEditor({
 }
 
 // ─── Painel de Contato + IA ───────────────────────────────────────────────────
+// ATENÇÃO: O modo de operação automático e o editor de prompt da Deby AI foram
+// ocultados temporariamente desta interface enquanto o atendimento automático
+// está em fase de estabilização. A lógica de backend permanece intacta.
+// Para reativar: remover os comentários {/* [OCULTO-TEMP] ... */} abaixo.
+
+type ContactAiTab = "observacoes" | "deby";
 
 function ContactAiPanel({
   conversation,
@@ -568,6 +714,8 @@ function ContactAiPanel({
   debyAgent,
   loading,
   creatingPatient,
+  observacoes,
+  observacoesLoading,
   onUpdateAiSettings,
   onUpdateAtendimento,
   onSummarize,
@@ -577,6 +725,9 @@ function ContactAiPanel({
   onCreateLead,
   onCreatePatient,
   onCreateAppointment,
+  onSaveObservacao,
+  onUpdateObservacao,
+  onDeleteObservacao,
 }: {
   readonly conversation: WhatsAppConversation;
   readonly messages: WhatsAppMessage[];
@@ -585,6 +736,8 @@ function ContactAiPanel({
   readonly debyAgent: AiAgent | null;
   readonly loading: boolean;
   readonly creatingPatient: boolean;
+  readonly observacoes: ConversaObservacao[];
+  readonly observacoesLoading: boolean;
   readonly onUpdateAiSettings: (v: { aiEnabled?: boolean; humanTakeover?: boolean; aiMode?: AiMode }) => Promise<void>;
   readonly onUpdateAtendimento: (s: AtendimentoStatus) => void;
   readonly onSummarize: () => void;
@@ -594,9 +747,45 @@ function ContactAiPanel({
   readonly onCreateLead: () => void;
   readonly onCreatePatient: () => void;
   readonly onCreateAppointment: () => void;
+  readonly onSaveObservacao: (texto: string) => Promise<void>;
+  readonly onUpdateObservacao: (id: string, texto: string) => Promise<void>;
+  readonly onDeleteObservacao: (id: string) => Promise<void>;
 }) {
   const name = bestName(conversation.contact.name, conversation.contact.phone);
   const ai = conversation.aiSettings;
+  const [activeTab, setActiveTab] = useState<ContactAiTab>("observacoes");
+  const [novaObs, setNovaObs] = useState("");
+  const [savingObs, setSavingObs] = useState(false);
+  const [editingObsId, setEditingObsId] = useState<string | null>(null);
+  const [editingObsText, setEditingObsText] = useState("");
+
+  async function handleSaveObs() {
+    if (!novaObs.trim()) return;
+    setSavingObs(true);
+    try {
+      await onSaveObservacao(novaObs.trim());
+      setNovaObs("");
+    } finally {
+      setSavingObs(false);
+    }
+  }
+
+  async function handleUpdateObs(id: string) {
+    if (!editingObsText.trim()) return;
+    await onUpdateObservacao(id, editingObsText.trim());
+    setEditingObsId(null);
+    setEditingObsText("");
+  }
+
+  function startEdit(obs: ConversaObservacao) {
+    setEditingObsId(obs.id);
+    setEditingObsText(obs.texto);
+  }
+
+  function cancelEdit() {
+    setEditingObsId(null);
+    setEditingObsText("");
+  }
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -631,14 +820,37 @@ function ContactAiPanel({
         </select>
       </div>
 
-      {/* Corpo scrollável */}
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+      {/* Abas: Observações | Deby AI */}
+      <div className="flex border-b border-border-divider">
+        <button
+          className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[12px] font-semibold transition ${activeTab === "observacoes" ? "border-b-2 border-primary text-primary" : "text-ink-muted hover:text-ink-secondary"}`}
+          type="button"
+          onClick={() => setActiveTab("observacoes")}
+        >
+          <StickyNote className="h-3.5 w-3.5" />
+          Observações
+          {observacoes.length > 0 && (
+            <span className="ml-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">
+              {observacoes.length}
+            </span>
+          )}
+        </button>
+        <button
+          className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[12px] font-semibold transition ${activeTab === "deby" ? "border-b-2 border-primary text-primary" : "text-ink-muted hover:text-ink-secondary"}`}
+          type="button"
+          onClick={() => setActiveTab("deby")}
+        >
+          <Bot className="h-3.5 w-3.5" />
+          Deby AI
+        </button>
+      </div>
 
-        {/* CRM / Lead */}
+      {/* Corpo scrollável */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+        {/* ── CRM / Lead (sempre visível) ───────────────────────────────────── */}
         <section>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-muted">
-            CRM
-          </p>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-muted">CRM</p>
           {lead ? (
             <div className="rounded-lg border border-primary/20 bg-primary-wash p-3">
               <div className="flex items-center justify-between gap-2">
@@ -669,7 +881,6 @@ function ContactAiPanel({
               Converter em Lead
             </button>
           )}
-
           <button
             className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] font-medium text-ink-secondary transition hover:border-success hover:bg-success-wash hover:text-success disabled:opacity-60"
             onClick={onCreatePatient}
@@ -679,7 +890,6 @@ function ContactAiPanel({
             {creatingPatient ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
             Converter em Paciente
           </button>
-
           <button
             className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3 py-2.5 text-[13px] font-medium text-ink-secondary transition hover:border-primary hover:bg-primary-wash hover:text-primary"
             type="button"
@@ -690,83 +900,202 @@ function ContactAiPanel({
           </button>
         </section>
 
-        {/* Deby AI */}
-        <section>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-muted">
-            Deby AI
-          </p>
-          <div className="space-y-2">
-            <AiToggle
-              label="IA ativada"
-              description="Deby responde automaticamente"
-              checked={ai?.aiEnabled ?? false}
-              onChange={checked => void onUpdateAiSettings({ aiEnabled: checked })}
-              icon={<Bot className="h-4 w-4" />}
-            />
-            <AiToggle
-              label="Atendimento humano"
-              description="Pausa a IA nesta conversa"
-              checked={ai?.humanTakeover ?? false}
-              onChange={checked => void onUpdateAiSettings({ humanTakeover: checked })}
-              icon={<UserRound className="h-4 w-4" />}
-            />
+        {/* ── Aba: Observações ─────────────────────────────────────────────── */}
+        {activeTab === "observacoes" && (
+          <section>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+              Observações internas
+            </p>
 
-            <Field label="Modo de operação">
-              <select
-                className={inputClass()}
-                value={ai?.aiMode ?? "assisted"}
-                onChange={e => void onUpdateAiSettings({ aiMode: e.target.value as AiMode })}
-              >
-                <option value="assisted">Assistido — sugere, humano aprova</option>
-                <option value="automatic">Automático — responde direto</option>
-              </select>
-            </Field>
-
-            {/* Ações de IA */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            {/* Formulário de nova observação */}
+            <div className="space-y-2">
+              <textarea
+                className="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-[13px] text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none"
+                rows={3}
+                placeholder="Registre aqui uma observação interna sobre este contato... (não será enviada ao paciente)"
+                value={novaObs}
+                onChange={e => setNovaObs(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void handleSaveObs(); }}
+              />
               <button
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-border-strong bg-surface px-2 py-2.5 text-[12px] font-medium text-ink-secondary transition hover:border-primary hover:bg-primary-wash hover:text-primary disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
                 type="button"
-                onClick={onSummarize}
-                disabled={loading || messages.length === 0}
+                disabled={!novaObs.trim() || savingObs}
+                onClick={() => void handleSaveObs()}
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                Resumir
-              </button>
-              <button
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-border-strong bg-surface px-2 py-2.5 text-[12px] font-medium text-ink-secondary transition hover:border-primary hover:bg-primary-wash hover:text-primary disabled:opacity-60"
-                type="button"
-                onClick={onSuggestReply}
-                disabled={loading || messages.length === 0}
-              >
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
-                Sugerir
+                {savingObs ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StickyNote className="h-3.5 w-3.5" />}
+                Salvar observação
               </button>
             </div>
 
-            {ai?.suggestedResponse && (
-              <div className="rounded-lg border border-warning/30 bg-warning-wash p-3">
-                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-warning">
-                  Sugestão da Deby
-                </p>
-                <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-ink">
-                  {ai.suggestedResponse}
-                </p>
+            {/* Lista de observações */}
+            <div className="mt-3 space-y-2">
+              {observacoesLoading ? (
+                <p className="text-center text-[12px] text-ink-muted">Carregando...</p>
+              ) : observacoes.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border-strong bg-surface-low py-4 text-center text-[12px] text-ink-muted">
+                  Nenhuma observação registrada ainda.
+                </div>
+              ) : (
+                observacoes.map(obs => (
+                  <div key={obs.id} className="rounded-lg border border-border-strong bg-surface p-3">
+                    {editingObsId === obs.id ? (
+                      <div className="space-y-2">
+                        <textarea
+                          className="w-full rounded-lg border border-border-strong bg-surface px-2 py-1.5 text-[12px] text-ink focus:border-primary focus:outline-none resize-none"
+                          rows={3}
+                          value={editingObsText}
+                          onChange={e => setEditingObsText(e.target.value)}
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            className="flex-1 rounded-lg bg-primary px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-primary-dark"
+                            type="button"
+                            onClick={() => void handleUpdateObs(obs.id)}
+                          >
+                            Salvar
+                          </button>
+                          <button
+                            className="flex-1 rounded-lg border border-border-strong px-2 py-1.5 text-[11px] font-medium text-ink-secondary hover:text-ink"
+                            type="button"
+                            onClick={cancelEdit}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-ink">{obs.texto}</p>
+                        <div className="mt-1.5 flex items-center justify-between">
+                          <div className="text-[10px] text-ink-muted">
+                            {obs.usuarioNome && <span className="font-semibold">{obs.usuarioNome} · </span>}
+                            {new Date(obs.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              className="rounded p-1 text-ink-muted transition hover:bg-surface-low hover:text-primary"
+                              type="button"
+                              title="Editar"
+                              onClick={() => startEdit(obs)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              className="rounded p-1 text-ink-muted transition hover:bg-danger-wash hover:text-danger"
+                              type="button"
+                              title="Arquivar"
+                              onClick={() => void onDeleteObservacao(obs.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Aba: Deby AI (apenas Resumir + Sugerir) ──────────────────────── */}
+        {activeTab === "deby" && (
+          <section>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+              Deby AI
+            </p>
+            <div className="space-y-2">
+
+              {/*
+                [OCULTO-TEMP] Controles de atendimento automático desativados temporariamente.
+                Para reativar, remova o comentário abaixo e exclua este bloco de comentário.
+
+                <AiToggle
+                  label="IA ativada"
+                  description="Deby responde automaticamente"
+                  checked={ai?.aiEnabled ?? false}
+                  onChange={checked => void onUpdateAiSettings({ aiEnabled: checked })}
+                  icon={<Bot className="h-4 w-4" />}
+                />
+                <AiToggle
+                  label="Atendimento humano"
+                  description="Pausa a IA nesta conversa"
+                  checked={ai?.humanTakeover ?? false}
+                  onChange={checked => void onUpdateAiSettings({ humanTakeover: checked })}
+                  icon={<UserRound className="h-4 w-4" />}
+                />
+                <Field label="Modo de operação">
+                  <select
+                    className={inputClass()}
+                    value={ai?.aiMode ?? "assisted"}
+                    onChange={e => void onUpdateAiSettings({ aiMode: e.target.value as AiMode })}
+                  >
+                    <option value="assisted">Assistido — sugere, humano aprova</option>
+                    <option value="automatic">Automático — responde direto</option>
+                  </select>
+                </Field>
+              */}
+
+              {/* Ações de IA — permanecem ativos */}
+              <div className="grid grid-cols-2 gap-2">
                 <button
-                  className="mt-2.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark"
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-border-strong bg-surface px-2 py-2.5 text-[12px] font-medium text-ink-secondary transition hover:border-primary hover:bg-primary-wash hover:text-primary disabled:opacity-60"
                   type="button"
-                  onClick={() => onUseReply(ai.suggestedResponse ?? "")}
+                  onClick={onSummarize}
+                  disabled={loading || messages.length === 0}
                 >
-                  Usar resposta
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Resumir conversa
+                </button>
+                <button
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-border-strong bg-surface px-2 py-2.5 text-[12px] font-medium text-ink-secondary transition hover:border-primary hover:bg-primary-wash hover:text-primary disabled:opacity-60"
+                  type="button"
+                  onClick={onSuggestReply}
+                  disabled={loading || messages.length === 0}
+                >
+                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
+                  Sugerir resposta
                 </button>
               </div>
-            )}
 
-            {debyAgent && (
-              <DebyPromptEditor agent={debyAgent} onSave={onSaveAgent} />
-            )}
-          </div>
-        </section>
+              {/* Sugestão da Deby — permanece ativo */}
+              {ai?.suggestedResponse && (
+                <div className="rounded-lg border border-warning/30 bg-warning-wash p-3">
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-warning">
+                    Sugestão da Deby
+                  </p>
+                  <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-ink">
+                    {ai.suggestedResponse}
+                  </p>
+                  <button
+                    className="mt-2.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark"
+                    type="button"
+                    onClick={() => onUseReply(ai.suggestedResponse ?? "")}
+                  >
+                    Usar resposta
+                  </button>
+                </div>
+              )}
+
+              {/*
+                [OCULTO-TEMP] Editor de prompt da Deby AI ocultado temporariamente.
+                Para reativar, remova o comentário abaixo.
+
+                {debyAgent && (
+                  <DebyPromptEditor agent={debyAgent} onSave={onSaveAgent} />
+                )}
+              */}
+
+              <p className="rounded-lg bg-surface-low px-3 py-2 text-[11px] text-ink-muted">
+                A sugestão gerada pela Deby é apenas uma proposta — a equipe decide se envia ou edita antes de responder.
+              </p>
+            </div>
+          </section>
+        )}
+
       </div>
     </div>
   );
@@ -824,6 +1153,8 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
   const [debyOutput, setDebyOutput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [showNewConvModal, setShowNewConvModal] = useState(false);
+  const [observacoes, setObservacoes] = useState<ConversaObservacao[]>([]);
+  const [observacoesLoading, setObservacoesLoading] = useState(false);
   const [newConvForm, setNewConvForm] = useState({ nome: "", telefone: "" });
   const [creatingConv, setCreatingConv] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
@@ -949,6 +1280,17 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
     markConversationRead(clinicId, selected.id).catch(() => null);
   }, [clinicId, selected?.id]);
 
+  // ── Carrega observações ao mudar conversa ─────────────────────────────────────
+
+  useEffect(() => {
+    if (!selected) { setObservacoes([]); return; }
+    setObservacoesLoading(true);
+    loadConversaObservacoes(clinicId, selected.id)
+      .then(obs => setObservacoes(obs))
+      .catch(() => null)
+      .finally(() => setObservacoesLoading(false));
+  }, [clinicId, selected?.id]);
+
   // ── Auto-scroll ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -973,18 +1315,48 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
             if (prev.some(m => m.id === (row.id as string))) return prev;
             return [...prev, {
               id: row.id as string,
+              wahaMessageId: (row.waha_message_id as string | null) ?? null,
               direction: (row.direcao === "out" ? "out" : "in") as "in" | "out",
               messageType: ((row.tipo as MessageType) ?? "text"),
               content: (row.texto as string | null) ?? null,
               mediaUrl: (row.media_url as string | null) ?? null,
               status: null,
               sentAt: row.enviada_em as string,
+              isDeleted: (row.is_deleted as boolean) ?? false,
+              deletedBy: (row.deleted_by as string | null) ?? null,
+              isEdited: (row.is_edited as boolean) ?? false,
+              originalContent: (row.original_content as string | null) ?? null,
             }];
           });
         }
         loadWhatsAppConversations(clinicId)
           .then(convs => setConversations(convs))
           .catch(() => null);
+      })
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "whatsapp_mensagens",
+        filter: `clinica_id=eq.${clinicId}`,
+      }, (payload) => {
+        // Sincroniza deleções/edições vindas do webhook (paciente apagou, etc.)
+        const row = payload.new as Record<string, unknown>;
+        if (row.conversa_id === selectedId) {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === (row.id as string)
+                ? {
+                    ...m,
+                    content: (row.texto as string | null) ?? m.content,
+                    isDeleted: (row.is_deleted as boolean) ?? m.isDeleted,
+                    deletedBy: (row.deleted_by as string | null) ?? m.deletedBy,
+                    isEdited: (row.is_edited as boolean) ?? m.isEdited,
+                    originalContent: (row.original_content as string | null) ?? m.originalContent,
+                  }
+                : m
+            )
+          );
+        }
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
@@ -1137,14 +1509,19 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
         .select("id")
         .single();
 
-      const newMsg = {
+      const newMsg: WhatsAppMessage = {
         id: inserted?.id ?? `local-${Date.now()}`,
+        wahaMessageId: wamid,
         direction: "out" as const,
         messageType: (file ? mediaType : "text") as MessageType,
         content: textoEnviado,
         mediaUrl: uploadedMediaUrl,
         status: null,
         sentAt: nowIso,
+        isDeleted: false,
+        deletedBy: null,
+        isEdited: false,
+        originalContent: null,
       };
       if (insertErr) {
         console.error("[WhatsApp] Erro ao salvar mensagem:", insertErr.message);
@@ -1260,6 +1637,65 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
       telefone: selected.contact.phone,
     }));
     onNavigateToAppointments();
+  }
+
+  // ── Observações internas ───────────────────────────────────────────────────────
+
+  async function handleSaveObservacao(texto: string) {
+    if (!selected) return;
+    const nova = await saveConversaObservacao(clinicId, selected.id, texto);
+    setObservacoes(prev => [nova, ...prev]);
+  }
+
+  async function handleUpdateObservacao(id: string, texto: string) {
+    if (!selected) return;
+    await updateConversaObservacao(clinicId, id, texto);
+    setObservacoes(prev => prev.map(o => o.id === id ? { ...o, texto } : o));
+  }
+
+  async function handleDeleteObservacao(id: string) {
+    if (!selected) return;
+    await deleteConversaObservacao(clinicId, id);
+    setObservacoes(prev => prev.filter(o => o.id !== id));
+  }
+
+  async function handleDeleteMessage(msg: WhatsAppMessage, forEveryone: boolean) {
+    if (!selected) return;
+    setMessages(prev =>
+      prev.map(m => m.id === msg.id ? { ...m, isDeleted: true, deletedBy: "equipe" } : m)
+    );
+    try {
+      const chatId = `${selected.contact.phone.replace(/\D/g, "")}@s.whatsapp.net`;
+      await deleteWhatsAppMessage({
+        clinicId, messageId: msg.id, wahaMessageId: msg.wahaMessageId,
+        instanceName: DEFAULT_INSTANCE_NAME, chatId, forEveryone,
+      });
+    } catch (e) {
+      setMessages(prev =>
+        prev.map(m => m.id === msg.id ? { ...m, isDeleted: false, deletedBy: null } : m)
+      );
+      setNotice({ type: "error", text: e instanceof Error ? e.message : "Erro ao apagar mensagem." });
+    }
+  }
+
+  async function handleEditMessage(msg: WhatsAppMessage, newText: string) {
+    if (!selected) return;
+    const oldText = msg.content;
+    setMessages(prev =>
+      prev.map(m => m.id === msg.id ? { ...m, content: newText, isEdited: true } : m)
+    );
+    try {
+      const chatId = `${selected.contact.phone.replace(/\D/g, "")}@s.whatsapp.net`;
+      await editWhatsAppMessage({
+        clinicId, messageId: msg.id, wahaMessageId: msg.wahaMessageId,
+        instanceName: DEFAULT_INSTANCE_NAME, chatId, newText, oldText,
+      });
+    } catch (e) {
+      setMessages(prev =>
+        prev.map(m => m.id === msg.id ? { ...m, content: oldText, isEdited: msg.isEdited } : m)
+      );
+      setNotice({ type: "error", text: e instanceof Error ? e.message : "Erro ao editar mensagem." });
+    }
   }
 
   async function handleStartConversation(contact: WhatsAppContactRecord) {
@@ -1713,7 +2149,13 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
               ) : (
                 <div className="flex flex-col gap-2">
                   {messages.map(msg => (
-                    <MessageBubble key={msg.id} message={msg} contact={selected?.contact} />
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      contact={selected?.contact}
+                      onDelete={msg.direction === "out" ? handleDeleteMessage : undefined}
+                      onEdit={msg.direction === "out" && msg.messageType === "text" ? handleEditMessage : undefined}
+                    />
                   ))}
                   <div ref={bottomRef} />
                 </div>
@@ -1801,6 +2243,8 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
                 debyAgent={debyAgent}
                 loading={aiLoading || creatingLead}
                 creatingPatient={creatingPatient}
+                observacoes={observacoes}
+                observacoesLoading={observacoesLoading}
                 onUpdateAiSettings={handleUpdateAiSettings}
                 onUpdateAtendimento={handleUpdateAtendimento}
                 onSummarize={() => void handleAiAction("whatsapp_summary")}
@@ -1810,6 +2254,9 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
                 onCreateLead={() => void handleCreateLead()}
                 onCreatePatient={() => void handleCreatePatient()}
                 onCreateAppointment={handleCreateAppointment}
+                onSaveObservacao={handleSaveObservacao}
+                onUpdateObservacao={handleUpdateObservacao}
+                onDeleteObservacao={handleDeleteObservacao}
               />
             ) : (
               <div className="flex flex-1 items-center justify-center p-6">
@@ -1869,6 +2316,11 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
                 onCreateLead={() => { void handleCreateLead(); setShowContactPanel(false); }}
                 onCreatePatient={() => { void handleCreatePatient(); setShowContactPanel(false); }}
                 onCreateAppointment={() => { handleCreateAppointment(); setShowContactPanel(false); }}
+                observacoes={observacoes}
+                observacoesLoading={observacoesLoading}
+                onSaveObservacao={handleSaveObservacao}
+                onUpdateObservacao={handleUpdateObservacao}
+                onDeleteObservacao={handleDeleteObservacao}
               />
             </div>
           </div>

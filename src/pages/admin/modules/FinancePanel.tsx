@@ -167,7 +167,7 @@ export function FinancePanel({
 
       {activeTab === "lancamentos" ? (
         <>
-          <section className="grid gap-4 md:grid-cols-5">
+          <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
             {[
               { label: "Receita realizada", value: decision.realized },
               { label: "Receita prevista", value: decision.forecast },

@@ -3,6 +3,7 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AdminPage } from "./pages/AdminPage";
 import { BookingPage } from "./pages/BookingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { OrcamentoPublicPage } from "./pages/OrcamentoPublicPage";
 
 export function App() {
   return (
@@ -11,6 +12,7 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
       <Route path="/agendar/:slug" element={<BookingPage />} />
+      <Route path="/orcamento/:token" element={<OrcamentoPublicPage />} />
     </Routes>
   );
 }

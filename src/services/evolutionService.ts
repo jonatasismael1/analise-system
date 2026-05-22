@@ -60,12 +60,17 @@ export interface WhatsAppConversation {
 
 export interface WhatsAppMessage {
   id: string;
+  wahaMessageId: string | null;
   direction: "in" | "out";
   messageType: MessageType;
   content: string | null;
   mediaUrl: string | null;
   status: string | null;
   sentAt: string;
+  isDeleted: boolean;
+  deletedBy: string | null;
+  isEdited: boolean;
+  originalContent: string | null;
 }
 
 export async function listEvolutionInstances(clinicId: string) {
@@ -302,12 +307,17 @@ function mapConversation(row: any, contato: any, aiRow?: any): WhatsAppConversat
 function mapMessage(row: any): WhatsAppMessage {
   return {
     id: row.id,
+    wahaMessageId: row.waha_message_id ?? null,
     direction: (row.direcao === "out" ? "out" : "in") as "in" | "out",
     messageType: (row.tipo as MessageType) ?? "text",
     content: row.texto ?? null,
     mediaUrl: row.media_url ?? null,
     status: null,
-    sentAt: row.enviada_em
+    sentAt: row.enviada_em,
+    isDeleted: row.is_deleted ?? false,
+    deletedBy: row.deleted_by ?? null,
+    isEdited: row.is_edited ?? false,
+    originalContent: row.original_content ?? null,
   };
 }
 
@@ -526,4 +536,182 @@ export async function findOrCreateConversation(clinicId: string, contactId: stri
     .single();
 
   return mapConversation(conv, contato, null);
+}
+
+// ─── Observações internas de conversa ─────────────────────────────────────────
+// Notas internas da equipe vinculadas a uma conversa do WhatsApp.
+// NÃO são enviadas ao contato — uso exclusivo da clínica.
+
+export interface ConversaObservacao {
+  id: string;
+  conversaId: string;
+  texto: string;
+  usuarioNome: string | null;
+  arquivado: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function loadConversaObservacoes(
+  clinicId: string,
+  conversaId: string
+): Promise<ConversaObservacao[]> {
+  const { data, error } = await supabase
+    .from("whatsapp_observacoes")
+    .select("id, conversa_id, texto, usuario_nome, arquivado, created_at, updated_at")
+    .eq("clinica_id", clinicId)
+    .eq("conversa_id", conversaId)
+    .eq("arquivado", false)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(r => ({
+    id: r.id as string,
+    conversaId: r.conversa_id as string,
+    texto: r.texto as string,
+    usuarioNome: r.usuario_nome as string | null,
+    arquivado: r.arquivado as boolean,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  }));
+}
+
+export async function saveConversaObservacao(
+  clinicId: string,
+  conversaId: string,
+  texto: string,
+  usuarioNome?: string
+): Promise<ConversaObservacao> {
+  const { data, error } = await supabase
+    .from("whatsapp_observacoes")
+    .insert({
+      clinica_id: clinicId,
+      conversa_id: conversaId,
+      texto: texto.trim(),
+      usuario_nome: usuarioNome ?? null,
+    })
+    .select("id, conversa_id, texto, usuario_nome, arquivado, created_at, updated_at")
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id as string,
+    conversaId: data.conversa_id as string,
+    texto: data.texto as string,
+    usuarioNome: data.usuario_nome as string | null,
+    arquivado: data.arquivado as boolean,
+    createdAt: data.created_at as string,
+    updatedAt: data.updated_at as string,
+  };
+}
+
+export async function updateConversaObservacao(
+  clinicId: string,
+  observacaoId: string,
+  texto: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("whatsapp_observacoes")
+    .update({ texto: texto.trim() })
+    .eq("id", observacaoId)
+    .eq("clinica_id", clinicId);
+  if (error) throw error;
+}
+
+export async function deleteConversaObservacao(
+  clinicId: string,
+  observacaoId: string
+): Promise<void> {
+  // Soft delete via arquivado=true para preservar histórico
+  const { error } = await supabase
+    .from("whatsapp_observacoes")
+    .update({ arquivado: true })
+    .eq("id", observacaoId)
+    .eq("clinica_id", clinicId);
+  if (error) throw error;
+}
+
+// ─── Exclusão de mensagens enviadas pela equipe ───────────────────────────────
+
+/**
+ * Apaga uma mensagem enviada pela equipe.
+ * 1) Chama a Evolution API para apagar no WhatsApp (best-effort — só funciona
+ *    se a mensagem for fromMe=true, enviada pela instância conectada).
+ * 2) Faz soft-delete no banco (is_deleted=true) independente do resultado da API.
+ *
+ * @param instanceName Nome da instância Evolution (ex: "analise-saude")
+ * @param chatId       JID do contato (ex: "5511999999999@s.whatsapp.net")
+ */
+/**
+ * Apaga uma mensagem enviada pela equipe.
+ * @param forEveryone true → revoga no WhatsApp para todos; false → apaga só localmente (DB)
+ */
+export async function deleteWhatsAppMessage(input: {
+  clinicId: string;
+  messageId: string;
+  wahaMessageId: string | null;
+  instanceName: string;
+  chatId: string;
+  forEveryone: boolean;
+}): Promise<void> {
+  const { clinicId, messageId, wahaMessageId, instanceName, chatId, forEveryone } = input;
+
+  if (forEveryone && wahaMessageId && instanceName && chatId) {
+    try {
+      await supabase.functions.invoke("quick-action", {
+        body: { action: "delete_message", instanceName, messageId: wahaMessageId, remoteJid: chatId },
+      });
+    } catch {
+      // best-effort
+    }
+  }
+
+  const { error } = await supabase
+    .from("whatsapp_mensagens")
+    .update({
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      deleted_by: "equipe",
+      delete_origin: forEveryone ? "manual" : "local",
+    })
+    .eq("id", messageId)
+    .eq("clinica_id", clinicId);
+  if (error) throw error;
+}
+
+/**
+ * Edita uma mensagem enviada pela equipe.
+ * Tenta atualizar no WhatsApp (best-effort) e sempre persiste no banco.
+ */
+export async function editWhatsAppMessage(input: {
+  clinicId: string;
+  messageId: string;
+  wahaMessageId: string | null;
+  instanceName: string;
+  chatId: string;
+  newText: string;
+  oldText: string | null;
+}): Promise<void> {
+  const { clinicId, messageId, wahaMessageId, instanceName, chatId, newText, oldText } = input;
+
+  if (wahaMessageId && instanceName && chatId) {
+    try {
+      await supabase.functions.invoke("quick-action", {
+        body: { action: "edit_message", instanceName, messageId: wahaMessageId, remoteJid: chatId, text: newText },
+      });
+    } catch {
+      // best-effort
+    }
+  }
+
+  const { error } = await supabase
+    .from("whatsapp_mensagens")
+    .update({
+      texto: newText,
+      is_edited: true,
+      edited_at: new Date().toISOString(),
+      edit_origin: "equipe",
+      original_content: oldText,
+    })
+    .eq("id", messageId)
+    .eq("clinica_id", clinicId);
+  if (error) throw error;
 }

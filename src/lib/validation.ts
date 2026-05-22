@@ -30,7 +30,9 @@ export function validateAppointment(appointment: {
 }): ValidationResult {
   if (!appointment.profissionalId) return invalid("Selecione um profissional.");
   if (appointment.pacienteNome.trim().length < 3) return invalid("Informe o nome do paciente com pelo menos 3 caracteres.");
-  if (onlyDigits(appointment.pacienteWhatsapp).length < 10) return invalid("Informe um WhatsApp válido para o paciente.");
+  // WhatsApp é opcional; se informado, valida o formato
+  const digits = onlyDigits(appointment.pacienteWhatsapp);
+  if (digits.length > 0 && digits.length < 10) return invalid("WhatsApp informado é inválido. Use pelo menos 10 dígitos ou deixe em branco.");
   if (!isValidDate(appointment.data)) return invalid("Informe uma data válida.");
   if (!appointment.horario) return invalid("Informe um horário válido.");
   return { valid: true };
