@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { ArrowRight, CalendarDays, CreditCard, Loader2, MessageCircle, Stethoscope } from "lucide-react";
+import { ArrowRight, CalendarDays, CreditCard, Eye, EyeOff, Loader2, MessageCircle, Stethoscope } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { allowPublicSignup } from "../lib/appConfig";
@@ -23,6 +23,7 @@ export function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login, registerClinic, session, clinic, loading: authLoading, isSuperAdmin } = useAuth();
 
   if (session && !authLoading) {
@@ -150,15 +151,25 @@ export function LoginPage() {
 
             <div>
               <label className={labelClass} htmlFor="password">Senha</label>
-              <input
-                className={inputClass}
-                id="password"
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                type="password"
-                value={password}
-              />
+              <div className="relative">
+                <input
+                  className={inputClass}
+                  id="password"
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                />
+                <button
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink"
+                  onClick={() => setShowPassword((v) => !v)}
+                  type="button"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             {error && (
