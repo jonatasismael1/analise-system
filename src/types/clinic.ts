@@ -83,6 +83,25 @@ export interface FinanceEntry {
   formaPagamento?: string | null;
 }
 
+export type MembershipRole = "holder" | "dependent";
+export type MembershipStatus = "active" | "inactive" | "suspended";
+export type MembershipRelationship = "filho" | "pai" | "mae" | "conjuge" | "outro";
+
+export interface PatientProgramMembership {
+  id: string;
+  clinicaId: string;
+  patientId: string;
+  programId: string;
+  role: MembershipRole;
+  holderPatientId: string | null;
+  relationship: MembershipRelationship | null;
+  status: MembershipStatus;
+  startDate: string;
+  endDate: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface SessionPackage {
   id: string;
   clinicaId?: string;

@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Calendar, ChevronRight, Download, Loader2, MapPin, MessageCircle, Plus, Send, Trash2, Upload, User, X } from "lucide-react";
 import { ProntuarioTimeline } from "../../../components/Prontuario/ProntuarioTimeline";
+import { PatientProgramSection } from "../../../components/PatientProgramSection";
+import { ProgramBadge } from "../../../components/ui/ProgramBadge";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
@@ -9,7 +11,8 @@ import {
   DEFAULT_INSTANCE_NAME,
   sendWhatsAppText
 } from "../../../services/quickActionService";
-import type { Patient, Professional, UserRole } from "../../../types/clinic";
+import type { Patient, PatientProgramMembership, Professional, UserRole } from "../../../types/clinic";
+import type { ProgramaDesconto } from "./DiscountProgramsPanel";
 import { Field, inputClass } from "../components/Field";
 import { Pagination, usePagination } from "../components/Pagination";
 import { RefinedTable } from "../components/RefinedTable";
@@ -131,6 +134,8 @@ export function PatientsPanel({
   clinicId,
   patients,
   professionals,
+  programas,
+  memberships,
   onSave,
   onDelete,
   onImportMassively,
@@ -140,6 +145,8 @@ export function PatientsPanel({
   readonly clinicId: string;
   readonly patients: Patient[];
   readonly professionals: Professional[];
+  readonly programas: ProgramaDesconto[];
+  readonly memberships: PatientProgramMembership[];
   readonly onSave: (values: Patient) => Promise<void>;
   readonly onDelete: (id: string) => Promise<void>;
   readonly onImportMassively: (patients: Omit<Patient, "id" | "clinicaId">[]) => Promise<void>;
@@ -313,9 +320,17 @@ export function PatientsPanel({
                   <span className="font-medium text-ink">{patient.nome}</span>
                   <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-muted opacity-0 transition group-hover:opacity-100" />
                 </div>
-                {patient.whatsapp && (
-                  <span className="font-mono text-[11px] text-ink-muted">{patient.whatsapp}</span>
-                )}
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  {patient.whatsapp && (
+                    <span className="font-mono text-[11px] text-ink-muted">{patient.whatsapp}</span>
+                  )}
+                  <ProgramBadge
+                    membership={memberships.find((m) => m.patientId === patient.id) ?? null}
+                    programas={programas}
+                    patients={patients}
+                    compact
+                  />
+                </div>
               </td>
               {!readonly ? <td className="px-4 py-3 font-mono text-sm text-secondary">{patient.cpf ?? "-"}</td> : null}
               <td className="px-4 py-3"><StatusPill value={patient.status} /></td>
@@ -417,6 +432,16 @@ export function PatientsPanel({
                   <Field label="Ponto de referência"><input className={inputClass()} value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value })} /></Field>
                 </div>
               </div>
+
+              {/* Programa de desconto (edição — só para pacientes já cadastrados) */}
+              {form.id && programas.length > 0 && (
+                <PatientProgramSection
+                  clinicId={clinicId}
+                  patientId={form.id}
+                  patients={patients}
+                  programas={programas}
+                />
+              )}
 
               <div className="flex justify-end gap-3 border-t border-outline-variant pt-4">
                 <button className="rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low" onClick={() => setIsPatientModalOpen(false)} type="button">
@@ -538,6 +563,17 @@ export function PatientsPanel({
                     {detailPatient.observacoes}
                   </p>
                 </section>
+              )}
+
+              {/* Programa de desconto (leitura) */}
+              {programas.length > 0 && (
+                <PatientProgramSection
+                  clinicId={clinicId}
+                  patientId={detailPatient.id}
+                  patients={patients}
+                  programas={programas}
+                  readonly={readonly}
+                />
               )}
             </div>
 

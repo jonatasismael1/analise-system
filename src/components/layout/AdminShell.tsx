@@ -111,9 +111,9 @@ export function AdminShell({
           }`}
         >
           <img
-            src="/logo-deby-saude.png"
+            src="/icone-saude.png"
             alt="Deby Saúde"
-            className={`shrink-0 w-auto ${sidebarExpanded ? "h-7" : "h-6"}`}
+            className="h-7 w-7 shrink-0 rounded-lg object-cover"
           />
           {sidebarExpanded && (
             <div className="min-w-0 flex-1 leading-none overflow-hidden">
@@ -176,7 +176,7 @@ export function AdminShell({
       {/* ── Botão toggle collapse (desktop) ───────────────── */}
       <button
         className={`fixed z-50 hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-white shadow-sm text-ink-muted hover:text-ink transition-all duration-250 top-[30px] ${
-          isCollapsed ? "left-[60px]" : "left-[260px]"
+          sidebarExpanded ? "left-[260px]" : "left-[60px]"
         }`}
         onClick={() => {
           setIsCollapsed(!isCollapsed);

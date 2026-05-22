@@ -16,7 +16,7 @@ import { validateAppointment, validateFinance, validatePatient } from "../lib/va
 import { deleteAppointmentRecord, deleteAppointmentSeriesRecord, saveAppointmentRecord, type RecurrenceFrequency } from "../services/appointmentService";
 import { createExpenseRecord, createPaymentRecord, deleteExpenseRecord, deletePaymentRecord, updateExpenseRecord, updatePaymentRecord } from "../services/financeService";
 import { deletePatientRecord, importPatientRecords, savePatientRecord } from "../services/patientService";
-import type { Appointment, ClinicUser, FinanceEntry, Patient, Professional, Service, SessionPackage, UserRole } from "../types/clinic";
+import type { Appointment, ClinicUser, FinanceEntry, Patient, PatientProgramMembership, MembershipRole, MembershipStatus, Professional, Service, SessionPackage, UserRole } from "../types/clinic";
 import type { Database } from "../types/database";
 import type { ProgramaDesconto, ProgramaItem, ProgramaForm } from "../pages/admin/modules/DiscountProgramsPanel";
 import type { Orcamento, OrcamentoItem, OrcamentoForm } from "../pages/admin/modules/OrcamentosPanel";
@@ -76,6 +76,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
   const [packages, setPackages] = useState<SessionPackage[]>(() => isDemoMode ? mockPackages : []);
   const [programas, setProgramas] = useState<ProgramaDesconto[]>([]);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
+  const [memberships, setMemberships] = useState<PatientProgramMembership[]>([]);
   const [users, setUsers] = useState<ClinicUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -97,7 +98,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
       financeStart.setMonth(financeStart.getMonth() - financeMonths);
       const financeStartISO = financeStart.toISOString().slice(0, 10);
 
-      const [professionalsRes, servicesRes, patientsRes, appointmentsRes, packagesRes, paymentsRes, expensesRes, usersRes, programasRes, orcamentosRes] = await Promise.all([
+      const [professionalsRes, servicesRes, patientsRes, appointmentsRes, packagesRes, paymentsRes, expensesRes, usersRes, programasRes, orcamentosRes, membershipsRes] = await Promise.all([
         supabase.from("profissionais").select("*").eq("clinica_id", clinicId).order("nome"),
         supabase.from("servicos").select("*").eq("clinica_id", clinicId).order("nome"),
         professionalFilter ? supabase.from("pacientes").select("*").eq("clinica_id", clinicId).eq("profissional_id", professionalFilter).order("nome") : supabase.from("pacientes").select("*").eq("clinica_id", clinicId).order("nome"),
@@ -111,7 +112,8 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         canSeeFinance ? supabase.from("despesas").select("*").eq("clinica_id", clinicId).gte("created_at", financeStartISO).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
         role === "admin" ? supabase.from("usuarios").select("*").eq("clinica_id", clinicId).order("nome") : Promise.resolve({ data: [], error: null }),
         canSeeOrcamentos ? supabase.from("programas_desconto").select("*, programas_desconto_servicos(*)").eq("clinica_id", clinicId).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
-        canSeeOrcamentos ? supabase.from("orcamentos").select("*, orcamentos_itens(*)").eq("clinica_id", clinicId).order("created_at", { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null })
+        canSeeOrcamentos ? supabase.from("orcamentos").select("*, orcamentos_itens(*)").eq("clinica_id", clinicId).order("created_at", { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null }),
+        supabase.from("patient_program_memberships").select("*").eq("clinica_id", clinicId).eq("status", "active")
       ]);
 
       const firstError = [professionalsRes, servicesRes, patientsRes, appointmentsRes, packagesRes, paymentsRes, expensesRes, usersRes].find((res) => res.error)?.error;
@@ -225,6 +227,21 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         categoria: row.categoria
       }));
       setFinanceEntries([...payments, ...expenses]);
+      setMemberships((membershipsRes.data ?? []).map((row: any): PatientProgramMembership => ({
+        id: row.id,
+        clinicaId: row.clinica_id,
+        patientId: row.patient_id,
+        programId: row.program_id,
+        role: row.role as MembershipRole,
+        holderPatientId: row.holder_patient_id,
+        relationship: row.relationship,
+        status: row.status as MembershipStatus,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        notes: row.notes,
+        createdAt: row.created_at,
+      })));
+
       setUsers((usersRes.data ?? []).map((row: any) => ({
         id: row.id,
         clinicaId: row.clinica_id,
@@ -588,6 +605,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     packages,
     programas,
     orcamentos,
+    memberships,
     users,
     loading,
     message,

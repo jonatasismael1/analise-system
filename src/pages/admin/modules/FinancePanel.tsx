@@ -6,7 +6,9 @@ import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
 import { brl, todayISO } from "../../../lib/formatters";
 import { askDeby } from "../../../services/debyService";
-import type { FinanceEntry, Professional, Service } from "../../../types/clinic";
+import { ProgramBadge } from "../../../components/ui/ProgramBadge";
+import type { FinanceEntry, Patient, PatientProgramMembership, Professional, Service } from "../../../types/clinic";
+import type { ProgramaDesconto } from "./DiscountProgramsPanel";
 import ExportPage from "../../ExportPage";
 import { Field, inputClass } from "../components/Field";
 import { Pagination, usePagination } from "../components/Pagination";
@@ -57,7 +59,10 @@ export function FinancePanel({
   clinicaCnpj,
   clinicId,
   financeMonths,
-  onChangeFinanceMonths
+  onChangeFinanceMonths,
+  memberships = [],
+  patients = [],
+  programas = [],
 }: {
   readonly entries: FinanceEntry[];
   readonly kpis: { revenue: number; expenses: number; profit: number; overdue: number; forecast: number };
@@ -74,6 +79,9 @@ export function FinancePanel({
   readonly clinicId: string;
   readonly financeMonths?: number;
   readonly onChangeFinanceMonths?: (months: number) => void;
+  readonly memberships?: PatientProgramMembership[];
+  readonly patients?: Patient[];
+  readonly programas?: ProgramaDesconto[];
 }) {
   const [activeTab, setActiveTab] = useState<"lancamentos" | "exportar">("lancamentos");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -265,7 +273,7 @@ export function FinancePanel({
                 <button className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm text-white" type="submit">{expense.id ? "Atualizar despesa" : "Criar despesa"}</button>
               </form>
             </div>
-            {filteredEntries.length === 0 ? <EmptyState title="Nenhum lançamento" message="Você ainda não possui lançamentos financeiros." /> : <RefinedTable headers={["Descrição", "Tipo", "Status", "Valor", "Ações"]}>{paginatedEntries.items.map((entry) => <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={entry.id}><td className="px-4 py-3 font-medium">{entry.descricao}</td><td className="px-4 py-3 capitalize text-secondary">{entry.tipo === "despesa" ? "Despesa" : "Receita"}</td><td className="px-4 py-3"><StatusPill value={entry.status} /></td><td className="px-4 py-3 text-right font-semibold text-on-surface">{brl.format(entry.valor)}</td><td className="px-4 py-3 text-right"><button className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary transition" onClick={() => entry.tipo === "despesa" ? setExpense({ id: entry.id, descricao: entry.descricao, valor: entry.valor, categoria: entry.categoria ?? "", status: entry.status, data: entry.data ?? todayISO() }) : setPayment({ id: entry.id, descricao: entry.descricao, valor: entry.valor, status: entry.status, formaPagamento: entry.formaPagamento ?? "manual", data: entry.data ?? todayISO(), profissionalId: entry.profissionalId ?? "", servicoId: entry.servicoId ?? "" })} type="button">Editar</button><button aria-label={`Excluir lançamento ${entry.descricao}`} className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition" onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este lançamento financeiro ${entry.descricao}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) entry.tipo === "despesa" ? onDeleteExpense(entry.id) : onDeletePayment(entry.id); })} type="button"><Trash2 className="h-4 w-4" /></button></td></tr>)}</RefinedTable>}
+            {filteredEntries.length === 0 ? <EmptyState title="Nenhum lançamento" message="Você ainda não possui lançamentos financeiros." /> : <RefinedTable headers={["Descrição", "Tipo", "Status", "Valor", "Ações"]}>{paginatedEntries.items.map((entry) => <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={entry.id}><td className="px-4 py-3 font-medium"><span>{entry.descricao}</span>{entry.pacienteId && memberships.some((m) => m.patientId === entry.pacienteId) && <div className="mt-0.5"><ProgramBadge membership={memberships.find((m) => m.patientId === entry.pacienteId) ?? null} programas={programas} patients={patients} compact /></div>}</td><td className="px-4 py-3 capitalize text-secondary">{entry.tipo === "despesa" ? "Despesa" : "Receita"}</td><td className="px-4 py-3"><StatusPill value={entry.status} /></td><td className="px-4 py-3 text-right font-semibold text-on-surface">{brl.format(entry.valor)}</td><td className="px-4 py-3 text-right"><button className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary transition" onClick={() => entry.tipo === "despesa" ? setExpense({ id: entry.id, descricao: entry.descricao, valor: entry.valor, categoria: entry.categoria ?? "", status: entry.status, data: entry.data ?? todayISO() }) : setPayment({ id: entry.id, descricao: entry.descricao, valor: entry.valor, status: entry.status, formaPagamento: entry.formaPagamento ?? "manual", data: entry.data ?? todayISO(), profissionalId: entry.profissionalId ?? "", servicoId: entry.servicoId ?? "" })} type="button">Editar</button><button aria-label={`Excluir lançamento ${entry.descricao}`} className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition" onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este lançamento financeiro ${entry.descricao}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) entry.tipo === "despesa" ? onDeleteExpense(entry.id) : onDeletePayment(entry.id); })} type="button"><Trash2 className="h-4 w-4" /></button></td></tr>)}</RefinedTable>}
             {filteredEntries.length > 0 && (
               <Pagination
                 total={filteredEntries.length}

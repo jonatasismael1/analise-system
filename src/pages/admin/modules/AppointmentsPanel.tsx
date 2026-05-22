@@ -5,7 +5,9 @@ import { SectionCard } from "../../../components/ui/SectionCard";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
 import { todayISO } from "../../../lib/formatters";
 import { buildRecurringDates, type RecurrenceFrequency } from "../../../services/appointmentService";
-import type { Appointment, Patient, Professional, Service } from "../../../types/clinic";
+import { ProgramBadge } from "../../../components/ui/ProgramBadge";
+import type { Appointment, Patient, PatientProgramMembership, Professional, Service } from "../../../types/clinic";
+import type { ProgramaDesconto } from "./DiscountProgramsPanel";
 import { Field, inputClass } from "../components/Field";
 import { Pagination, usePagination } from "../components/Pagination";
 import { RefinedTable } from "../components/RefinedTable";
@@ -91,11 +93,13 @@ const EMPTY_FORM = (professionals: Professional[], services: Service[]) => ({
   recorrenciaOccurrences: 4,
 });
 
-export function AppointmentsPanel({ appointments, patients, professionals, services, onSave, onDelete, onDeleteSeries }: {
+export function AppointmentsPanel({ appointments, patients, professionals, services, memberships = [], programas = [], onSave, onDelete, onDeleteSeries }: {
   readonly appointments: Appointment[];
   readonly patients: Patient[];
   readonly professionals: Professional[];
   readonly services: Service[];
+  readonly memberships?: PatientProgramMembership[];
+  readonly programas?: ProgramaDesconto[];
   readonly onSave: (values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"]; recorrencia?: { frequency: RecurrenceFrequency; occurrences: number } }) => Promise<boolean>;
   readonly onDelete: (id: string) => Promise<void>;
   readonly onDeleteSeries: (recorrenciaId: string) => Promise<void>;
@@ -282,7 +286,17 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
           <RefinedTable headers={["Paciente", "Profissional", "Serviço", "Data", "Status", "Ações"]}>
             {paginatedAppointments.items.map((appointment) => (
               <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={appointment.id}>
-                <td className="px-4 py-3 font-medium">{appointment.pacienteNome}</td>
+                <td className="px-4 py-3 font-medium">
+                  <span>{appointment.pacienteNome}</span>
+                  {appointment.pacienteId && (
+                    <ProgramBadge
+                      membership={memberships.find((m) => m.patientId === appointment.pacienteId) ?? null}
+                      programas={programas}
+                      patients={patients}
+                      compact
+                    />
+                  )}
+                </td>
                 <td className="px-4 py-3 text-secondary">{appointment.profissional}</td>
                 <td className="px-4 py-3 text-secondary">{appointment.servico}</td>
                 <td className="px-4 py-3 text-secondary">{new Date(`${appointment.data}T12:00:00`).toLocaleDateString("pt-BR")} {appointment.horario}</td>
