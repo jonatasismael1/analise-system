@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bell, Check, ExternalLink } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -14,11 +14,12 @@ export interface Notificacao {
 export function NotificationBell({ clinicaId }: { clinicaId: string }) {
   const [notifications, setNotifications] = useState<Notificacao[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  // Canal único por instância — evita erro ao montar dois NotificationBells simultaneamente
+  const channelName = useRef(`notif-${clinicaId}-${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     if (!clinicaId) return;
 
-    // Load initial
     const loadNotifications = async () => {
       const { data } = await supabase
         .from("notificacoes")
@@ -26,18 +27,17 @@ export function NotificationBell({ clinicaId }: { clinicaId: string }) {
         .eq("clinica_id", clinicaId)
         .order("criada_em", { ascending: false })
         .limit(20);
-      
+
       if (data) setNotifications(data);
     };
 
     void loadNotifications();
 
-    // Subscribe to new
     const channel = supabase
-      .channel('public:notificacoes')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
+      .channel(channelName.current)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
         table: 'notificacoes',
         filter: `clinica_id=eq.${clinicaId}`
       }, (payload: any) => {
