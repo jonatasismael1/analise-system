@@ -196,7 +196,8 @@ export function AppointmentsPanel({
     appointments
       .filter((a) => {
         const profName = professionals.find((p) => p.id === filters.profissionalId)?.nome;
-        const matchSearch = `${a.pacienteNome} ${a.profissional} ${a.servico}`.toLowerCase().includes(filters.search.toLowerCase());
+        const patientCpf = a.pacienteId ? (patients.find((p) => p.id === a.pacienteId)?.cpf ?? "") : "";
+        const matchSearch = `${a.pacienteNome} ${a.profissional} ${a.servico} ${patientCpf}`.toLowerCase().includes(filters.search.toLowerCase());
         const matchStatus = filters.status === "todos" || a.status === filters.status;
         const matchProf = filters.profissionalId === "todos" || a.profissional === profName;
         const matchDate = !filters.date || a.data === filters.date;
@@ -338,7 +339,7 @@ export function AppointmentsPanel({
           <div className="relative">
             <input
               className={inputClass()}
-              placeholder="Buscar paciente, profissional..."
+              placeholder="Buscar por nome, CPF, profissional..."
               value={filters.search}
               onChange={(e) => updateFilter({ search: e.target.value })}
             />
