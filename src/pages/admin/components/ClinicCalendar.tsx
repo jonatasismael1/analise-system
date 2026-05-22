@@ -3,7 +3,6 @@ import type { Appointment, Professional } from "../../../types/clinic";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { todayISO } from "../../../lib/formatters";
 import { Field, inputClass } from "./Field";
-import { StatusPill } from "./StatusPill";
 
 function addDays(date: Date, days: number) {
   const next = new Date(date);
@@ -32,6 +31,14 @@ const statusCardClass: Record<Appointment["status"], string> = {
   pendente: "border-amber-200 bg-amber-50 text-amber-700",
   faltou: "border-red-200 bg-red-50 text-error",
   cancelado: "border-slate-200 bg-slate-100 text-secondary",
+};
+
+const statusDotClass: Record<Appointment["status"], string> = {
+  confirmado: "bg-teal-500",
+  concluido: "bg-blue-500",
+  pendente: "bg-amber-400",
+  faltou: "bg-red-500",
+  cancelado: "bg-slate-400",
 };
 
 interface ClinicCalendarProps {
@@ -118,9 +125,9 @@ export function ClinicCalendar({ appointments, professionals, onClickAppointment
                           tabIndex={onClickAppointment ? 0 : undefined}
                           onKeyDown={onClickAppointment ? (e) => { if (e.key === "Enter" || e.key === " ") onClickAppointment(appointment); } : undefined}
                         >
-                          <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center justify-between gap-1">
                             <p className="text-sm font-bold">{appointment.horario}</p>
-                            <StatusPill value={appointment.status} />
+                            <span className={`h-2 w-2 shrink-0 rounded-full ${statusDotClass[appointment.status]}`} />
                           </div>
                           <p className="mt-2 font-semibold text-on-surface">{appointment.pacienteNome}</p>
                           <p className="mt-1 text-secondary">{appointment.profissional}</p>
