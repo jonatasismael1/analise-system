@@ -105,6 +105,10 @@ async function downloadAndUploadMedia(
   if (!evolutionUrl || !evolutionKey) return null;
   // Videos podem ser muito grandes — pula para nao travar o webhook
   if (tipo === "video") return null;
+  // Mensagens enviadas pelo celular (fromMe) raramente têm mídia disponível
+  // na cache da Evolution API — pula o download para não desperdiçar timeout
+  const fromMe: boolean = Boolean(msg?.key?.fromMe);
+  if (fromMe && tipo === "audio") return null;
 
   try {
     const controller = new AbortController();
@@ -125,11 +129,16 @@ async function downloadAndUploadMedia(
 
     const result: any = await res.json();
     const item = Array.isArray(result) ? result[0] : result;
-    const base64Raw: string = item?.base64 ?? item?.data ?? "";
-    if (!base64Raw) return null;
+    const base64Raw: string = item?.base64 ?? item?.data ?? item?.mediaData ?? "";
+    if (!base64Raw) {
+      console.warn("[evolution-webhook] getBase64 retornou vazio. keys:", Object.keys(item ?? {}).join(","));
+      return null;
+    }
 
-    const mimeType: string = item?.mimetype ?? item?.mimeType ?? "application/octet-stream";
-    const ext = (mimeType.split("/")[1] ?? "bin").split(";")[0];
+    const rawMime: string = item?.mimetype ?? item?.mimeType ?? item?.mediaType ?? "application/octet-stream";
+    // Normaliza MIME: "audio/ogg; codecs=opus" → "audio/ogg"
+    const mimeType = rawMime.split(";")[0].trim();
+    const ext = mimeType.split("/")[1] ?? "bin";
 
     const b64 = base64Raw.includes(",") ? base64Raw.split(",")[1] : base64Raw;
 
@@ -140,12 +149,13 @@ async function downloadAndUploadMedia(
     }
 
     const path = `${clinicId}/${conversaId}/${Date.now()}.${ext}`;
+    console.log(`[evolution-webhook] upload storage: path=${path} mime=${mimeType} bytes=${bytes.length}`);
     const { error: uploadErr } = await supabase.storage
       .from("whatsapp-media")
       .upload(path, bytes, { contentType: mimeType, upsert: false });
 
     if (uploadErr) {
-      console.error("[evolution-webhook] upload storage:", uploadErr.message);
+      console.error("[evolution-webhook] upload storage ERRO:", uploadErr.message, "mime:", mimeType);
       return null;
     }
 
