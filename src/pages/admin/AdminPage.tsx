@@ -114,7 +114,9 @@ export function AdminPage() {
       clinicaId={clinic.id}
       noPadding={activeModule === "WhatsApp"}
       clinicName={clinic.nome ?? "Clínica Médica"}
+      clinicLogoUrl={clinic.logo_url ?? null}
       userRole={role ?? undefined}
+      profissionalId={profile?.profissionalId ?? null}
     >
       {activeModule !== "WhatsApp" && (
         <div className="mb-6 rounded-3xl border border-border bg-surface p-5 shadow-card md:p-6">

@@ -52,7 +52,9 @@ export interface AdminShellProps {
   readonly clinicaId?: string;
   readonly noPadding?: boolean;
   readonly clinicName?: string;
+  readonly clinicLogoUrl?: string | null;
   readonly userRole?: string;
+  readonly profissionalId?: string | null;
 }
 
 export function AdminShell({
@@ -64,12 +66,15 @@ export function AdminShell({
   clinicaId,
   noPadding,
   clinicName,
+  clinicLogoUrl,
   userRole,
+  profissionalId,
 }: AdminShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [localClinicName, setLocalClinicName] = useState(clinicName ?? "");
+  const [localLogoUrl, setLocalLogoUrl] = useState<string | null>(clinicLogoUrl ?? null);
 
   // Sidebar aparece expandida se: não recolhida OU se recolhida mas com hover
   const sidebarExpanded = !isCollapsed || isHovering;
@@ -110,7 +115,7 @@ export function AdminShell({
           }`}
         >
           <img
-            src="/icone-saude.png"
+            src={localLogoUrl ?? "/icone-saude.png"}
             alt="Deby Saúde"
             className="h-7 w-7 shrink-0 rounded-lg object-cover"
           />
@@ -232,8 +237,10 @@ export function AdminShell({
                 clinicaId={clinicaId}
                 clinicName={localClinicName || "Clínica"}
                 userRole={userRole}
+                profissionalId={profissionalId}
                 onLogout={onLogout}
                 onClinicNameChange={setLocalClinicName}
+                onClinicLogoChange={setLocalLogoUrl}
               />
             ) : (
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white shadow-sm">

@@ -7,11 +7,13 @@ interface ProfilePanelProps {
   readonly clinicaId: string;
   readonly clinicName: string;
   readonly userRole?: string;
+  readonly profissionalId?: string | null;
   readonly onLogout: () => void | Promise<void>;
   readonly onClinicNameChange: (name: string) => void;
+  readonly onClinicLogoChange?: (url: string | null) => void;
 }
 
-export function ProfilePanel({ clinicaId, clinicName, userRole, onLogout, onClinicNameChange }: ProfilePanelProps) {
+export function ProfilePanel({ clinicaId, clinicName, userRole, profissionalId, onLogout, onClinicNameChange, onClinicLogoChange }: ProfilePanelProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"perfil" | "senha">("perfil");
   const panelRef = useRef<HTMLDivElement>(null);
@@ -32,6 +34,20 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, onLogout, onClin
   // User info
   const [userEmail, setUserEmail] = useState("");
   const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
+  const [professionalPhotoUrl, setProfessionalPhotoUrl] = useState<string | null>(null);
+
+  // Carrega foto do profissional no mount (necessário para avatar fechado)
+  useEffect(() => {
+    if (!profissionalId) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("profissionais")
+        .select("foto_url")
+        .eq("id", profissionalId)
+        .single();
+      setProfessionalPhotoUrl((data as { foto_url: string | null } | null)?.foto_url ?? null);
+    })();
+  }, [profissionalId]);
 
   useEffect(() => {
     if (!open) return;
@@ -71,6 +87,7 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, onLogout, onClin
         .eq("id", clinicaId);
       if (error) throw error;
       onClinicNameChange(nome.trim());
+      onClinicLogoChange?.(logoUrl);
       setClinicMsg({ ok: true, text: "Dados da clínica atualizados!" });
     } catch {
       setClinicMsg({ ok: false, text: "Erro ao salvar. Tente novamente." });
@@ -105,6 +122,8 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, onLogout, onClin
   }
 
   const avatarInitial = clinicName.charAt(0).toUpperCase();
+  // Profissional: usa foto do cadastro; outros: usa foto do auth ou inicial da clínica
+  const avatarPhoto = professionalPhotoUrl ?? userPhotoUrl;
 
   return (
     <div ref={panelRef} className="relative">
@@ -115,8 +134,8 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, onLogout, onClin
         onClick={() => setOpen((v) => !v)}
         title="Perfil e configurações"
       >
-        {userPhotoUrl ? (
-          <img src={userPhotoUrl} alt="" className="h-full w-full object-cover" />
+        {avatarPhoto ? (
+          <img src={avatarPhoto} alt="" className="h-full w-full object-cover" />
         ) : (
           avatarInitial
         )}
@@ -129,7 +148,13 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, onLogout, onClin
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-white">
-                {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-cover" /> : avatarInitial}
+                {avatarPhoto ? (
+                  <img src={avatarPhoto} alt="" className="h-full w-full object-cover" />
+                ) : logoUrl ? (
+                  <img src={logoUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  avatarInitial
+                )}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink">{clinicName}</p>

@@ -4,8 +4,8 @@ export interface Database {
   public: {
     Tables: {
       clinicas: {
-        Row: { id: string; nome: string; slug: string; email: string; user_id: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; nome: string; slug: string; email: string; user_id?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; nome: string; slug: string; email: string; user_id: string | null; logo_url: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; nome: string; slug: string; email: string; user_id?: string | null; logo_url?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["clinicas"]["Insert"]>;
       };
       profissionais: {
