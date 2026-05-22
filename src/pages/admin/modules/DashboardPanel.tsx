@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { CalendarCheck, Clock, History, TrendingUp, Users, Wallet } from "lucide-react";
+import { CalendarCheck, Clock, History, TrendingUp, Users, UserCheck, Wallet } from "lucide-react";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { brl, todayISO } from "../../../lib/formatters";
-import type { Appointment, FinanceEntry, Patient, Professional, UserRole } from "../../../types/clinic";
+import type { Appointment, ClinicUser, FinanceEntry, Patient, Professional, UserRole } from "../../../types/clinic";
 import { StatusPill } from "../components/StatusPill";
 
 type PeriodMode = "day" | "week" | "month" | "max" | "custom";
@@ -72,6 +72,30 @@ function formatDate(value: string) {
 
 function appointmentTime(value: Appointment) {
   return `${value.data}T${value.horario}`;
+}
+
+function TeamCard({
+  label, value, Icon, color,
+}: {
+  label: string; value: number;
+  Icon: React.ComponentType<{ className?: string }>;
+  color: "blue" | "green" | "purple" | "orange";
+}) {
+  const styles = {
+    blue:   "bg-blue-50 text-blue-600",
+    green:  "bg-emerald-50 text-emerald-600",
+    purple: "bg-violet-50 text-violet-600",
+    orange: "bg-orange-50 text-orange-600",
+  };
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4 shadow-card">
+      <div className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-xl ${styles[color]}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="text-2xl font-bold tabular-nums text-ink">{value}</p>
+      <p className="mt-0.5 text-xs text-ink-secondary">{label}</p>
+    </div>
+  );
 }
 
 function ProfessionalDashboard({
@@ -265,6 +289,7 @@ export function DashboardPanel({
   professionals,
   patients,
   financeEntries,
+  users,
   insightsCount,
   role,
 }: {
@@ -272,6 +297,7 @@ export function DashboardPanel({
   readonly professionals: Professional[];
   readonly patients: Patient[];
   readonly financeEntries: FinanceEntry[];
+  readonly users: ClinicUser[];
   readonly kpis: { revenue: number; forecast: number; overdue: number; profit: number };
   readonly insightsCount: number;
   readonly role: UserRole;
@@ -403,6 +429,15 @@ export function DashboardPanel({
           </div>
         ))}
       </section>
+
+      {role === "admin" && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <TeamCard label="Profissionais ativos" value={professionals.filter((p) => p.ativo).length} Icon={Users} color="blue" />
+          <TeamCard label="Secretárias ativas" value={users.filter((u) => u.role === "secretaria" && u.ativo).length} Icon={UserCheck} color="green" />
+          <TeamCard label="Pacientes ativos" value={patients.filter((p) => p.status === "ativo").length} Icon={Users} color="purple" />
+          <TeamCard label="Total de usuários" value={users.filter((u) => u.ativo).length} Icon={UserCheck} color="orange" />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="col-span-2">

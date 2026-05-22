@@ -171,7 +171,7 @@ export function AdminPage() {
       {activeModule === "WhatsApp" ? <WhatsAppPanel clinicId={clinic.id} onNavigateToAppointments={() => changeModule("Agendamentos")} /> : (
         <div className="space-y-5">
           <DataMessage loading={data.loading} message={data.message} onRetry={() => void data.reload()} />
-          {activeModule === "Dashboard" ? <DashboardPanel appointments={data.appointments} professionals={data.professionals} patients={data.patients} financeEntries={data.financeEntries} kpis={data.financialKpis} insightsCount={growthAnalysis.insights.length} role={role} /> : null}
+          {activeModule === "Dashboard" ? <DashboardPanel appointments={data.appointments} professionals={data.professionals} patients={data.patients} financeEntries={data.financeEntries} users={data.users} kpis={data.financialKpis} insightsCount={growthAnalysis.insights.length} role={role} /> : null}
           {activeModule === "Profissionais" ? <ProfessionalsPanel professionals={data.professionals} onSave={data.saveProfessional} onDelete={data.deleteProfessional} onCreateAccess={data.createStaffUser} /> : null}
           {activeModule === "Serviços" ? <ServicesPanel services={data.services} professionals={data.professionals} onSave={data.saveService} onDelete={data.deleteService} canManage={role === "admin"} /> : null}
           {activeModule === "Agendamentos" ? <AppointmentsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} memberships={data.memberships} programas={data.programas} onSave={data.saveAppointment} onDelete={data.deleteAppointment} onDeleteSeries={data.deleteAppointmentSeries} /> : null}
