@@ -1,9 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  AlignLeft,
-  CalendarDays,
+  Calendar,
+  CalendarRange,
   ChevronDown,
   ChevronUp,
+  CircleCheck,
+  CircleX,
+  Clock3,
+  List,
   Plus,
   Trash2,
   X,
@@ -422,43 +426,55 @@ export function AppointmentsPanel({
 
       {/* ── Cards de resumo ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: "Hoje", value: summary.today, color: "text-primary", bg: "bg-blue-50" },
-          { label: "Confirmados", value: summary.confirmed, color: "text-emerald-700", bg: "bg-emerald-50" },
-          { label: "Pendentes", value: summary.pending, color: "text-amber-700", bg: "bg-amber-50" },
-          { label: "Cancelados", value: summary.cancelled, color: "text-slate-500", bg: "bg-slate-50" },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className={`rounded-2xl border border-border ${bg} px-4 py-3`}>
-            <p className="text-xs font-medium text-ink-muted">{label}</p>
-            <p className={`mt-0.5 text-2xl font-bold ${color}`}>{value}</p>
+        {([
+          { label: "Hoje",        value: summary.today,     Icon: Calendar,     iconBg: "bg-blue-100",    iconColor: "text-blue-600",    numColor: "text-blue-700"    },
+          { label: "Confirmados", value: summary.confirmed, Icon: CircleCheck,  iconBg: "bg-emerald-100", iconColor: "text-emerald-600", numColor: "text-emerald-700" },
+          { label: "Pendentes",   value: summary.pending,   Icon: Clock3,       iconBg: "bg-amber-100",   iconColor: "text-amber-600",   numColor: "text-amber-700"   },
+          { label: "Cancelados",  value: summary.cancelled, Icon: CircleX,      iconBg: "bg-slate-100",   iconColor: "text-slate-500",   numColor: "text-slate-600"   },
+        ] as const).map(({ label, value, Icon, iconBg, iconColor, numColor }) => (
+          <div key={label} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-ink-muted">{label}</p>
+                <p className={`mt-1 text-3xl font-bold tracking-tight ${numColor}`}>{value}</p>
+              </div>
+              <div className={`shrink-0 rounded-xl p-2.5 ${iconBg}`}>
+                <Icon className={`h-5 w-5 ${iconColor}`} />
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
       {/* ── Tabs ───────────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 rounded-2xl border border-border bg-surface-low p-1 w-fit">
-        {(["lista", "calendario"] as const).map((tab) => (
-          <button
-            key={tab}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
-              activeTab === tab
-                ? "bg-white text-primary shadow-sm"
-                : "text-ink-secondary hover:text-ink"
-            }`}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab === "lista" ? <AlignLeft className="h-3.5 w-3.5" /> : <CalendarDays className="h-3.5 w-3.5" />}
-            {tab === "lista" ? "Lista" : "Calendário"}
-          </button>
-        ))}
+      <div className="flex gap-0.5 rounded-xl border border-border bg-surface-low p-1 w-fit">
+        <button
+          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === "lista" ? "bg-primary text-white shadow-sm" : "text-ink-secondary hover:text-ink"
+          }`}
+          type="button"
+          onClick={() => setActiveTab("lista")}
+        >
+          <List className="h-3.5 w-3.5" />
+          Lista
+        </button>
+        <button
+          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === "calendario" ? "bg-primary text-white shadow-sm" : "text-ink-secondary hover:text-ink"
+          }`}
+          type="button"
+          onClick={() => setActiveTab("calendario")}
+        >
+          <CalendarRange className="h-3.5 w-3.5" />
+          Calendário
+        </button>
       </div>
 
       {/* ── Aba Lista ──────────────────────────────────────────────────────── */}
       {activeTab === "lista" && (
         filteredAppointments.length === 0 ? (
           <div className="rounded-3xl border border-border bg-white p-10 text-center shadow-card">
-            <CalendarDays className="mx-auto h-10 w-10 text-ink-muted opacity-40" />
+            <Calendar className="mx-auto h-10 w-10 text-ink-muted opacity-40" />
             <h3 className="mt-4 text-base font-semibold text-ink">Nenhum agendamento encontrado</h3>
             <p className="mt-1 text-sm text-ink-secondary">
               Não há horários cadastrados para os filtros selecionados.
