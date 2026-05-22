@@ -11,6 +11,7 @@ import {
 } from "../../../services/quickActionService";
 import type { Patient, Professional, UserRole } from "../../../types/clinic";
 import { Field, inputClass } from "../components/Field";
+import { Pagination, usePagination } from "../components/Pagination";
 import { RefinedTable } from "../components/RefinedTable";
 import { StatusPill } from "../components/StatusPill";
 
@@ -148,6 +149,13 @@ export function PatientsPanel({
   const [form, setForm] = useState<PatientForm>(() => blankPatient(professionals[0]?.id ?? null));
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [filters, setFilters] = useState({ search: "", status: "todos", professionalId: "todos" });
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
+
+  function updateFilter(next: Partial<typeof filters>) {
+    setFilters((prev) => ({ ...prev, ...next }));
+    setPage(0);
+  }
   const [msgPatient, setMsgPatient] = useState<Patient | null>(null);
   const [msgText, setMsgText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -162,6 +170,8 @@ export function PatientsPanel({
       return matchesSearch && matchesStatus && matchesProfessional;
     })
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })), [filters, patients]);
+
+  const paginatedPatients = usePagination(filteredPatients, page, pageSize);
 
   function openCreateModal() {
     setForm(blankPatient(professionals[0]?.id ?? null));
@@ -240,10 +250,10 @@ export function PatientsPanel({
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="grid flex-1 gap-3 md:grid-cols-3">
           <Field label="Buscar paciente">
-            <input className={inputClass()} placeholder="Nome, WhatsApp, e-mail ou CPF" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
+            <input className={inputClass()} placeholder="Nome, WhatsApp, e-mail ou CPF" value={filters.search} onChange={(e) => updateFilter({ search: e.target.value })} />
           </Field>
           <Field label="Status">
-            <select className={inputClass()} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+            <select className={inputClass()} value={filters.status} onChange={(e) => updateFilter({ status: e.target.value })}>
               <option value="todos">Todos</option>
               <option value="ativo">Ativo</option>
               <option value="retorno_pendente">Retorno pendente</option>
@@ -252,7 +262,7 @@ export function PatientsPanel({
           </Field>
           {!readonly ? (
             <Field label="Profissional">
-              <select className={inputClass()} value={filters.professionalId} onChange={(e) => setFilters({ ...filters, professionalId: e.target.value })}>
+              <select className={inputClass()} value={filters.professionalId} onChange={(e) => updateFilter({ professionalId: e.target.value })}>
                 <option value="todos">Todos</option>
                 {professionals.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}
               </select>
@@ -290,7 +300,7 @@ export function PatientsPanel({
           ? ["Nome", "Status", "Fase", ""]
           : ["Nome", "CPF", "Status", ""]
         }>
-          {filteredPatients.map((patient) => (
+          {paginatedPatients.items.map((patient) => (
             <tr
               className="group cursor-pointer border-b border-surface-variant transition hover:bg-teal-50"
               key={patient.id}
@@ -343,6 +353,15 @@ export function PatientsPanel({
             </tr>
           ))}
         </RefinedTable>
+      )}
+      {filteredPatients.length > 0 && (
+        <Pagination
+          total={filteredPatients.length}
+          page={paginatedPatients.page}
+          pageSize={pageSize}
+          onPage={(p) => setPage(p)}
+          onPageSize={(s) => { setPageSize(s); setPage(0); }}
+        />
       )}
 
       {isPatientModalOpen ? (

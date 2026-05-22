@@ -7,6 +7,7 @@ import { todayISO } from "../../../lib/formatters";
 import { buildRecurringDates, type RecurrenceFrequency } from "../../../services/appointmentService";
 import type { Appointment, Patient, Professional, Service } from "../../../types/clinic";
 import { Field, inputClass } from "../components/Field";
+import { Pagination, usePagination } from "../components/Pagination";
 import { RefinedTable } from "../components/RefinedTable";
 import { StatusPill } from "../components/StatusPill";
 import { ClinicCalendar } from "../components/ClinicCalendar";
@@ -103,6 +104,13 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
   const [filters, setFilters] = useState({ search: "", status: "todos", professional: "todos", date: "" });
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
+
+  function updateFilter(next: Partial<typeof filters>) {
+    setFilters((prev) => ({ ...prev, ...next }));
+    setPage(0);
+  }
 
   const filteredAppointments = appointments.filter((appointment) => {
     const matchesSearch = `${appointment.pacienteNome} ${appointment.profissional} ${appointment.servico}`.toLowerCase().includes(filters.search.toLowerCase());
@@ -111,6 +119,8 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
     const matchesDate = !filters.date || appointment.data === filters.date;
     return matchesSearch && matchesStatus && matchesProfessional && matchesDate;
   });
+
+  const paginatedAppointments = usePagination(filteredAppointments, page, pageSize);
 
   const recurrenceDates = useMemo(() => {
     if (form.id || form.recorrenciaFrequency === "none") return [form.data];
@@ -161,10 +171,10 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
       {/* Filtros */}
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Buscar">
-          <input className={inputClass()} placeholder="Paciente, profissional ou serviço" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
+          <input className={inputClass()} placeholder="Paciente, profissional ou serviço" value={filters.search} onChange={(e) => updateFilter({ search: e.target.value })} />
         </Field>
         <Field label="Status">
-          <select className={inputClass()} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+          <select className={inputClass()} value={filters.status} onChange={(e) => updateFilter({ status: e.target.value })}>
             <option value="todos">Todos</option>
             <option value="pendente">Pendente</option>
             <option value="confirmado">Confirmado</option>
@@ -174,13 +184,13 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
           </select>
         </Field>
         <Field label="Profissional">
-          <select className={inputClass()} value={filters.professional} onChange={(e) => setFilters({ ...filters, professional: e.target.value })}>
+          <select className={inputClass()} value={filters.professional} onChange={(e) => updateFilter({ professional: e.target.value })}>
             <option value="todos">Todos</option>
             {professionals.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}
           </select>
         </Field>
         <Field label="Data">
-          <input className={inputClass()} type="date" value={filters.date} onChange={(e) => setFilters({ ...filters, date: e.target.value })} />
+          <input className={inputClass()} type="date" value={filters.date} onChange={(e) => updateFilter({ date: e.target.value })} />
         </Field>
       </div>
 
@@ -270,7 +280,7 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
         ? <EmptyState title="Sem agendamentos" message="Agendamentos públicos e internos aparecerão aqui." />
         : (
           <RefinedTable headers={["Paciente", "Profissional", "Serviço", "Data", "Status", "Ações"]}>
-            {filteredAppointments.map((appointment) => (
+            {paginatedAppointments.items.map((appointment) => (
               <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={appointment.id}>
                 <td className="px-4 py-3 font-medium">{appointment.pacienteNome}</td>
                 <td className="px-4 py-3 text-secondary">{appointment.profissional}</td>
@@ -329,6 +339,15 @@ export function AppointmentsPanel({ appointments, patients, professionals, servi
           </RefinedTable>
         )
       }
+      {filteredAppointments.length > 0 && (
+        <Pagination
+          total={filteredAppointments.length}
+          page={paginatedAppointments.page}
+          pageSize={pageSize}
+          onPage={(p) => setPage(p)}
+          onPageSize={(s) => { setPageSize(s); setPage(0); }}
+        />
+      )}
     </SectionCard>
   );
 }

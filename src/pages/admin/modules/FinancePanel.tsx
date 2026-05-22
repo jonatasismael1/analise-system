@@ -9,6 +9,7 @@ import { askDeby } from "../../../services/debyService";
 import type { FinanceEntry, Professional, Service } from "../../../types/clinic";
 import ExportPage from "../../ExportPage";
 import { Field, inputClass } from "../components/Field";
+import { Pagination, usePagination } from "../components/Pagination";
 import { RefinedTable } from "../components/RefinedTable";
 import { StatusPill } from "../components/StatusPill";
 
@@ -76,6 +77,13 @@ export function FinancePanel({
   const [expense, setExpense] = useState<ExpenseForm>({ id: "", descricao: "", valor: 90, categoria: "Operacional", status: "pendente", data: todayISO() });
   const [filters, setFilters] = useState({ search: "", status: "todos", tipo: "todos" });
   const [debyOutput, setDebyOutput] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
+
+  function updateFilter(next: Partial<typeof filters>) {
+    setFilters((prev) => ({ ...prev, ...next }));
+    setPage(0);
+  }
 
   const filteredEntries = entries.filter((entry) => {
     const matchesSearch = entry.descricao.toLowerCase().includes(filters.search.toLowerCase());
@@ -83,6 +91,8 @@ export function FinancePanel({
     const matchesType = filters.tipo === "todos" || (entry.tipo ?? "pagamento") === filters.tipo;
     return matchesSearch && matchesStatus && matchesType;
   });
+
+  const paginatedEntries = usePagination(filteredEntries, page, pageSize);
 
   const decision = useMemo(() => {
     const payments = entries.filter((entry) => entry.tipo !== "despesa");
@@ -214,9 +224,9 @@ export function FinancePanel({
 
           <SectionCard title="Financeiro">
             <div className="mb-4 grid gap-3 md:grid-cols-3">
-              <Field label="Buscar"><input className={inputClass()} placeholder="Descrição" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} /></Field>
-              <Field label="Status"><select className={inputClass()} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="todos">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></Field>
-              <Field label="Tipo"><select className={inputClass()} value={filters.tipo} onChange={(event) => setFilters({ ...filters, tipo: event.target.value })}><option value="todos">Todos</option><option value="pagamento">Pagamentos</option><option value="despesa">Despesas</option></select></Field>
+              <Field label="Buscar"><input className={inputClass()} placeholder="Descrição" value={filters.search} onChange={(event) => updateFilter({ search: event.target.value })} /></Field>
+              <Field label="Status"><select className={inputClass()} value={filters.status} onChange={(event) => updateFilter({ status: event.target.value })}><option value="todos">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></Field>
+              <Field label="Tipo"><select className={inputClass()} value={filters.tipo} onChange={(event) => updateFilter({ tipo: event.target.value })}><option value="todos">Todos</option><option value="pagamento">Pagamentos</option><option value="despesa">Despesas</option></select></Field>
             </div>
             <div className="mb-5 grid gap-3 md:grid-cols-2">
               <form className="rounded-lg border border-surface-variant p-3" onSubmit={(event) => { event.preventDefault(); const payload = { ...payment, profissionalId: payment.profissionalId || null, servicoId: payment.servicoId || null }; payment.id ? void onUpdatePayment(payment.id, payload) : void onPayment(payload); resetPayment(); }}>
@@ -234,7 +244,16 @@ export function FinancePanel({
                 <button className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm text-white" type="submit">{expense.id ? "Atualizar despesa" : "Criar despesa"}</button>
               </form>
             </div>
-            {filteredEntries.length === 0 ? <EmptyState title="Nenhum lançamento" message="Você ainda não possui lançamentos financeiros." /> : <RefinedTable headers={["Descrição", "Tipo", "Status", "Valor", "Ações"]}>{filteredEntries.map((entry) => <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={entry.id}><td className="px-4 py-3 font-medium">{entry.descricao}</td><td className="px-4 py-3 capitalize text-secondary">{entry.tipo === "despesa" ? "Despesa" : "Receita"}</td><td className="px-4 py-3"><StatusPill value={entry.status} /></td><td className="px-4 py-3 text-right font-semibold text-on-surface">{brl.format(entry.valor)}</td><td className="px-4 py-3 text-right"><button className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary transition" onClick={() => entry.tipo === "despesa" ? setExpense({ id: entry.id, descricao: entry.descricao, valor: entry.valor, categoria: entry.categoria ?? "", status: entry.status, data: entry.data ?? todayISO() }) : setPayment({ id: entry.id, descricao: entry.descricao, valor: entry.valor, status: entry.status, formaPagamento: entry.formaPagamento ?? "manual", data: entry.data ?? todayISO(), profissionalId: entry.profissionalId ?? "", servicoId: entry.servicoId ?? "" })} type="button">Editar</button><button aria-label={`Excluir lançamento ${entry.descricao}`} className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition" onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este lançamento financeiro ${entry.descricao}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) entry.tipo === "despesa" ? onDeleteExpense(entry.id) : onDeletePayment(entry.id); })} type="button"><Trash2 className="h-4 w-4" /></button></td></tr>)}</RefinedTable>}
+            {filteredEntries.length === 0 ? <EmptyState title="Nenhum lançamento" message="Você ainda não possui lançamentos financeiros." /> : <RefinedTable headers={["Descrição", "Tipo", "Status", "Valor", "Ações"]}>{paginatedEntries.items.map((entry) => <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={entry.id}><td className="px-4 py-3 font-medium">{entry.descricao}</td><td className="px-4 py-3 capitalize text-secondary">{entry.tipo === "despesa" ? "Despesa" : "Receita"}</td><td className="px-4 py-3"><StatusPill value={entry.status} /></td><td className="px-4 py-3 text-right font-semibold text-on-surface">{brl.format(entry.valor)}</td><td className="px-4 py-3 text-right"><button className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary transition" onClick={() => entry.tipo === "despesa" ? setExpense({ id: entry.id, descricao: entry.descricao, valor: entry.valor, categoria: entry.categoria ?? "", status: entry.status, data: entry.data ?? todayISO() }) : setPayment({ id: entry.id, descricao: entry.descricao, valor: entry.valor, status: entry.status, formaPagamento: entry.formaPagamento ?? "manual", data: entry.data ?? todayISO(), profissionalId: entry.profissionalId ?? "", servicoId: entry.servicoId ?? "" })} type="button">Editar</button><button aria-label={`Excluir lançamento ${entry.descricao}`} className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition" onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este lançamento financeiro ${entry.descricao}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) entry.tipo === "despesa" ? onDeleteExpense(entry.id) : onDeletePayment(entry.id); })} type="button"><Trash2 className="h-4 w-4" /></button></td></tr>)}</RefinedTable>}
+            {filteredEntries.length > 0 && (
+              <Pagination
+                total={filteredEntries.length}
+                page={paginatedEntries.page}
+                pageSize={pageSize}
+                onPage={(p) => setPage(p)}
+                onPageSize={(s) => { setPageSize(s); setPage(0); }}
+              />
+            )}
           </SectionCard>
 
           <div className="grid gap-5 lg:grid-cols-2">

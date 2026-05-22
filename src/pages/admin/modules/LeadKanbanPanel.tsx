@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, Edit2, MessageCircle, RefreshCcw, X } from "lucide-react";
+import { Bot, Edit2, MessageCircle, RefreshCcw, UserPlus, X } from "lucide-react";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { askDeby } from "../../../services/debyService";
 import { ensureDefaultStages, loadLeads, loadLeadStages, moveLead, saveLead, type Lead, type LeadStage } from "../../../services/leadService";
+import type { Patient } from "../../../types/clinic";
 import { Field, inputClass } from "../components/Field";
 
 const toneByTemperature: Record<Lead["temperatura"], string> = {
@@ -22,6 +23,7 @@ function LeadModal({
   onClose,
   onSave,
   onMove,
+  onConvert,
   clinicId
 }: {
   readonly lead: Lead;
@@ -29,11 +31,13 @@ function LeadModal({
   readonly onClose: () => void;
   readonly onSave: (updated: Lead) => Promise<void>;
   readonly onMove: (lead: Lead, stageId: string) => Promise<void>;
+  readonly onConvert?: (lead: Lead) => Promise<void>;
   readonly clinicId: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(lead);
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [debyOutput, setDebyOutput] = useState("");
   const currentStage = stages.find((s) => s.id === lead.etapaId);
 
@@ -158,19 +162,35 @@ function LeadModal({
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-surface-variant px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-surface-variant px-5 py-3">
           <p className="text-[11px] text-secondary">Lead criado no sistema</p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {editing ? (
               <>
                 <button className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm font-medium hover:border-error hover:text-error" type="button" onClick={() => { setForm(lead); setEditing(false); }}>Cancelar</button>
                 <button className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60" type="button" disabled={saving} onClick={() => void handleSave()}>{saving ? "Salvando..." : "Salvar"}</button>
               </>
             ) : (
-              <button className="inline-flex items-center gap-2 rounded-lg border border-outline-variant px-3 py-1.5 text-sm font-medium hover:border-primary hover:text-primary" type="button" onClick={() => setEditing(true)}>
-                <Edit2 className="h-3.5 w-3.5" />
-                Editar lead
-              </button>
+              <>
+                {onConvert && !lead.pacienteId && (
+                  <button
+                    className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                    disabled={converting}
+                    type="button"
+                    onClick={async () => {
+                      setConverting(true);
+                      try { await onConvert(lead); onClose(); } finally { setConverting(false); }
+                    }}
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    {converting ? "Convertendo..." : "Converter em Paciente"}
+                  </button>
+                )}
+                <button className="inline-flex items-center gap-2 rounded-lg border border-outline-variant px-3 py-1.5 text-sm font-medium hover:border-primary hover:text-primary" type="button" onClick={() => setEditing(true)}>
+                  <Edit2 className="h-3.5 w-3.5" />
+                  Editar lead
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -197,7 +217,7 @@ function InfoBlock({ label, value }: { readonly label: string; readonly value: s
   );
 }
 
-export function LeadKanbanPanel({ clinicId }: { readonly clinicId: string }) {
+export function LeadKanbanPanel({ clinicId, onConvertToPatient }: { readonly clinicId: string; readonly onConvertToPatient?: (patient: Patient) => Promise<void> }) {
   const [stages, setStages] = useState<LeadStage[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -249,6 +269,27 @@ export function LeadKanbanPanel({ clinicId }: { readonly clinicId: string }) {
     setSelectedLead(null);
   }
 
+  async function handleConvert(lead: Lead) {
+    if (!onConvertToPatient) return;
+    await onConvertToPatient({
+      id: "",
+      nome: lead.nome,
+      whatsapp: lead.telefone ?? "",
+      email: lead.email ?? null,
+      cpf: null,
+      dataNascimento: null,
+      endereco: null,
+      status: "ativo",
+      valorTotalGasto: 0,
+      profissionalId: null,
+      ultimoAtendimento: null,
+      proximoRetorno: null,
+      kanbanStage: null,
+      observacoes: lead.interesse ?? null
+    });
+    await load();
+  }
+
   return (
     <div className="space-y-5">
       {selectedLead && (
@@ -259,6 +300,7 @@ export function LeadKanbanPanel({ clinicId }: { readonly clinicId: string }) {
           onClose={() => setSelectedLead(null)}
           onSave={handleSaveLead}
           onMove={handleMove}
+          onConvert={onConvertToPatient ? handleConvert : undefined}
         />
       )}
 

@@ -145,7 +145,7 @@ export function AdminPage() {
           {activeModule === "Serviços" ? <ServicesPanel services={data.services} professionals={data.professionals} onSave={data.saveService} onDelete={data.deleteService} canManage={role === "admin"} /> : null}
           {activeModule === "Agendamentos" ? <AppointmentsPanel appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} onSave={data.saveAppointment} onDelete={data.deleteAppointment} onDeleteSeries={data.deleteAppointmentSeries} /> : null}
           {activeModule === "Pacientes" ? <PatientsPanel clinicId={clinic.id} patients={data.patients} professionals={data.professionals} onSave={data.savePatient} onDelete={data.deletePatient} onImportMassively={data.importPatientsMassively} role={role} /> : null}
-          {activeModule === "Leads" ? <LeadKanbanPanel clinicId={clinic.id} /> : null}
+          {activeModule === "Leads" ? <LeadKanbanPanel clinicId={clinic.id} onConvertToPatient={data.savePatient} /> : null}
           {activeModule === "Deby AI" && role ? <AIPanel clinicId={clinic.id} clinicName={clinic.nome ?? "Análise Saúde"} role={role} profileProfessionalId={profile?.profissionalId} appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} financeEntries={data.financeEntries} growthAnalysis={growthAnalysis} /> : null}
           {activeModule === "Kanban Pacientes" ? <PatientKanbanPanel patients={data.patients} appointments={data.appointments} professionals={data.professionals} onSave={data.savePatient} /> : null}
           {activeModule === "Caixa" ? <CashPanel clinicId={clinic.id} role={role} /> : null}
