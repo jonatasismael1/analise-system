@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCcw } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { ChevronLeft, RefreshCcw } from "lucide-react";
+import { Navigate, useNavigate } from "react-router-dom";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { useAuth } from "../../contexts/AuthContext";
 import { useClinicData } from "../../hooks/useClinicData";
@@ -44,7 +44,8 @@ const modules = [
 type Module = (typeof modules)[number];
 
 export function AdminPage() {
-  const { clinic, logout, loading, role, profile } = useAuth();
+  const { clinic, logout, loading, role, profile, isSuperAdmin, setSuperAdminClinic } = useAuth();
+  const navigate = useNavigate();
   const [activeModule, setActiveModule] = useState<Module>(
     () => (sessionStorage.getItem("clinicpro_module") as Module | null) ?? "Dashboard"
   );
@@ -88,7 +89,7 @@ export function AdminPage() {
   }
 
   if (!clinic) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={isSuperAdmin ? "/gestor" : "/login"} replace />;
   }
 
   if (!role) {
@@ -120,19 +121,37 @@ export function AdminPage() {
     >
       {activeModule !== "WhatsApp" && (
         <div className="mb-6 rounded-3xl border border-border bg-surface p-5 shadow-card md:p-6">
+          {isSuperAdmin && (
+            <button
+              className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-ink-secondary transition hover:text-primary"
+              onClick={() => {
+                setSuperAdminClinic(null);
+                navigate("/gestor");
+              }}
+              type="button"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Voltar ao painel do gestor
+            </button>
+          )}
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-                Deby Saúde
+                {isSuperAdmin ? "Gestor Geral · Visualizando" : "Deby Saúde"}
               </p>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{activeModule}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
                 <span>{clinic.nome ?? "Clínica Médica"}</span>
                 <span className="text-ink-muted">·</span>
-                <span className="capitalize">{role}</span>
+                <span className="capitalize">{isSuperAdmin ? "Gestor Geral" : role}</span>
                 {isDemoMode ? (
                   <span className="rounded-full border border-warning/30 bg-warning-wash px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
                     Demo
+                  </span>
+                ) : null}
+                {isSuperAdmin ? (
+                  <span className="rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                    Super Admin
                   </span>
                 ) : null}
               </div>

@@ -23,9 +23,12 @@ export function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
-  const { login, registerClinic, session, clinic, loading: authLoading } = useAuth();
+  const { login, registerClinic, session, clinic, loading: authLoading, isSuperAdmin } = useAuth();
 
-  if (session && clinic && !authLoading) return <Navigate to="/admin" replace />;
+  if (session && !authLoading) {
+    if (isSuperAdmin) return <Navigate to="/gestor" replace />;
+    if (clinic) return <Navigate to="/admin" replace />;
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +63,7 @@ export function LoginPage() {
     }
   }
 
-  const showNoClinicError = session && !clinic && !authLoading;
+  const showNoClinicError = session && !clinic && !authLoading && !isSuperAdmin;
   const isLoading = formLoading || authLoading;
 
   return (

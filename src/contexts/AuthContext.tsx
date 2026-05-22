@@ -1,6 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { SUPER_ADMIN_EMAIL, GESTOR_CLINIC_KEY } from "../lib/appConfig";
 import type { Database } from "../types/database";
 import type { ClinicUser, UserRole } from "../types/clinic";
 
@@ -19,10 +20,12 @@ interface AuthContextValue {
   profile: ClinicUser | null;
   role: UserRole | null;
   loading: boolean;
+  isSuperAdmin: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   refreshClinic: () => Promise<void>;
   registerClinic: (email: string, password: string, clinicName: string) => Promise<{ error?: string }>;
+  setSuperAdminClinic: (clinic: Clinic | null) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -76,8 +79,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
   };
 
-  const loadClinicData = async () => {
+  // Carrega dados da clínica. Para super-admin, restaura a clínica selecionada do sessionStorage.
+  const loadClinicData = async (userEmail?: string) => {
     try {
+      if (userEmail === SUPER_ADMIN_EMAIL) {
+        const selectedId = sessionStorage.getItem(GESTOR_CLINIC_KEY);
+        if (selectedId) {
+          const { data } = await supabase.rpc("get_clinic_by_id_super_admin", { p_clinic_id: selectedId });
+          const rows = data as Clinic[] | null;
+          if (rows && rows.length > 0) {
+            setClinic(rows[0]);
+            setProfile(null);
+            return;
+          }
+        }
+        setClinic(null);
+        setProfile(null);
+        return;
+      }
+
       const { data, error } = await withTimeout(Promise.resolve(supabase.rpc("get_my_clinic_context")));
       if (error) throw error;
       applyClinicContext(data as ClinicContextPayload | null);
@@ -95,10 +115,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         if (!mounted) return;
-        
+
         setSession(initialSession);
         if (initialSession?.user) {
-          await loadClinicData();
+          await loadClinicData(initialSession.user.email ?? undefined);
         }
       } catch (err) {
         console.error("Auth init error:", err);
@@ -121,7 +141,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setTimeout(() => {
           if (!mounted) return;
           setLoading(true);
-          void loadClinicData().finally(() => {
+          void loadClinicData(nextSession.user.email ?? undefined).finally(() => {
             if (mounted) setLoading(false);
           });
         }, 0);
@@ -138,20 +158,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
+  const isSuperAdmin = !!(session?.user?.email === SUPER_ADMIN_EMAIL);
+
   const value = useMemo<AuthContextValue>(() => ({
     session,
     user: session?.user ?? null,
     clinic,
     profile,
-    role: profile?.role ?? (clinic?.user_id && clinic.user_id === session?.user.id ? "admin" : null),
+    // Super-admin acessando uma clínica selecionada sempre recebe role "admin"
+    role: isSuperAdmin
+      ? (clinic ? ("admin" as UserRole) : null)
+      : (profile?.role ?? (clinic?.user_id && clinic.user_id === session?.user?.id ? "admin" : null)),
     loading,
+    isSuperAdmin,
+
+    setSuperAdminClinic(selectedClinic: Clinic | null) {
+      if (selectedClinic) {
+        sessionStorage.setItem(GESTOR_CLINIC_KEY, selectedClinic.id);
+      } else {
+        sessionStorage.removeItem(GESTOR_CLINIC_KEY);
+      }
+      setClinic(selectedClinic);
+      setProfile(null);
+    },
+
     async login(email, password) {
       setLoading(true);
       try {
         const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { error: error.message };
         if (data.user) {
-          await loadClinicData();
+          await loadClinicData(data.user.email ?? undefined);
         }
         return {};
       } catch (err: any) {
@@ -160,9 +197,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(false);
       }
     },
+
     async logout() {
       setLoading(true);
       try {
+        sessionStorage.removeItem(GESTOR_CLINIC_KEY);
         await supabase.auth.signOut();
       } finally {
         setSession(null);
@@ -171,22 +210,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(false);
       }
     },
+
     async registerClinic(email, password, clinicName) {
       setLoading(true);
       try {
-        // 1. SignUp
         const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
         if (authError) return { error: authError.message };
         if (!authData.user) return { error: "Falha ao criar usuário." };
 
-        // 2. Create Clinic
         const slug = clinicName
           .toLowerCase()
           .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[̀-ͯ]/g, "")
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)+/g, "");
-        
+
         const { error: clinicError } = await supabase.from("clinicas").insert({
           nome: clinicName,
           slug,
@@ -196,8 +234,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (clinicError) return { error: clinicError.message };
 
-        // 3. Load clinic data immediately
-        await loadClinicData();
+        await loadClinicData(authData.user.email ?? undefined);
         return {};
       } catch (err: any) {
         return { error: err.message };
@@ -205,14 +242,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(false);
       }
     },
+
     async refreshClinic() {
       if (session?.user) {
         setLoading(true);
-        await loadClinicData();
+        await loadClinicData(session.user.email ?? undefined);
         setLoading(false);
       }
     }
-  }), [clinic, loading, profile, session]);
+  }), [clinic, loading, profile, session, isSuperAdmin]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

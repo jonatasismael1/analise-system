@@ -4,6 +4,7 @@ import { AdminPage } from "./pages/AdminPage";
 import { BookingPage } from "./pages/BookingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OrcamentoPublicPage } from "./pages/OrcamentoPublicPage";
+import { GestorPage } from "./pages/gestor/GestorPage";
 
 export function App() {
   return (
@@ -11,6 +12,7 @@ export function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+      <Route path="/gestor" element={<ProtectedRoute><GestorPage /></ProtectedRoute>} />
       <Route path="/agendar/:slug" element={<BookingPage />} />
       <Route path="/orcamento/:token" element={<OrcamentoPublicPage />} />
     </Routes>
