@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeadersForRequest, json } from "../_shared/http.ts";
-import { env, getFunctionContext } from "../_shared/auth.ts";
+import { env, getFunctionContext, HttpError } from "../_shared/auth.ts";
 
 interface Payload {
   clinicId: string;
@@ -101,7 +101,9 @@ Deno.serve(async (req) => {
     }, 200, responseHeaders);
 
   } catch (error) {
-    if (error instanceof Response) return error;
+    if (error instanceof HttpError) {
+      return json({ error: error.message }, error.statusCode, responseHeaders);
+    }
     return json({ error: error instanceof Error ? error.message : "Erro inesperado." }, 500, responseHeaders);
   }
 });

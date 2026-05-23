@@ -14,10 +14,19 @@ export function env(name: string) {
   return value;
 }
 
+export class HttpError extends Error {
+  constructor(public readonly statusCode: number, message: string) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
 export async function getFunctionContext(req: Request, clinicId: string): Promise<FunctionContext> {
   const supabaseUrl = env("SUPABASE_URL");
   const anonKey = env("SUPABASE_ANON_KEY");
   const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
+  const superAdminEmail = Deno.env.get("SUPER_ADMIN_EMAIL") ?? "contato.ismao@gmail.com";
+
   const authHeader = req.headers.get("Authorization") ?? "";
   const supabaseUser = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } }
@@ -27,7 +36,12 @@ export async function getFunctionContext(req: Request, clinicId: string): Promis
   });
 
   const { data, error } = await supabaseUser.auth.getUser();
-  if (error || !data.user) throw new Response(JSON.stringify({ error: "Usuario nao autenticado." }), { status: 401 });
+  if (error || !data.user) throw new HttpError(401, "Usuario nao autenticado.");
+
+  // Super admin tem acesso total a qualquer clínica
+  if (data.user.email === superAdminEmail) {
+    return { userId: data.user.id, role: "admin", supabaseAdmin };
+  }
 
   const { data: ownerClinic } = await supabaseAdmin
     .from("clinicas")
@@ -48,7 +62,7 @@ export async function getFunctionContext(req: Request, clinicId: string): Promis
     .eq("ativo", true)
     .maybeSingle();
 
-  if (!profile?.role) throw new Response(JSON.stringify({ error: "Acesso negado." }), { status: 403 });
+  if (!profile?.role) throw new HttpError(403, "Acesso negado.");
 
   return { userId: data.user.id, role: profile.role as Role, supabaseAdmin };
 }
