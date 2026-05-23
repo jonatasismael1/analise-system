@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Loader2, Mic, MicOff, Pause, Play, ShieldAlert, Square, X } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
-import type { ClinicUser, Patient } from "../../types/clinic";
+import type { Patient } from "../../types/clinic";
 
 export interface DraftResult {
   id: string;
@@ -12,7 +12,8 @@ export interface DraftResult {
 interface Props {
   readonly clinicId: string;
   readonly patient: Patient;
-  readonly profile: ClinicUser;
+  readonly currentUserId: string;
+  readonly currentUserName: string;
   readonly onDraftReady: (result: DraftResult) => void;
   readonly onClose: () => void;
 }
@@ -24,7 +25,7 @@ function getSpeechAPI() {
   return (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null;
 }
 
-export function ConsultationListener({ clinicId, patient, profile, onDraftReady, onClose }: Props) {
+export function ConsultationListener({ clinicId, patient, currentUserId, currentUserName, onDraftReady, onClose }: Props) {
   const [step, setStep] = useState<Step>("consent");
   const [finalText, setFinalText] = useState("");
   const [interimText, setInterimText] = useState("");
@@ -133,8 +134,8 @@ export function ConsultationListener({ clinicId, patient, profile, onDraftReady,
         .insert({
           clinica_id: clinicId,
           paciente_id: patient.id,
-          criado_por: profile.userId,
-          criado_por_nome: profile.nome,
+          criado_por: currentUserId,
+          criado_por_nome: currentUserName,
           raw_transcription: transcript || null,
           context_notes: contextNotes.trim() || null,
           status: "gerando_rascunho",
@@ -142,7 +143,7 @@ export function ConsultationListener({ clinicId, patient, profile, onDraftReady,
         .select("id")
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) throw new Error(insertError.message);
 
       const inputText = [
         transcript ? `TRANSCRIÇÃO DA CONSULTA:\n${transcript}` : "",
@@ -176,8 +177,9 @@ export function ConsultationListener({ clinicId, patient, profile, onDraftReady,
         .eq("id", draftRow.id);
 
       onDraftReady({ id: draftRow.id, structured, rawTranscription: transcript });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao gerar rascunho. Tente novamente.");
+    } catch (e: any) {
+      const msg = e?.message ?? e?.error_description ?? String(e) ?? "Erro ao gerar rascunho.";
+      setError(msg);
       setStep("paused");
     }
   }

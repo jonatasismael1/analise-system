@@ -13,7 +13,8 @@ type DebyAction =
   | "appointment_message"
   | "patient_reactivation"
   | "missed_patient_followup"
-  | "company_overview";
+  | "company_overview"
+  | "transcribe_consultation";
 
 interface Payload {
   clinicId: string;
@@ -34,7 +35,8 @@ const actionPrompts: Record<DebyAction, string> = {
   appointment_message: "Escreva uma mensagem curta de WhatsApp para confirmar ou lembrar consulta. Seja cordial e direto. Nao prometa disponibilidade que nao esteja no texto.",
   patient_reactivation: "Escreva uma mensagem curta de WhatsApp para reativar paciente antigo ou com retorno pendente. Evite tom de cobranca e convide para agendar.",
   missed_patient_followup: "Escreva uma mensagem curta de WhatsApp para paciente faltoso. Seja acolhedor, sem julgamento, e ofereca remarcacao.",
-  company_overview: "Gere um quadro executivo da clinica com alertas objetivos, proximas acoes e riscos. Nao invente numeros."
+  company_overview: "Gere um quadro executivo da clinica com alertas objetivos, proximas acoes e riscos. Nao invente numeros.",
+  transcribe_consultation: `Voce recebeu a transcricao de uma consulta medica. Extraia e organize as informacoes em um objeto JSON com EXATAMENTE estas chaves (retorne SOMENTE o JSON valido, sem texto antes ou depois, sem markdown): {"queixa_principal":"...","historia_doenca_atual":"...","sintomas_relatados":"...","antecedentes_relevantes":"...","medicamentos_em_uso":"...","alergias_relatadas":"...","conduta_orientacoes":"...","exames_solicitados":"...","hipoteses_observacoes":"...","retorno_recomendado":"...","resumo_consulta":"..."} Se uma informacao nao foi mencionada, use: "Nao informado na conversa." Nao invente dados. Seja objetivo e clinicamente preciso.`
 };
 
 Deno.serve(async (req) => {
@@ -69,7 +71,8 @@ Deno.serve(async (req) => {
     const baseUrl = (Deno.env.get("OPENROUTER_BASE_URL") ?? "https://openrouter.ai/api/v1").replace(/\/$/, "");
     const model = Deno.env.get("DEFAULT_AI_MODEL") ?? "openrouter/free";
     const instruction = actionPrompts[payload.action];
-    const input = payload.input.slice(0, 12000);
+    const input = payload.input.slice(0, 14000);
+    const isJsonAction = payload.action === "transcribe_consultation";
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
@@ -88,7 +91,7 @@ Deno.serve(async (req) => {
           },
           { role: "user", content: input }
         ],
-        temperature: 0.3
+        temperature: isJsonAction ? 0.1 : 0.3
       })
     });
 
@@ -132,7 +135,7 @@ function isActionAllowedForRole(action: DebyAction, role: string) {
     return ["whatsapp_summary", "whatsapp_reply", "lead_analysis", "agenda_insights", "appointment_message", "patient_reactivation", "missed_patient_followup"].includes(action);
   }
   if (role === "profissional") {
-    return ["clinical_summary", "clinical_structure", "agenda_insights"].includes(action);
+    return ["clinical_summary", "clinical_structure", "agenda_insights", "transcribe_consultation"].includes(action);
   }
   return false;
 }

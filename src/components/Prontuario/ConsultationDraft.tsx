@@ -65,7 +65,6 @@ export function draftToProntuarioData(
 
 interface Props {
   readonly draft: DraftResult;
-  readonly clinicId: string;
   readonly profissionalId: string;
   readonly onApply: (data: ProntuarioData) => void;
   readonly onDiscard: () => void;

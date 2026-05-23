@@ -150,7 +150,7 @@ function buildReceitaHTML(patient: Patient, professional: Professional | undefin
 }
 
 export function ProntuarioTimeline({ clinicId, patient, professionals }: ProntuarioTimelineProps) {
-  const { role, profile } = useAuth();
+  const { role, profile, session } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editingData, setEditingData] = useState<ProntuarioData | null>(null);
   const [receitaItem, setReceitaItem] = useState<ProntuarioData | null>(null);
@@ -476,11 +476,12 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
       )}
 
       {/* ── Deby AI — Drawer de escuta ───────────────────────────────────── */}
-      {showListener && profile && (
+      {showListener && session?.user?.id && (
         <ConsultationListener
           clinicId={clinicId}
           patient={patient}
-          profile={profile}
+          currentUserId={session.user.id}
+          currentUserName={profile?.nome ?? "Usuário"}
           onDraftReady={(draft) => {
             setShowListener(false);
             setPendingDraft(draft);
@@ -493,7 +494,6 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
       {pendingDraft && (
         <ConsultationDraft
           draft={pendingDraft}
-          clinicId={clinicId}
           profissionalId={profile?.profissionalId ?? professionals[0]?.id ?? ""}
           onApply={(data) => {
             setPendingDraft(null);
