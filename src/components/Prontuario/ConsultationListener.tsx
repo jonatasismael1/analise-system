@@ -20,7 +20,7 @@ interface Props {
 
 type Step = "consent" | "recording" | "paused" | "processing";
 
-function getSpeechAPI() {
+function getSpeechAPI(): typeof window.SpeechRecognition | null {
   if (typeof window === "undefined") return null;
   return (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null;
 }
@@ -36,36 +36,65 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
   const SpeechAPI = getSpeechAPI();
   const useFallback = !SpeechAPI;
 
+  // ── Refs anti-duplicação ────────────────────────────────────────────────────
+  // Cada vez que criamos uma nova instância SpeechRecognition, incrementamos
+  // sessionIdRef. Os callbacks verificam o sessionId ao disparar — se não bate,
+  // são de uma sessão antiga e são descartados.
+  const sessionIdRef  = useRef(0);
   const recognitionRef = useRef<any>(null);
   const isRecordingRef = useRef(false);
+  // Texto final acumulado de todas as sessões da gravação atual
   const accumulatedRef = useRef("");
 
   useEffect(() => {
     return () => {
       isRecordingRef.current = false;
-      try { recognitionRef.current?.abort(); } catch { /* ignored */ }
+      destroyRecognition();
     };
   }, []);
 
-  function startRecognition() {
-    if (useFallback) {
-      setStep("recording");
-      return;
-    }
+  function destroyRecognition() {
+    if (!recognitionRef.current) return;
+    try { recognitionRef.current.abort(); } catch { /* ignored */ }
+    // Remove todos os listeners para evitar callbacks fantasmas
+    recognitionRef.current.onresult = null;
+    recognitionRef.current.onerror  = null;
+    recognitionRef.current.onend    = null;
+    recognitionRef.current = null;
+  }
+
+  // ── Cria nova instância e inicia — SEMPRE nova instância no restart ─────────
+  // Chrome Android tem quirk: reusar a mesma instância após onend faz o browser
+  // re-processar áudio em buffer e re-disparar resultados já finalizados,
+  // causando a duplicação. A solução é criar nova instância a cada restart.
+  function createAndStart(sessionId: number) {
+    if (!SpeechAPI || !isRecordingRef.current) return;
+
+    destroyRecognition();
 
     const rec = new SpeechAPI();
     recognitionRef.current = rec;
-    rec.lang = "pt-BR";
-    rec.continuous = true;
+
+    rec.lang           = "pt-BR";
+    rec.continuous     = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
+    // ── onresult ─────────────────────────────────────────────────────────────
+    // CRÍTICO: iterar a partir de event.resultIndex, não de 0.
+    // event.resultIndex aponta o primeiro resultado NOVO neste evento.
+    // Iterar desde 0 é a causa mais comum de duplicação.
     rec.onresult = (event: any) => {
+      if (sessionId !== sessionIdRef.current) return; // sessão obsoleta
+
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const text = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          accumulatedRef.current += text + " ";
+        const result = event.results[i];
+        const text: string = result[0].transcript;
+        if (result.isFinal) {
+          // Adiciona espaço separador apenas se o acumulado não terminar em espaço
+          const sep = accumulatedRef.current.endsWith(" ") || accumulatedRef.current === "" ? "" : " ";
+          accumulatedRef.current += sep + text.trim();
           setFinalText(accumulatedRef.current);
         } else {
           interim += text;
@@ -74,48 +103,72 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
       setInterimText(interim);
     };
 
+    // ── onerror ──────────────────────────────────────────────────────────────
     rec.onerror = (event: any) => {
+      if (sessionId !== sessionIdRef.current) return;
       if (event.error === "not-allowed") {
         setError("Permissão de microfone negada. Habilite nas configurações do navegador.");
         isRecordingRef.current = false;
         setStep("paused");
-      } else if (event.error !== "no-speech" && event.error !== "aborted") {
-        console.warn("Speech recognition error:", event.error);
       }
+      // "no-speech" e "aborted" são ignorados — onend cuidará do restart
     };
 
+    // ── onend ────────────────────────────────────────────────────────────────
+    // Chrome Android encerra a sessão silenciosamente com mais frequência do
+    // que o desktop. Auto-restart SEMPRE com nova instância.
     rec.onend = () => {
+      if (sessionId !== sessionIdRef.current) return;
       setInterimText("");
-      // Auto-restart when continuous mode stops due to silence
-      if (isRecordingRef.current) {
-        setTimeout(() => {
-          if (isRecordingRef.current) {
-            try { rec.start(); } catch { /* already starting */ }
-          }
-        }, 250);
-      }
+      if (!isRecordingRef.current) return;
+
+      // Nova sessão → novo ID → nova instância
+      const nextId = sessionId + 1;
+      sessionIdRef.current = nextId;
+
+      // Pequeno delay para evitar loop de restart imediato no Android
+      setTimeout(() => {
+        if (isRecordingRef.current && sessionIdRef.current === nextId) {
+          createAndStart(nextId);
+        }
+      }, 300);
     };
 
-    isRecordingRef.current = true;
     try {
       rec.start();
-      setStep("recording");
-      setError(null);
     } catch {
-      setError("Não foi possível iniciar o microfone.");
+      // Se já estava iniciando (race condition), ignora
     }
+  }
+
+  // ── API pública ──────────────────────────────────────────────────────────────
+
+  function startRecognition() {
+    if (useFallback) {
+      setStep("recording");
+      return;
+    }
+    const newId = sessionIdRef.current + 1;
+    sessionIdRef.current = newId;
+    isRecordingRef.current = true;
+    setError(null);
+    setStep("recording");
+    createAndStart(newId);
   }
 
   function pauseRecording() {
     isRecordingRef.current = false;
-    try { recognitionRef.current?.stop(); } catch { /* ignored */ }
+    // Marca sessão como encerrada antes de abortar para onend não fazer restart
+    sessionIdRef.current += 1;
+    destroyRecognition();
     setInterimText("");
     setStep("paused");
   }
 
   async function generateDraft() {
     isRecordingRef.current = false;
-    try { recognitionRef.current?.stop(); } catch { /* ignored */ }
+    sessionIdRef.current += 1;
+    destroyRecognition();
     setInterimText("");
     setStep("processing");
     setError(null);
@@ -132,13 +185,13 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
       const { data: draftRow, error: insertError } = await supabase
         .from("ai_prontuario_drafts")
         .insert({
-          clinica_id: clinicId,
-          paciente_id: patient.id,
-          criado_por: currentUserId,
-          criado_por_nome: currentUserName,
+          clinica_id:       clinicId,
+          paciente_id:      patient.id,
+          criado_por:       currentUserId,
+          criado_por_nome:  currentUserName,
           raw_transcription: transcript || null,
-          context_notes: contextNotes.trim() || null,
-          status: "gerando_rascunho",
+          context_notes:    contextNotes.trim() || null,
+          status:           "gerando_rascunho",
         })
         .select("id")
         .single();
@@ -146,11 +199,9 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
       if (insertError) throw new Error(insertError.message);
 
       const inputText = [
-        transcript ? `TRANSCRIÇÃO DA CONSULTA:\n${transcript}` : "",
+        transcript    ? `TRANSCRIÇÃO DA CONSULTA:\n${transcript}` : "",
         contextNotes.trim() ? `\nOBSERVAÇÕES DO MÉDICO:\n${contextNotes.trim()}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
 
       const { data: aiResult, error: fnError } = await supabase.functions.invoke("deby-ai", {
         body: { clinicId, action: "transcribe_consultation", module: "prontuario", input: inputText },
@@ -184,7 +235,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
     }
   }
 
-  const hasContent = useFallback ? fallbackText.trim().length > 0 : finalText.length > 0;
+  const hasContent  = useFallback ? fallbackText.trim().length > 0 : finalText.length > 0;
   const canGenerate = hasContent || contextNotes.trim().length > 0;
 
   return (
@@ -211,7 +262,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-5">
 
         {/* CONSENT */}
         {step === "consent" && (
@@ -221,7 +272,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
                 <ShieldAlert className="h-4 w-4 shrink-0" />
                 Aviso de consentimento — LGPD
               </div>
-              <p className="leading-relaxed text-sm">
+              <p className="text-sm leading-relaxed">
                 Esta função captura a conversa do atendimento <strong>localmente no seu dispositivo</strong>,
                 transcreve o áudio e usa a Deby AI para gerar um rascunho clínico estruturado.
               </p>
@@ -257,11 +308,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
                 </div>
               ) : (
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-variant">
-                  {useFallback ? (
-                    <MicOff className="h-4 w-4 text-ink-muted" />
-                  ) : (
-                    <Mic className="h-4 w-4 text-ink-muted" />
-                  )}
+                  {useFallback ? <MicOff className="h-4 w-4 text-ink-muted" /> : <Mic className="h-4 w-4 text-ink-muted" />}
                 </div>
               )}
               <div>
@@ -287,7 +334,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
                   Transcrição manual
                 </label>
                 <textarea
-                  className="w-full rounded-2xl border border-border-strong bg-white px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-primary focus:shadow-[0_0_0_3px_rgba(37,99,235,0.10)] resize-none"
+                  className="w-full resize-none rounded-2xl border border-border-strong bg-white px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-primary focus:shadow-[0_0_0_3px_rgba(37,99,235,0.10)]"
                   rows={8}
                   placeholder="Digite aqui a conversa do atendimento..."
                   value={fallbackText}
@@ -303,7 +350,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
                   {finalText || interimText ? (
                     <>
                       {finalText}
-                      {interimText && <span className="italic text-ink-muted">{interimText}</span>}
+                      {interimText && <span className="italic text-ink-muted"> {interimText}</span>}
                     </>
                   ) : (
                     <span className="italic text-ink-muted">
@@ -321,7 +368,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
                 <span className="font-normal normal-case text-ink-muted">(opcional)</span>
               </label>
               <textarea
-                className="w-full rounded-2xl border border-border-strong bg-white px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-primary focus:shadow-[0_0_0_3px_rgba(37,99,235,0.10)] resize-none"
+                className="w-full resize-none rounded-2xl border border-border-strong bg-white px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-primary focus:shadow-[0_0_0_3px_rgba(37,99,235,0.10)]"
                 rows={3}
                 placeholder="Contexto extra para a Deby AI (ex: retorno pós-cirúrgico, paciente hipertenso...)"
                 value={contextNotes}
@@ -344,16 +391,9 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
               </p>
             </div>
             <div className="w-full space-y-2 text-left">
-              {[
-                "Processando transcrição",
-                "Estruturando dados clínicos",
-                "Preenchendo campos do prontuário",
-              ].map((label, i) => (
+              {["Processando transcrição", "Estruturando dados clínicos", "Preenchendo campos do prontuário"].map((label, i) => (
                 <div key={label} className="flex items-center gap-2 text-xs text-ink-muted">
-                  <Loader2
-                    className="h-3 w-3 animate-spin"
-                    style={{ animationDelay: `${i * 200}ms` }}
-                  />
+                  <Loader2 className="h-3 w-3 animate-spin" style={{ animationDelay: `${i * 200}ms` }} />
                   {label}
                 </div>
               ))}
@@ -363,11 +403,11 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 border-t border-border p-5 space-y-2">
+      <div className="shrink-0 space-y-2 border-t border-border p-5">
         {step === "consent" && (
           <>
             <button
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark transition"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
               onClick={startRecognition}
               type="button"
             >
@@ -375,7 +415,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
               {useFallback ? "Iniciar digitação manual" : "Iniciar escuta"}
             </button>
             <button
-              className="w-full rounded-2xl py-2.5 text-sm font-medium text-ink-secondary hover:bg-surface-low transition"
+              className="w-full rounded-2xl py-2.5 text-sm font-medium text-ink-secondary transition hover:bg-surface-low"
               onClick={onClose}
               type="button"
             >
@@ -388,7 +428,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
           <div className="grid grid-cols-2 gap-2">
             {!useFallback && (
               <button
-                className="flex items-center justify-center gap-1.5 rounded-2xl border border-border-strong py-2.5 text-sm font-medium text-ink hover:bg-surface-low transition"
+                className="flex items-center justify-center gap-1.5 rounded-2xl border border-border-strong py-2.5 text-sm font-medium text-ink transition hover:bg-surface-low"
                 onClick={pauseRecording}
                 type="button"
               >
@@ -397,7 +437,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
               </button>
             )}
             <button
-              className={`flex items-center justify-center gap-1.5 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50 transition ${useFallback ? "col-span-2" : ""}`}
+              className={`flex items-center justify-center gap-1.5 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50 ${useFallback ? "col-span-2" : ""}`}
               onClick={() => void generateDraft()}
               type="button"
               disabled={!canGenerate}
@@ -412,7 +452,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
           <div className="grid grid-cols-2 gap-2">
             {!useFallback && (
               <button
-                className="flex items-center justify-center gap-1.5 rounded-2xl border border-primary py-2.5 text-sm font-medium text-primary hover:bg-primary/5 transition"
+                className="flex items-center justify-center gap-1.5 rounded-2xl border border-primary py-2.5 text-sm font-medium text-primary transition hover:bg-primary/5"
                 onClick={startRecognition}
                 type="button"
               >
@@ -421,7 +461,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
               </button>
             )}
             <button
-              className={`flex items-center justify-center gap-1.5 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50 transition ${useFallback ? "col-span-2" : ""}`}
+              className={`flex items-center justify-center gap-1.5 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50 ${useFallback ? "col-span-2" : ""}`}
               onClick={() => void generateDraft()}
               type="button"
               disabled={!canGenerate}
