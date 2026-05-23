@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   CalendarRange,
@@ -7,11 +7,26 @@ import {
   CircleCheck,
   CircleX,
   Clock3,
+  Copy,
+  ExternalLink,
+  Loader2,
   List,
+  MapPin,
   Plus,
+  RefreshCw,
   Trash2,
+  Video,
   X,
 } from "lucide-react";
+import {
+  buildTeleconsultaWhatsApp,
+  createTeleconsultaRoom,
+  getTeleconsultaByAppointment,
+  markLinkSent,
+  TELECONSULTA_STATUS_LABEL,
+  type TeleconsultaData,
+} from "../../../services/teleconsultaService";
+import type { UserRole } from "../../../types/clinic";
 import { ClinicCalendar } from "../components/ClinicCalendar";
 import { ProgramBadge } from "../../../components/ui/ProgramBadge";
 import { confirmDangerAction } from "../../../lib/confirmDangerAction";
@@ -119,6 +134,7 @@ const EMPTY_FORM = (professionals: Professional[], services: Service[]) => ({
   data: todayISO(),
   horario: "09:00",
   status: "confirmado" as Appointment["status"],
+  tipoAtendimento: "presencial" as "presencial" | "teleconsulta",
   recorrenciaFrequency: "none" as RecurrenceFrequency,
   recorrenciaOccurrences: 4,
 });
@@ -126,6 +142,8 @@ const EMPTY_FORM = (professionals: Professional[], services: Service[]) => ({
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export function AppointmentsPanel({
+  clinicId,
+  role,
   appointments,
   patients,
   professionals,
@@ -136,6 +154,8 @@ export function AppointmentsPanel({
   onDelete,
   onDeleteSeries,
 }: {
+  readonly clinicId: string;
+  readonly role?: UserRole | null;
   readonly appointments: Appointment[];
   readonly patients: Patient[];
   readonly professionals: Professional[];
@@ -152,6 +172,7 @@ export function AppointmentsPanel({
     data: string;
     horario: string;
     status: Appointment["status"];
+    tipoAtendimento?: "presencial" | "teleconsulta";
     recorrencia?: { frequency: RecurrenceFrequency; occurrences: number };
   }) => Promise<boolean>;
   readonly onDelete: (id: string) => Promise<void>;
@@ -174,6 +195,25 @@ export function AppointmentsPanel({
   });
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
+
+  // ── Teleconsulta state ─────────────────────────────────────────────────────
+  const [teleconsulta, setTeleconsulta] = useState<TeleconsultaData | null>(null);
+  const [loadingTele, setLoadingTele] = useState(false);
+  const [creatingRoom, setCreatingRoom] = useState(false);
+  const [teleError, setTeleError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!drawerOpen || !drawerForm.id || drawerForm.tipoAtendimento !== "teleconsulta") {
+      setTeleconsulta(null);
+      setTeleError(null);
+      return;
+    }
+    setLoadingTele(true);
+    void getTeleconsultaByAppointment(drawerForm.id)
+      .then((data) => setTeleconsulta(data))
+      .finally(() => setLoadingTele(false));
+  }, [drawerOpen, drawerForm.id, drawerForm.tipoAtendimento]);
 
   function updateFilter(next: Partial<typeof filters>) {
     setFilters((prev) => ({ ...prev, ...next }));
@@ -250,11 +290,72 @@ export function AppointmentsPanel({
       data: appointment.data,
       horario: appointment.horario,
       status: appointment.status,
+      tipoAtendimento: appointment.tipoAtendimento ?? "presencial",
       recorrenciaFrequency: "none",
       recorrenciaOccurrences: 4,
     });
     setLocalError(null);
     setDrawerOpen(true);
+  }
+
+  async function handleCreateRoom() {
+    if (!drawerForm.id) return;
+    setCreatingRoom(true);
+    setTeleError(null);
+    try {
+      const [year, month, day] = drawerForm.data.split("-").map(Number);
+      const [hour, minute] = drawerForm.horario.split(":").map(Number);
+      const startDate = new Date(year, month - 1, day, hour, minute);
+      const durationMin = services.find((s) => s.id === drawerForm.servicoId)?.duracaoMin ?? 60;
+      const endDate = new Date(startDate.getTime() + (durationMin + 30) * 60 * 1000);
+
+      const professionalId = professionals.find((p) => p.id === drawerForm.profissionalId)?.id ?? null;
+
+      await createTeleconsultaRoom({
+        clinicId,
+        appointmentId: drawerForm.id,
+        patientId: drawerForm.pacienteId || null,
+        professionalId,
+        startTime: startDate.toISOString(),
+        endTime: endDate.toISOString(),
+      });
+
+      const refreshed = await getTeleconsultaByAppointment(drawerForm.id);
+      setTeleconsulta(refreshed);
+    } catch (e: unknown) {
+      setTeleError((e as { message?: string })?.message ?? "Erro ao criar sala. Tente novamente.");
+    } finally {
+      setCreatingRoom(false);
+    }
+  }
+
+  async function handleCopyPatientLink() {
+    if (!teleconsulta?.patientAccessUrl) return;
+    await navigator.clipboard.writeText(teleconsulta.patientAccessUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleSendWhatsApp() {
+    if (!teleconsulta?.patientAccessUrl) return;
+    const profissional = professionals.find((p) => p.id === drawerForm.profissionalId);
+    const url = buildTeleconsultaWhatsApp({
+      patientName: drawerForm.pacienteNome,
+      professionalName: profissional?.nome ?? "Profissional",
+      date: drawerForm.data,
+      time: drawerForm.horario,
+      accessUrl: teleconsulta.patientAccessUrl,
+      patientWhatsapp: drawerForm.pacienteWhatsapp,
+    });
+    window.open(url, "_blank");
+    void markLinkSent(teleconsulta.id);
+    setTeleconsulta((prev) => prev ? { ...prev, status: "link_enviado", linkSentAt: new Date().toISOString() } : prev);
+  }
+
+  function handleEnterAsProfessional() {
+    if (!teleconsulta) return;
+    const url = teleconsulta.wherebyHostRoomUrl ?? teleconsulta.wherebyRoomUrl;
+    if (url) window.open(url, "_blank");
   }
 
   async function handleSubmit() {
@@ -277,6 +378,7 @@ export function AppointmentsPanel({
         data: drawerForm.data,
         horario: drawerForm.horario,
         status: drawerForm.status,
+        tipoAtendimento: drawerForm.tipoAtendimento,
         recorrencia: drawerForm.id ? undefined : { frequency: drawerForm.recorrenciaFrequency, occurrences: drawerForm.recorrenciaOccurrences },
       });
       if (ok) setDrawerOpen(false);
@@ -530,6 +632,12 @@ export function AppointmentsPanel({
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <ApptStatus status={appointment.status} />
+                          {appointment.tipoAtendimento === "teleconsulta" && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
+                              <Video className="h-2.5 w-2.5" />
+                              Teleconsulta
+                            </span>
+                          )}
                           {appointment.recorrenciaId && (
                             <span className="rounded-full border border-primary/20 bg-primary-wash px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                               Série
@@ -663,6 +771,28 @@ export function AppointmentsPanel({
                 {/* Detalhes */}
                 <div className="space-y-3 rounded-2xl border border-border-divider bg-surface-low p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Detalhes do atendimento</p>
+
+                  {/* Tipo de atendimento */}
+                  <div className="flex gap-2">
+                    {(["presencial", "teleconsulta"] as const).map((tipo) => (
+                      <button
+                        key={tipo}
+                        type="button"
+                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-semibold transition ${
+                          drawerForm.tipoAtendimento === tipo
+                            ? tipo === "teleconsulta"
+                              ? "border-blue-300 bg-blue-50 text-blue-700"
+                              : "border-primary/30 bg-primary/5 text-primary"
+                            : "border-border text-ink-muted hover:border-border-strong"
+                        }`}
+                        onClick={() => setDrawerForm((f) => ({ ...f, tipoAtendimento: tipo }))}
+                      >
+                        {tipo === "teleconsulta" ? <Video className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
+                        {tipo === "presencial" ? "Presencial" : "Teleconsulta"}
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Profissional *">
                       <select
@@ -714,6 +844,115 @@ export function AppointmentsPanel({
                     </Field>
                   </div>
                 </div>
+
+                {/* ── Painel de Teleconsulta ──────────────────────────── */}
+                {drawerForm.tipoAtendimento === "teleconsulta" && drawerForm.id && (
+                  <div className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                    <div className="flex items-center gap-2">
+                      <Video className="h-4 w-4 text-blue-600" />
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Teleconsulta</p>
+                    </div>
+
+                    {loadingTele && (
+                      <div className="flex items-center gap-2 py-2 text-xs text-ink-secondary">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando dados da sala...
+                      </div>
+                    )}
+
+                    {teleError && (
+                      <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        {teleError}
+                      </div>
+                    )}
+
+                    {!loadingTele && !teleconsulta && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-blue-700">Nenhuma sala criada para este agendamento.</p>
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                          disabled={creatingRoom}
+                          onClick={() => void handleCreateRoom()}
+                        >
+                          {creatingRoom ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Criando sala...</> : <><Video className="h-3.5 w-3.5" /> Criar sala no Whereby</>}
+                        </button>
+                      </div>
+                    )}
+
+                    {!loadingTele && teleconsulta && (
+                      <div className="space-y-3">
+                        {/* Status */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-medium text-blue-600">Status</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            teleconsulta.status === "erro_sala"
+                              ? "bg-red-100 text-red-700"
+                              : teleconsulta.status === "em_atendimento"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {TELECONSULTA_STATUS_LABEL[teleconsulta.status] ?? teleconsulta.status}
+                          </span>
+                        </div>
+
+                        {/* Link do paciente */}
+                        {teleconsulta.patientAccessUrl && (
+                          <div className="rounded-xl border border-blue-200 bg-white px-3 py-2">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-blue-500">Link do paciente</p>
+                            <p className="break-all font-mono text-[10px] text-ink-secondary">{teleconsulta.patientAccessUrl}</p>
+                          </div>
+                        )}
+
+                        {/* Ações */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-50 disabled:opacity-50"
+                            disabled={!teleconsulta.patientAccessUrl}
+                            onClick={() => void handleCopyPatientLink()}
+                          >
+                            <Copy className="h-3 w-3" />
+                            {copied ? "Copiado!" : "Copiar link"}
+                          </button>
+                          <button
+                            type="button"
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-green-200 bg-white px-3 py-2 text-xs font-medium text-green-700 transition hover:bg-green-50 disabled:opacity-50"
+                            disabled={!teleconsulta.patientAccessUrl || !drawerForm.pacienteWhatsapp}
+                            onClick={handleSendWhatsApp}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            WhatsApp
+                          </button>
+                        </div>
+
+                        {/* Entrar como profissional */}
+                        {(role === "admin" || role === "profissional") && (teleconsulta.wherebyHostRoomUrl ?? teleconsulta.wherebyRoomUrl) && (
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-300 bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-700"
+                            onClick={handleEnterAsProfessional}
+                          >
+                            <Video className="h-3.5 w-3.5" />
+                            Entrar como profissional
+                          </button>
+                        )}
+
+                        {/* Recriar sala */}
+                        {(teleconsulta.status === "erro_sala" || teleconsulta.wherebyRoomUrl) && (
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-ink-secondary transition hover:border-blue-300 hover:text-blue-600 disabled:opacity-50"
+                            disabled={creatingRoom}
+                            onClick={() => void handleCreateRoom()}
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            {creatingRoom ? "Recriando..." : "Recriar sala"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Recorrência (só para novo) */}
                 {!drawerForm.id && (

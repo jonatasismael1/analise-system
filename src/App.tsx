@@ -4,6 +4,7 @@ import { AdminPage } from "./pages/AdminPage";
 import { BookingPage } from "./pages/BookingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OrcamentoPublicPage } from "./pages/OrcamentoPublicPage";
+import { TeleconsultaPage } from "./pages/TeleconsultaPage";
 import { GestorPage } from "./pages/gestor/GestorPage";
 
 export function App() {
@@ -15,6 +16,7 @@ export function App() {
       <Route path="/gestor" element={<ProtectedRoute><GestorPage /></ProtectedRoute>} />
       <Route path="/agendar/:slug" element={<BookingPage />} />
       <Route path="/orcamento/:token" element={<OrcamentoPublicPage />} />
+      <Route path="/teleconsulta/:token" element={<TeleconsultaPage />} />
     </Routes>
   );
 }

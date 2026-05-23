@@ -142,7 +142,8 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
         data: row.data,
         horario: row.horario.slice(0, 5),
         status: statusAsAppointment(row.status),
-        recorrenciaId: row.recorrencia_id
+        recorrenciaId: row.recorrencia_id,
+        tipoAtendimento: ((row as any).tipo_atendimento as "presencial" | "teleconsulta" | undefined) ?? "presencial"
       })));
       setPackages((packagesRes.data ?? []).map((row: PackageRow) => ({
         id: row.id,
@@ -376,7 +377,7 @@ export function useClinicData(clinicId?: string, role: UserRole | null = null, p
     await loadAll();
   }
 
-  async function saveAppointment(values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"]; recorrencia?: { frequency: RecurrenceFrequency; occurrences: number } }): Promise<boolean> {
+  async function saveAppointment(values: { id?: string; profissionalId: string; servicoId?: string | null; pacienteId?: string | null; pacienteNome: string; pacienteWhatsapp: string; data: string; horario: string; status: Appointment["status"]; tipoAtendimento?: "presencial" | "teleconsulta"; recorrencia?: { frequency: RecurrenceFrequency; occurrences: number } }): Promise<boolean> {
     if (!clinicId) return false;
     const validation = validateAppointment(values);
     if (!validation.valid) { toast.warning(validation.message ?? "Revise os dados do agendamento."); return false; }

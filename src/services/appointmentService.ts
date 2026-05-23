@@ -13,6 +13,7 @@ export type AppointmentInput = {
   data: string;
   horario: string;
   status: Appointment["status"];
+  tipoAtendimento?: "presencial" | "teleconsulta";
   recorrencia?: {
     frequency: RecurrenceFrequency;
     occurrences: number;
@@ -55,6 +56,7 @@ function buildAppointmentPayload(clinicId: string, values: AppointmentInput, dat
     data,
     horario: values.horario,
     status: values.status,
+    tipo_atendimento: values.tipoAtendimento ?? "presencial",
     recorrencia_id: recorrenciaId ?? null
   };
 }

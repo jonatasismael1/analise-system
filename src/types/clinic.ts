@@ -36,6 +36,7 @@ export interface Appointment {
   horario: string;
   status: "pendente" | "confirmado" | "cancelado" | "faltou" | "concluido";
   recorrenciaId?: string | null;
+  tipoAtendimento?: "presencial" | "teleconsulta";
 }
 
 export interface Patient {
