@@ -27,6 +27,7 @@ import {
   type TeleconsultaData,
 } from "../../../services/teleconsultaService";
 import { DEFAULT_INSTANCE_NAME, sendWhatsAppText } from "../../../services/quickActionService";
+import { supabase } from "../../../lib/supabaseClient";
 import type { UserRole } from "../../../types/clinic";
 import { ClinicCalendar } from "../components/ClinicCalendar";
 import { ProgramBadge } from "../../../components/ui/ProgramBadge";
@@ -205,6 +206,18 @@ export function AppointmentsPanel({
   const [copied, setCopied] = useState(false);
   const [sendingWpp, setSendingWpp] = useState(false);
   const [wppSent, setWppSent] = useState(false);
+  const [instName, setInstName] = useState(DEFAULT_INSTANCE_NAME);
+
+  useEffect(() => {
+    supabase
+      .from("whatsapp_instances")
+      .select("instance_name")
+      .eq("clinic_id", clinicId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => { if (data?.instance_name) setInstName(data.instance_name); });
+  }, [clinicId]);
 
   useEffect(() => {
     if (!drawerOpen || !drawerForm.id || drawerForm.tipoAtendimento !== "teleconsulta") {
@@ -368,7 +381,7 @@ export function AppointmentsPanel({
         accessUrl: teleconsulta.patientAccessUrl,
       });
       const phone = drawerForm.pacienteWhatsapp.replace(/\D/g, "");
-      await sendWhatsAppText(DEFAULT_INSTANCE_NAME, phone, message);
+      await sendWhatsAppText(instName, phone, message);
       void markLinkSent(drawerForm.id);
       setTeleconsulta((prev) => prev ? { ...prev, status: "link_enviado", linkSentAt: new Date().toISOString() } : prev);
       setWppSent(true);
