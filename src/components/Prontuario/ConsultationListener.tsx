@@ -20,9 +20,9 @@ interface Props {
 
 type Step = "consent" | "recording" | "paused" | "processing";
 
-function getSpeechAPI(): typeof window.SpeechRecognition | null {
+function getSpeechAPI(): (new () => SpeechRecognition) | null {
   if (typeof window === "undefined") return null;
-  return (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null;
+  return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 }
 
 export function ConsultationListener({ clinicId, patient, currentUserId, currentUserName, onDraftReady, onClose }: Props) {
