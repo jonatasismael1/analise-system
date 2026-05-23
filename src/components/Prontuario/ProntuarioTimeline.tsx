@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, FileText, Plus, Clock, Edit2, Send, X, Loader2, Printer, ShieldCheck } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, FileText, Plus, Clock, Edit2, Send, X, Loader2, Printer, ShieldCheck } from "lucide-react";
 import { ProntuarioEditor, type ProntuarioData } from "./ProntuarioEditor";
+import { ConsultationListener, type DraftResult } from "./ConsultationListener";
+import { ConsultationDraft, draftToProntuarioData } from "./ConsultationDraft";
 import {
   DEFAULT_INSTANCE_NAME,
   sendWhatsAppText
@@ -148,10 +150,15 @@ function buildReceitaHTML(patient: Patient, professional: Professional | undefin
 }
 
 export function ProntuarioTimeline({ clinicId, patient, professionals }: ProntuarioTimelineProps) {
-  const { role } = useAuth();
+  const { role, profile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editingData, setEditingData] = useState<ProntuarioData | null>(null);
   const [receitaItem, setReceitaItem] = useState<ProntuarioData | null>(null);
+
+  // Deby AI — Ouvir Atendimento
+  const [showListener, setShowListener] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<DraftResult | null>(null);
+  const canUseAI = role === "admin" || role === "profissional";
   const [receitaTexto, setReceitaTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [envioFeedback, setEnvioFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -269,14 +276,27 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
           <p className="text-sm text-secondary">Paciente: {patient.nome}</p>
         </div>
         {!isEditing && (
-          <button
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark transition"
-            onClick={() => setIsEditing(true)}
-            disabled={loading}
-          >
-            <Plus className="h-4 w-4" />
-            Nova Evolução
-          </button>
+          <div className="flex items-center gap-2">
+            {canUseAI && (
+              <button
+                className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition"
+                onClick={() => setShowListener(true)}
+                disabled={loading}
+                title="Transcrever e estruturar a consulta com IA"
+              >
+                <Bot className="h-4 w-4" />
+                Deby AI
+              </button>
+            )}
+            <button
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark transition"
+              onClick={() => setIsEditing(true)}
+              disabled={loading}
+            >
+              <Plus className="h-4 w-4" />
+              Nova Evolução
+            </button>
+          </div>
         )}
       </div>
 
@@ -453,6 +473,39 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Deby AI — Drawer de escuta ───────────────────────────────────── */}
+      {showListener && profile && (
+        <ConsultationListener
+          clinicId={clinicId}
+          patient={patient}
+          profile={profile}
+          onDraftReady={(draft) => {
+            setShowListener(false);
+            setPendingDraft(draft);
+          }}
+          onClose={() => setShowListener(false)}
+        />
+      )}
+
+      {/* ── Deby AI — Revisão do rascunho ────────────────────────────────── */}
+      {pendingDraft && (
+        <ConsultationDraft
+          draft={pendingDraft}
+          clinicId={clinicId}
+          profissionalId={profile?.profissionalId ?? professionals[0]?.id ?? ""}
+          onApply={(data) => {
+            setPendingDraft(null);
+            setEditingData(data);
+            setIsEditing(true);
+          }}
+          onDiscard={() => setPendingDraft(null)}
+          onRegenerate={() => {
+            setPendingDraft(null);
+            setShowListener(true);
+          }}
+        />
       )}
 
       {/* ── Modal de envio de receita ─────────────────────────────────────── */}
