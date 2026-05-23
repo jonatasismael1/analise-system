@@ -14,7 +14,7 @@ import { AppointmentsPanel } from "./modules/AppointmentsPanel";
 import { PatientsPanel } from "./modules/PatientsPanel";
 import { WhatsAppPanel } from "./modules/WhatsAppPanel";
 import { AIPanel } from "./modules/AIPanel";
-import { PatientKanbanPanel } from "./modules/PatientKanbanPanel";
+import { AttendanceControlPanel } from "./modules/AttendanceControlPanel";
 import { CashPanel } from "./modules/CashPanel";
 import { FinancePanel } from "./modules/FinancePanel";
 import { DiscountProgramsPanel } from "./modules/DiscountProgramsPanel";
@@ -31,7 +31,7 @@ const modules = [
   "Atendimento",
   "Agendamentos",
   "Pacientes",
-  "Quadro de Pacientes",
+  "Controle de Atendimento",
   "Profissionais",
   "Procedimentos",
   "Programas de Vantagens",
@@ -59,8 +59,8 @@ export function AdminPage() {
   const visibleModules = useMemo(() => modules.filter((module) => {
     if (!role) return false;
     if (role === "admin") return true;
-    if (role === "secretaria") return ["Dashboard", "Atendimento", "Agendamentos", "Pacientes", "Orçamentos", "Quadro de Pacientes", "Deby AI", "Procedimentos", "Programas de Vantagens", "Caixa"].includes(module);
-    return ["Dashboard", "Agendamentos", "Pacientes", "Deby AI", "Quadro de Pacientes"].includes(module);
+    if (role === "secretaria") return ["Dashboard", "Atendimento", "Agendamentos", "Pacientes", "Orçamentos", "Controle de Atendimento", "Deby AI", "Procedimentos", "Programas de Vantagens", "Caixa"].includes(module);
+    return ["Dashboard", "Agendamentos", "Pacientes", "Deby AI", "Controle de Atendimento"].includes(module);
   }), [role]);
 
   const growthAnalysis = useMemo(() => calculateGrowthInsights({
@@ -177,7 +177,7 @@ export function AdminPage() {
           {activeModule === "Agendamentos" ? <AppointmentsPanel clinicId={clinic.id} role={role} appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} memberships={data.memberships} programas={data.programas} onSave={data.saveAppointment} onDelete={data.deleteAppointment} onDeleteSeries={data.deleteAppointmentSeries} /> : null}
           {activeModule === "Pacientes" ? <PatientsPanel clinicId={clinic.id} patients={data.patients} professionals={data.professionals} programas={data.programas} memberships={data.memberships} onSave={data.savePatient} onDelete={data.deletePatient} onImportMassively={data.importPatientsMassively} onAnonymize={data.anonymizePatient} role={role} /> : null}
           {activeModule === "Deby AI" && role ? <AIPanel clinicId={clinic.id} clinicName={clinic.nome ?? "Clínica Médica"} role={role} profileProfessionalId={profile?.profissionalId} appointments={data.appointments} patients={data.patients} professionals={data.professionals} services={data.services} financeEntries={data.financeEntries} growthAnalysis={growthAnalysis} /> : null}
-          {activeModule === "Quadro de Pacientes" ? <PatientKanbanPanel patients={data.patients} appointments={data.appointments} professionals={data.professionals} onSave={data.savePatient} /> : null}
+          {activeModule === "Controle de Atendimento" ? <AttendanceControlPanel clinicId={clinic.id} patients={data.patients} appointments={data.appointments} professionals={data.professionals} onSave={data.savePatient} /> : null}
           {activeModule === "Caixa" ? <CashPanel clinicId={clinic.id} role={role} /> : null}
           {activeModule === "Financeiro" ? <FinancePanel entries={data.financeEntries} kpis={data.financialKpis} onPayment={data.savePayment} onExpense={data.saveExpense} onUpdatePayment={data.updatePayment} onUpdateExpense={data.updateExpense} onDeletePayment={data.deletePayment} onDeleteExpense={data.deleteExpense} professionals={data.professionals} services={data.services} clinicaNome={clinic.nome ?? "Clínica Médica"} clinicId={clinic.id} financeMonths={data.financeMonths} onChangeFinanceMonths={data.setFinanceMonths} memberships={data.memberships} patients={data.patients} programas={data.programas} /> : null}
           {activeModule === "Programas de Vantagens" ? <DiscountProgramsPanel programas={data.programas} services={data.services} onSave={data.savePrograma} onDelete={data.deletePrograma} /> : null}

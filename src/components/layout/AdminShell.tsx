@@ -34,7 +34,7 @@ const iconByModule: Record<string, React.ComponentType<{ className?: string }>> 
   Atendimento: MessageCircle,
   Agendamentos: CalendarDays,
   Pacientes: Users,
-  "Quadro de Pacientes": KanbanSquare,
+  "Controle de Atendimento": KanbanSquare,
   Profissionais: Stethoscope,
   Procedimentos: Activity,
   "Programas de Vantagens": Percent,
