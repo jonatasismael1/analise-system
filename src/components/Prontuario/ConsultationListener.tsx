@@ -20,7 +20,7 @@ interface Props {
 
 type Step = "consent" | "recording" | "paused" | "processing";
 
-function getSpeechAPI(): (new () => SpeechRecognition) | null {
+function getSpeechAPI(): { new (): SpeechRecognition } | null {
   if (typeof window === "undefined") return null;
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 }
