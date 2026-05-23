@@ -316,7 +316,7 @@ export function AppointmentsPanel({
 
       const professionalId = professionals.find((p) => p.id === drawerForm.profissionalId)?.id ?? null;
 
-      await createTeleconsultaRoom({
+      const result = await createTeleconsultaRoom({
         clinicId,
         appointmentId: drawerForm.id,
         patientId: drawerForm.pacienteId || null,
@@ -326,7 +326,20 @@ export function AppointmentsPanel({
       });
 
       const refreshed = await getTeleconsultaByAppointment(drawerForm.id);
-      setTeleconsulta(refreshed);
+      // Fallback: usa dados da resposta direto caso o RLS bloqueie a leitura
+      setTeleconsulta(refreshed ?? {
+        id: drawerForm.id,
+        appointmentId: drawerForm.id,
+        wherebyRoomUrl: result.roomUrl,
+        wherebyHostRoomUrl: result.hostRoomUrl,
+        status: "sala_criada",
+        consentStatus: "pendente",
+        patientAccessToken: result.patientAccessToken,
+        patientAccessUrl: result.patientAccessUrl,
+        tokenExpiresAt: result.tokenExpiresAt,
+        linkSentAt: null,
+        errorMessage: null,
+      });
     } catch (e: unknown) {
       setTeleError((e as { message?: string })?.message ?? "Erro ao criar sala. Tente novamente.");
     } finally {
@@ -356,7 +369,7 @@ export function AppointmentsPanel({
       });
       const phone = drawerForm.pacienteWhatsapp.replace(/\D/g, "");
       await sendWhatsAppText(DEFAULT_INSTANCE_NAME, phone, message);
-      void markLinkSent(teleconsulta.id);
+      void markLinkSent(drawerForm.id);
       setTeleconsulta((prev) => prev ? { ...prev, status: "link_enviado", linkSentAt: new Date().toISOString() } : prev);
       setWppSent(true);
       setTimeout(() => setWppSent(false), 3000);

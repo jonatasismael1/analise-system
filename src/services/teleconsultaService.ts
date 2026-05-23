@@ -72,12 +72,12 @@ export async function createTeleconsultaRoom(params: {
   return result as TeleconsultaCreateResult;
 }
 
-export async function markLinkSent(teleconsultaId: string) {
+export async function markLinkSent(appointmentId: string) {
   await supabase.from("teleconsultations").update({
     link_sent_at: new Date().toISOString(),
     status: "link_enviado",
     updated_at: new Date().toISOString()
-  }).eq("id", teleconsultaId);
+  }).eq("appointment_id", appointmentId);
 }
 
 export async function recordProfessionalJoined(teleconsultaId: string) {
