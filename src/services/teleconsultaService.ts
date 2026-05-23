@@ -89,24 +89,21 @@ export async function recordProfessionalJoined(teleconsultaId: string) {
   }).eq("id", teleconsultaId);
 }
 
-export function buildTeleconsultaWhatsApp(params: {
+export function buildTeleconsultaMessage(params: {
   patientName: string;
   professionalName: string;
   date: string;
   time: string;
   accessUrl: string;
-  patientWhatsapp: string;
 }): string {
   const dateBR = new Date(`${params.date}T12:00:00`).toLocaleDateString("pt-BR", {
     day: "2-digit", month: "long", year: "numeric"
   });
-  const message =
+  return (
     `Olá, ${params.patientName}. Sua teleconsulta com ${params.professionalName} está agendada para ${dateBR} às ${params.time.slice(0, 5)}.\n\n` +
     `Antes do atendimento, acesse o link abaixo para confirmar o consentimento e entrar na consulta:\n${params.accessUrl}\n\n` +
-    `Recomendamos entrar 5 minutos antes, em um local reservado e com boa conexão.`;
-
-  const phone = params.patientWhatsapp.replace(/\D/g, "");
-  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    `Recomendamos entrar 5 minutos antes, em um local reservado e com boa conexão.`
+  );
 }
 
 export const TELECONSULTA_STATUS_LABEL: Record<string, string> = {

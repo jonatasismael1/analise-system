@@ -19,13 +19,14 @@ import {
   X,
 } from "lucide-react";
 import {
-  buildTeleconsultaWhatsApp,
+  buildTeleconsultaMessage,
   createTeleconsultaRoom,
   getTeleconsultaByAppointment,
   markLinkSent,
   TELECONSULTA_STATUS_LABEL,
   type TeleconsultaData,
 } from "../../../services/teleconsultaService";
+import { DEFAULT_INSTANCE_NAME, sendWhatsAppText } from "../../../services/quickActionService";
 import type { UserRole } from "../../../types/clinic";
 import { ClinicCalendar } from "../components/ClinicCalendar";
 import { ProgramBadge } from "../../../components/ui/ProgramBadge";
@@ -202,6 +203,8 @@ export function AppointmentsPanel({
   const [creatingRoom, setCreatingRoom] = useState(false);
   const [teleError, setTeleError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sendingWpp, setSendingWpp] = useState(false);
+  const [wppSent, setWppSent] = useState(false);
 
   useEffect(() => {
     if (!drawerOpen || !drawerForm.id || drawerForm.tipoAtendimento !== "teleconsulta") {
@@ -338,20 +341,30 @@ export function AppointmentsPanel({
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function handleSendWhatsApp() {
-    if (!teleconsulta?.patientAccessUrl) return;
-    const profissional = professionals.find((p) => p.id === drawerForm.profissionalId);
-    const url = buildTeleconsultaWhatsApp({
-      patientName: drawerForm.pacienteNome,
-      professionalName: profissional?.nome ?? "Profissional",
-      date: drawerForm.data,
-      time: drawerForm.horario,
-      accessUrl: teleconsulta.patientAccessUrl,
-      patientWhatsapp: drawerForm.pacienteWhatsapp,
-    });
-    window.open(url, "_blank");
-    void markLinkSent(teleconsulta.id);
-    setTeleconsulta((prev) => prev ? { ...prev, status: "link_enviado", linkSentAt: new Date().toISOString() } : prev);
+  async function handleSendWhatsApp() {
+    if (!teleconsulta?.patientAccessUrl || !drawerForm.pacienteWhatsapp) return;
+    setSendingWpp(true);
+    setTeleError(null);
+    try {
+      const profissional = professionals.find((p) => p.id === drawerForm.profissionalId);
+      const message = buildTeleconsultaMessage({
+        patientName: drawerForm.pacienteNome,
+        professionalName: profissional?.nome ?? "Profissional",
+        date: drawerForm.data,
+        time: drawerForm.horario,
+        accessUrl: teleconsulta.patientAccessUrl,
+      });
+      const phone = drawerForm.pacienteWhatsapp.replace(/\D/g, "");
+      await sendWhatsAppText(DEFAULT_INSTANCE_NAME, phone, message);
+      void markLinkSent(teleconsulta.id);
+      setTeleconsulta((prev) => prev ? { ...prev, status: "link_enviado", linkSentAt: new Date().toISOString() } : prev);
+      setWppSent(true);
+      setTimeout(() => setWppSent(false), 3000);
+    } catch (e: unknown) {
+      setTeleError((e as { message?: string })?.message ?? "Erro ao enviar mensagem pelo WhatsApp.");
+    } finally {
+      setSendingWpp(false);
+    }
   }
 
   function handleEnterAsProfessional() {
@@ -919,11 +932,13 @@ export function AppointmentsPanel({
                           <button
                             type="button"
                             className="flex items-center justify-center gap-1.5 rounded-xl border border-green-200 bg-white px-3 py-2 text-xs font-medium text-green-700 transition hover:bg-green-50 disabled:opacity-50"
-                            disabled={!teleconsulta.patientAccessUrl || !drawerForm.pacienteWhatsapp}
-                            onClick={handleSendWhatsApp}
+                            disabled={!teleconsulta.patientAccessUrl || !drawerForm.pacienteWhatsapp || sendingWpp}
+                            onClick={() => void handleSendWhatsApp()}
                           >
-                            <ExternalLink className="h-3 w-3" />
-                            WhatsApp
+                            {sendingWpp
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <ExternalLink className="h-3 w-3" />}
+                            {wppSent ? "Enviado!" : sendingWpp ? "Enviando..." : "WhatsApp"}
                           </button>
                         </div>
 
