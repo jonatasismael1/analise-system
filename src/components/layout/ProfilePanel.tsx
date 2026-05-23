@@ -3,6 +3,17 @@ import { Building2, KeyRound, Loader2, LogOut, Save, User, X } from "lucide-reac
 import { supabase } from "../../lib/supabaseClient";
 import { ImageUpload } from "../ui/ImageUpload";
 
+// Aplica máscara de CNPJ: XX.XXX.XXX/XXXX-XX
+function maskCnpj(value: string): string {
+  // Mantém apenas dígitos
+  const digits = value.replace(/\D/g, "").slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3/$4")
+    .replace(/^(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, "$1.$2.$3/$4-$5");
+}
+
 interface ProfilePanelProps {
   readonly clinicaId: string;
   readonly clinicName: string;
@@ -20,6 +31,7 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, profissionalId, 
 
   // Clinic data
   const [nome, setNome] = useState(clinicName);
+  const [cnpj, setCnpj] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [savingClinic, setSavingClinic] = useState(false);
   const [clinicMsg, setClinicMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -57,10 +69,11 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, profissionalId, 
     // Load current clinic logo + user info
     void (async () => {
       const [{ data: clinic }, { data: auth }] = await Promise.all([
-        supabase.from("clinicas").select("logo_url").eq("id", clinicaId).single(),
+        supabase.from("clinicas").select("logo_url, cnpj").eq("id", clinicaId).single(),
         supabase.auth.getUser(),
       ]);
       setLogoUrl((clinic as { logo_url: string | null } | null)?.logo_url ?? null);
+      setCnpj((clinic as any)?.cnpj ?? "");
       setUserEmail(auth.user?.email ?? "");
       setUserPhotoUrl((auth.user?.user_metadata as { avatar_url?: string })?.avatar_url ?? null);
     })();
@@ -83,7 +96,7 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, profissionalId, 
     try {
       const { error } = await supabase
         .from("clinicas")
-        .update({ nome: nome.trim(), logo_url: logoUrl })
+        .update({ nome: nome.trim(), logo_url: logoUrl, cnpj: cnpj.trim() || null })
         .eq("id", clinicaId);
       if (error) throw error;
       onClinicNameChange(nome.trim());
@@ -218,6 +231,22 @@ export function ProfilePanel({ clinicaId, clinicName, userRole, profissionalId, 
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   placeholder="Nome da clínica"
+                />
+              </div>
+
+              {/* CNPJ */}
+              <div>
+                <label className="mb-1 flex items-center gap-1 text-xs font-semibold text-ink-secondary">
+                  CNPJ
+                  <span className="font-normal text-ink-muted">(opcional)</span>
+                </label>
+                <input
+                  className="w-full rounded-xl border border-border bg-surface-low px-3 py-2 text-sm text-ink placeholder-ink-muted focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  type="text"
+                  placeholder="00.000.000/0000-00"
+                  maxLength={18}
+                  value={cnpj}
+                  onChange={(e) => setCnpj(maskCnpj(e.target.value))}
                 />
               </div>
 

@@ -364,15 +364,8 @@ async function handleMessagesUpsert(
       if ((count ?? 0) > 0) continue;
     }
 
-    // Tenta baixar e salvar midia recebida no Storage
-    let mediaUrl: string | null = null;
-    if (tipo !== "text") {
-      mediaUrl = await downloadAndUploadMedia(
-        supabase, evolutionUrl, evolutionKey, instanceName, msg, clinicId, conversaId, tipo
-      );
-    }
-
-    const { error: msgErr } = await supabase.from("whatsapp_mensagens").insert({
+    // Salva a mensagem imediatamente (sem aguardar download de mídia)
+    const { data: insertedMsg, error: msgErr } = await supabase.from("whatsapp_mensagens").insert({
       clinica_id: clinicId,
       conversa_id: conversaId,
       contato_id: contatoId,
@@ -380,12 +373,30 @@ async function handleMessagesUpsert(
       direcao: fromMe ? "out" : "in",
       tipo,
       texto,
-      media_url: mediaUrl,
+      media_url: null,
       payload: msg,
       enviada_em,
-    });
+    }).select("id").single();
     if (msgErr) console.error("[evolution-webhook] insert mensagem:", msgErr.message);
-    else console.log(`[evolution-webhook] salvo: dir=${fromMe ? "out" : "in"} tipo=${tipo} media=${mediaUrl ? "sim" : "nao"}`);
+    else console.log(`[evolution-webhook] salvo: dir=${fromMe ? "out" : "in"} tipo=${tipo}`);
+
+    // Download de mídia em background — não bloqueia o webhook
+    if (tipo !== "text" && insertedMsg?.id) {
+      const msgId = insertedMsg.id as string;
+      const mediaWork = downloadAndUploadMedia(
+        supabase, evolutionUrl, evolutionKey, instanceName, msg, clinicId, conversaId, tipo
+      ).then(async (url) => {
+        if (url) {
+          await supabase.from("whatsapp_mensagens").update({ media_url: url }).eq("id", msgId);
+          console.log(`[evolution-webhook] mídia salva em background: ${msgId}`);
+        }
+      }).catch((e) => console.warn("[evolution-webhook] media bg falhou:", e));
+
+      // EdgeRuntime.waitUntil mantém a function viva até o download terminar
+      if (typeof (globalThis as any).EdgeRuntime !== "undefined") {
+        (globalThis as any).EdgeRuntime.waitUntil(mediaWork);
+      }
+    }
 
     if (!fromMe && tipo === "text" && texto?.trim()) {
       await handleDebyAutoReply({
@@ -492,9 +503,9 @@ async function handleDebyAutoReply(input: {
   if (settings.ai_mode === "assisted") return;
 
   const nowIso = new Date().toISOString();
-  const sent = await sendEvolutionText(evolutionUrl, evolutionKey, instanceName, telefone, output);
+  const sent = await sendEvolutionTextWithRetry(evolutionUrl, evolutionKey, instanceName, telefone, output);
   if (!sent) {
-    console.error("[deby-auto] Evolution nao enviou a mensagem para", telefone);
+    console.error("[deby-auto] Evolution nao enviou a mensagem após retentativas para", telefone);
     return;
   }
   const messageId = extractEvolutionMessageId(sent);
@@ -587,6 +598,25 @@ async function callDebyForWhatsApp(input: {
     console.error("[deby-auto] fetch OpenRouter excecao:", err instanceof Error ? err.message : String(err));
     return null;
   }
+}
+
+async function sendEvolutionTextWithRetry(
+  evolutionUrl: string,
+  evolutionKey: string,
+  instanceName: string,
+  telefone: string,
+  text: string,
+  maxRetries = 2
+) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+      console.log(`[deby-auto] retry ${attempt}/${maxRetries} para ${telefone}`);
+    }
+    const result = await sendEvolutionText(evolutionUrl, evolutionKey, instanceName, telefone, text);
+    if (result) return result;
+  }
+  return null;
 }
 
 async function sendEvolutionText(

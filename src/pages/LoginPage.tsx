@@ -4,6 +4,20 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { allowPublicSignup } from "../lib/appConfig";
 
+// Mapeia erros do Supabase para mensagens amigáveis, sem revelar se o e-mail existe
+function mapAuthError(msg: string): string {
+  if (/invalid.?login.?credentials|invalid_credentials/i.test(msg)) {
+    return "E-mail ou senha incorretos.";
+  }
+  if (/email.?not.?confirmed/i.test(msg)) {
+    return "Confirme seu e-mail antes de entrar.";
+  }
+  if (/user.?already.?registered|already.?been.?registered/i.test(msg)) {
+    return "Este e-mail já está cadastrado.";
+  }
+  return "Ocorreu um erro. Tente novamente.";
+}
+
 const inputClass =
   "w-full rounded-2xl border border-border-strong bg-surface px-4 py-2.5 text-sm text-ink outline-none transition-all duration-150 placeholder:text-ink-muted focus:border-blue-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(37,99,235,0.10)]";
 
@@ -45,14 +59,14 @@ export function LoginPage() {
         }
         const result = await registerClinic(email, password, clinicName);
         if (result.error) {
-          setError(result.error);
+          setError(mapAuthError(result.error));
           setFormLoading(false);
           return;
         }
       } else {
         const result = await login(email, password);
         if (result.error) {
-          setError(result.error);
+          setError(mapAuthError(result.error));
           setFormLoading(false);
           return;
         }

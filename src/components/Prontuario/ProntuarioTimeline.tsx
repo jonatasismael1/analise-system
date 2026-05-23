@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { FileText, Plus, Clock, Edit2, Send, X, Loader2, Printer } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Plus, Clock, Edit2, Send, X, Loader2, Printer, ShieldCheck } from "lucide-react";
 import { ProntuarioEditor, type ProntuarioData } from "./ProntuarioEditor";
 import {
   DEFAULT_INSTANCE_NAME,
   sendWhatsAppText
 } from "../../services/quickActionService";
-import { loadProntuarios, saveProntuario } from "../../services/prontuarioService";
+import {
+  fetchProntuarioAccessLogs,
+  loadProntuarios,
+  saveProntuario,
+  type ProntuarioAccessLogEntry,
+} from "../../services/prontuarioService";
+import { useAuth } from "../../contexts/AuthContext";
 import type { Patient, Professional } from "../../types/clinic";
 
 interface ProntuarioTimelineProps {
@@ -142,6 +148,7 @@ function buildReceitaHTML(patient: Patient, professional: Professional | undefin
 }
 
 export function ProntuarioTimeline({ clinicId, patient, professionals }: ProntuarioTimelineProps) {
+  const { role } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editingData, setEditingData] = useState<ProntuarioData | null>(null);
   const [receitaItem, setReceitaItem] = useState<ProntuarioData | null>(null);
@@ -153,6 +160,11 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Histórico de acessos LGPD — visível apenas para admins
+  const [accessLogs, setAccessLogs] = useState<ProntuarioAccessLogEntry[]>([]);
+  const [showAccessLogs, setShowAccessLogs] = useState(false);
+  const [loadingAccessLogs, setLoadingAccessLogs] = useState(false);
 
   const loadHistory = useCallback(async () => {
     setLoading(true);
@@ -226,6 +238,26 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
     if (win) {
       win.document.write(html);
       win.document.close();
+    }
+  }
+
+  /**
+   * Carrega o histórico de acessos ao prontuário (apenas para admins, conforme LGPD).
+   * Acionado ao expandir a seção colapsável.
+   */
+  async function handleToggleAccessLogs() {
+    if (showAccessLogs) {
+      setShowAccessLogs(false);
+      return;
+    }
+    setShowAccessLogs(true);
+    if (accessLogs.length > 0) return; // já carregado
+    setLoadingAccessLogs(true);
+    try {
+      const logs = await fetchProntuarioAccessLogs(clinicId, patient.id, 10);
+      setAccessLogs(logs);
+    } finally {
+      setLoadingAccessLogs(false);
     }
   }
 
@@ -364,6 +396,64 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
           ))
         )}
       </div>
+
+      {/* ── Histórico de acessos LGPD (somente admin) ───────────────────── */}
+      {role === "admin" && (
+        <div className="rounded-xl border border-outline-variant bg-white shadow-sm">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-5 py-3 text-sm font-semibold text-on-surface hover:bg-surface-container-low transition rounded-xl"
+            onClick={() => void handleToggleAccessLogs()}
+          >
+            <div className="flex items-center gap-2 text-secondary">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Histórico de acessos (LGPD)
+            </div>
+            {showAccessLogs ? (
+              <ChevronUp className="h-4 w-4 text-secondary" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-secondary" />
+            )}
+          </button>
+
+          {showAccessLogs && (
+            <div className="border-t border-outline-variant px-5 pb-4">
+              {loadingAccessLogs ? (
+                <div className="flex items-center gap-2 py-4 text-sm text-secondary">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Carregando acessos...
+                </div>
+              ) : accessLogs.length === 0 ? (
+                <p className="py-4 text-sm text-secondary">Nenhum acesso registrado para este paciente.</p>
+              ) : (
+                <table className="mt-3 w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-outline-variant text-left text-xs font-semibold uppercase tracking-wide text-secondary">
+                      <th className="pb-2 pr-4">Data / Hora</th>
+                      <th className="pb-2 pr-4">Acessado por</th>
+                      <th className="pb-2">Perfil</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accessLogs.map((log) => (
+                      <tr key={log.id} className="border-b border-surface-variant last:border-0">
+                        <td className="py-2 pr-4 text-ink-muted">
+                          {new Date(log.created_at).toLocaleString("pt-BR", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </td>
+                        <td className="py-2 pr-4 font-medium text-ink">{log.acessado_por_nome}</td>
+                        <td className="py-2 capitalize text-secondary">{log.role}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Modal de envio de receita ─────────────────────────────────────── */}
       {receitaItem !== null ? (

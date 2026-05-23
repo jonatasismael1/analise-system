@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import {
-  ArrowLeft, Ban, Bot, Calendar, CheckCheck, ChevronDown, FileUp,
+  ArrowLeft, Ban, Bot, Calendar, CheckCheck, CheckCircle2, ChevronDown, FileUp,
   Loader2, MessageCircle, MessageSquarePlus, Mic, MoreVertical, Pause, Pencil, Phone,
-  Play, PlusCircle, RefreshCcw, Search, Send, Sparkles,
+  Play, PlusCircle, QrCode, RefreshCcw, Search, Send, Server, Sparkles,
   StickyNote, Tag, Trash2, UserPlus, UserRound, Users, Wifi, WifiOff, X,
 } from "lucide-react";
 import { askDeby } from "../../../services/debyService";
@@ -1824,16 +1824,97 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
         </div>
       )}
 
-      {connStatus === "connecting" && (
-        <div className="flex min-h-[500px] items-center justify-center">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#25D366]/10">
-              <Loader2 className="h-8 w-8 animate-spin text-[#25D366]" />
+      {(connStatus === "disconnected" || connStatus === "connecting") && (
+        <div className="flex min-h-[500px] items-center justify-center p-8">
+          <div className="w-full max-w-sm">
+            {/* Logo + título */}
+            <div className="mb-6 flex flex-col items-center text-center">
+              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#25D366]/10">
+                <WaLogo className="h-10 w-10" />
+              </div>
+              <h3 className="text-[20px] font-bold text-ink">WhatsApp não conectado</h3>
+              <p className="mt-1.5 text-[13px] text-ink-secondary">Siga os passos para conectar:</p>
             </div>
-            <div>
-              <p className="text-[15px] font-semibold text-ink">Criando conexão...</p>
-              <p className="mt-1 text-[13px] text-ink-secondary">Aguarde enquanto preparamos o QR Code.</p>
+
+            {/* Passos */}
+            <div className="mb-6 space-y-3">
+              {/* Passo 1 */}
+              <div className={`flex items-center gap-4 rounded-2xl border px-4 py-3.5 transition-all ${
+                connStatus === "disconnected"
+                  ? "border-[#25D366]/40 bg-[#25D366]/5"
+                  : "border-border bg-surface-low opacity-50"
+              }`}>
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                  connStatus === "disconnected" ? "bg-[#25D366]/15 text-[#25D366]" : "bg-surface text-ink-muted"
+                }`}>
+                  <Server className="h-4.5 w-4.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-[13px] font-semibold ${connStatus === "disconnected" ? "text-ink" : "text-ink-muted"}`}>
+                    Passo 1 — Criar instância
+                  </p>
+                  <p className="text-[11px] text-ink-muted">Iniciar a conexão com o servidor</p>
+                </div>
+                {connStatus === "disconnected" && (
+                  <button
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[#25D366] px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:bg-[#1ebe5d] active:scale-[0.98] disabled:opacity-60"
+                    onClick={() => void handleConnect()}
+                    disabled={connStatus !== "disconnected"}
+                    type="button"
+                  >
+                    Criar
+                    <ArrowLeft className="h-3 w-3 rotate-180" />
+                  </button>
+                )}
+                {connStatus === "connecting" && (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0 text-[#25D366]" />
+                )}
+              </div>
+
+              {/* Passo 2 */}
+              <div className={`flex items-center gap-4 rounded-2xl border px-4 py-3.5 transition-all ${
+                connStatus === "connecting"
+                  ? "border-warning/40 bg-warning/5"
+                  : "border-border bg-surface-low opacity-40"
+              }`}>
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                  connStatus === "connecting" ? "bg-warning/15 text-warning" : "bg-surface text-ink-muted"
+                }`}>
+                  <QrCode className="h-4.5 w-4.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-[13px] font-semibold ${connStatus === "connecting" ? "text-ink" : "text-ink-muted"}`}>
+                    Passo 2 — Escanear QR Code
+                  </p>
+                  <p className="text-[11px] text-ink-muted">Abra o WhatsApp e leia o código</p>
+                </div>
+              </div>
+
+              {/* Passo 3 */}
+              <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface-low px-4 py-3.5 opacity-40">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-ink-muted">
+                  <CheckCircle2 className="h-4.5 w-4.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-ink-muted">Passo 3 — Conectado!</p>
+                  <p className="text-[11px] text-ink-muted">WhatsApp pronto para uso</p>
+                </div>
+              </div>
             </div>
+
+            {/* Botão tentar novamente */}
+            <button
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-strong py-2.5 text-[13px] font-medium text-ink-secondary transition hover:border-primary hover:text-primary"
+              onClick={() => void checkStatus()}
+              type="button"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Tentar novamente
+            </button>
+
+            <p className="mt-3 text-center font-mono text-[11px] text-ink-muted">
+              Instância: {DEFAULT_INSTANCE_NAME}
+            </p>
           </div>
         </div>
       )}
@@ -1879,32 +1960,6 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
             >
               Gerar novo QR Code
             </button>
-          </div>
-        </div>
-      )}
-
-      {connStatus === "disconnected" && (
-        <div className="flex min-h-[500px] items-center justify-center p-8">
-          <div className="max-w-sm text-center">
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#25D366]/10">
-              <WaLogo className="h-10 w-10" />
-            </div>
-            <h3 className="text-[20px] font-bold text-ink">Conecte o WhatsApp</h3>
-            <p className="mt-3 text-[13px] leading-relaxed text-ink-secondary">
-              Clique no botão abaixo para conectar o WhatsApp da clínica.<br />
-              Um QR Code será gerado para você escanear.
-            </p>
-            <button
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] py-3 text-[13.5px] font-bold text-white shadow-sm transition hover:bg-[#1ebe5d] active:scale-[0.98]"
-              onClick={() => void handleConnect()}
-              type="button"
-            >
-              <Wifi className="h-5 w-5" />
-              Conectar WhatsApp
-            </button>
-            <p className="mt-3 font-mono text-[11px] text-ink-muted">
-              Instância: {DEFAULT_INSTANCE_NAME}
-            </p>
           </div>
         </div>
       )}

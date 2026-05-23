@@ -12,8 +12,6 @@ interface ProntuarioRow {
   atualizado_em: string;
 }
 
-type ProntuarioAction = "acesso" | "salvar";
-
 function mapProntuarioRow(row: ProntuarioRow): ProntuarioData {
   return {
     id: row.id,
@@ -27,31 +25,57 @@ function mapProntuarioRow(row: ProntuarioRow): ProntuarioData {
   };
 }
 
-async function getCurrentUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
+export interface ProntuarioAccessLogEntry {
+  id: string;
+  clinica_id: string;
+  paciente_id: string;
+  acessado_por: string;
+  acessado_por_nome: string;
+  role: string;
+  created_at: string;
 }
 
-export async function logProntuarioAccess(
-  clinicId: string,
-  prontuarioId: string,
-  acao: ProntuarioAction
-): Promise<void> {
+/**
+ * Registra o acesso a um prontuário para fins de conformidade com a LGPD.
+ * Fire-and-forget: erros são silenciados para não impactar a UI.
+ */
+export async function logProntuarioAccess(params: {
+  clinicaId: string;
+  pacienteId: string;
+  acessadoPor: string;      // user_id (UUID do auth)
+  acessadoPorNome: string;  // nome exibido do usuário
+  role: string;
+}): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
-    const { error } = await supabase.from("prontuario_acessos").insert({
-      clinica_id: clinicId,
-      prontuario_id: prontuarioId,
-      user_id: userId,
-      acao
+    await supabase.from("prontuario_access_logs").insert({
+      clinica_id: params.clinicaId,
+      paciente_id: params.pacienteId,
+      acessado_por: params.acessadoPor,
+      acessado_por_nome: params.acessadoPorNome,
+      role: params.role,
     });
-
-    if (error) {
-      console.warn("Nao foi possivel registrar acesso ao prontuario.", error);
-    }
-  } catch (error) {
-    console.warn("Nao foi possivel registrar acesso ao prontuario.", error);
+    // Erros são ignorados silenciosamente — o log nunca deve quebrar a UI
+  } catch {
+    // Silencioso intencional
   }
+}
+
+/**
+ * Busca os últimos N acessos ao prontuário de um paciente (para admins).
+ */
+export async function fetchProntuarioAccessLogs(
+  clinicaId: string,
+  pacienteId: string,
+  limit = 10
+): Promise<ProntuarioAccessLogEntry[]> {
+  const { data } = await supabase
+    .from("prontuario_access_logs")
+    .select("*")
+    .eq("clinica_id", clinicaId)
+    .eq("paciente_id", pacienteId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as ProntuarioAccessLogEntry[];
 }
 
 export async function loadProntuarios(clinicId: string, patientId: string): Promise<ProntuarioData[]> {
@@ -67,7 +91,6 @@ export async function loadProntuarios(clinicId: string, patientId: string): Prom
   }
 
   const records = ((data ?? []) as ProntuarioRow[]).map(mapProntuarioRow);
-  void Promise.all(records.map((record) => logProntuarioAccess(clinicId, record.id!, "acesso")));
   return records;
 }
 
@@ -110,6 +133,5 @@ export async function saveProntuario(
   }
 
   const record = mapProntuarioRow(data as ProntuarioRow);
-  await logProntuarioAccess(clinicId, record.id!, "salvar");
   return record;
 }

@@ -12,6 +12,8 @@ import {
   DEFAULT_INSTANCE_NAME,
   sendWhatsAppText
 } from "../../../services/quickActionService";
+import { logProntuarioAccess } from "../../../services/prontuarioService";
+import { useAuth } from "../../../contexts/AuthContext";
 import type { Patient, PatientProgramMembership, Professional, UserRole } from "../../../types/clinic";
 import type { ProgramaDesconto } from "./DiscountProgramsPanel";
 import { Field, inputClass } from "../components/Field";
@@ -155,6 +157,7 @@ export function PatientsPanel({
   readonly onAnonymize?: (id: string) => Promise<void>;
   readonly role?: UserRole;
 }) {
+  const { user, profile, role: authRole } = useAuth();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [detailPatient, setDetailPatient] = useState<Patient | null>(null);
   const [form, setForm] = useState<PatientForm>(() => blankPatient(professionals[0]?.id ?? null));
@@ -162,6 +165,26 @@ export function PatientsPanel({
   const [filters, setFilters] = useState({ search: "", status: "todos", professionalId: "todos" });
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
+
+  /**
+   * Abre o prontuário de um paciente e registra o acesso para conformidade com a LGPD.
+   * O log é fire-and-forget: falhas são silenciadas e não bloqueiam a navegação.
+   */
+  function openProntuario(patient: Patient) {
+    setSelectedPatient(patient);
+    const userId = user?.id;
+    const userName = profile?.nome ?? user?.email ?? "Usuário desconhecido";
+    const userRole = authRole ?? role ?? "desconhecido";
+    if (userId) {
+      void logProntuarioAccess({
+        clinicaId: clinicId,
+        pacienteId: patient.id,
+        acessadoPor: userId,
+        acessadoPorNome: userName,
+        role: userRole,
+      });
+    }
+  }
 
   function updateFilter(next: Partial<typeof filters>) {
     setFilters((prev) => ({ ...prev, ...next }));
@@ -353,7 +376,7 @@ export function PatientsPanel({
               <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                 <button
                   className="mr-2 rounded border border-outline-variant px-2 py-1 text-xs transition hover:border-primary hover:text-primary"
-                  onClick={() => setSelectedPatient(patient)}
+                  onClick={() => openProntuario(patient)}
                   type="button"
                 >
                   Prontuário
@@ -623,7 +646,7 @@ export function PatientsPanel({
               <button
                 className="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant hover:border-primary hover:text-primary"
                 type="button"
-                onClick={() => { setSelectedPatient(detailPatient); setDetailPatient(null); }}
+                onClick={() => { openProntuario(detailPatient); setDetailPatient(null); }}
               >
                 Prontuário
               </button>
