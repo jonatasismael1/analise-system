@@ -63,10 +63,22 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
     recognitionRef.current = null;
   }
 
+  // ── Append de-duplicado ────────────────────────────────────────────────────
+  // Chrome Android às vezes re-processa o último áudio em buffer ao reiniciar
+  // uma nova instância, re-entregando o mesmo texto como "final".
+  // Evitamos isso descartando qualquer texto que já esteja no final do acumulado.
+  function appendFinalText(text: string) {
+    const normalized = text.trim();
+    if (!normalized) return;
+    if (accumulatedRef.current.endsWith(normalized)) return; // replay guard
+    const sep = accumulatedRef.current === "" ? "" : " ";
+    accumulatedRef.current += sep + normalized;
+    setFinalText(accumulatedRef.current);
+  }
+
   // ── Cria nova instância e inicia — SEMPRE nova instância no restart ─────────
-  // Chrome Android tem quirk: reusar a mesma instância após onend faz o browser
-  // re-processar áudio em buffer e re-disparar resultados já finalizados,
-  // causando a duplicação. A solução é criar nova instância a cada restart.
+  // continuous: false → Chrome processa um utterance por vez e para limpo.
+  // Isso elimina o buffer-replay que causava duplicação no Android.
   function createAndStart(sessionId: number) {
     if (!SpeechAPI || !isRecordingRef.current) return;
 
@@ -75,15 +87,12 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
     const rec = new SpeechAPI();
     recognitionRef.current = rec;
 
-    rec.lang           = "pt-BR";
-    rec.continuous     = true;
-    rec.interimResults = true;
+    rec.lang            = "pt-BR";
+    rec.continuous      = false; // uma frase por vez — sem replay de buffer
+    rec.interimResults  = true;
     rec.maxAlternatives = 1;
 
     // ── onresult ─────────────────────────────────────────────────────────────
-    // CRÍTICO: iterar a partir de event.resultIndex, não de 0.
-    // event.resultIndex aponta o primeiro resultado NOVO neste evento.
-    // Iterar desde 0 é a causa mais comum de duplicação.
     rec.onresult = (event: any) => {
       if (sessionId !== sessionIdRef.current) return; // sessão obsoleta
 
@@ -92,10 +101,7 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
         const result = event.results[i];
         const text: string = result[0].transcript;
         if (result.isFinal) {
-          // Adiciona espaço separador apenas se o acumulado não terminar em espaço
-          const sep = accumulatedRef.current.endsWith(" ") || accumulatedRef.current === "" ? "" : " ";
-          accumulatedRef.current += sep + text.trim();
-          setFinalText(accumulatedRef.current);
+          appendFinalText(text);
         } else {
           interim += text;
         }
@@ -111,33 +117,33 @@ export function ConsultationListener({ clinicId, patient, currentUserId, current
         isRecordingRef.current = false;
         setStep("paused");
       }
-      // "no-speech" e "aborted" são ignorados — onend cuidará do restart
+      // "no-speech" e "aborted" → onend vai reiniciar
     };
 
     // ── onend ────────────────────────────────────────────────────────────────
-    // Chrome Android encerra a sessão silenciosamente com mais frequência do
-    // que o desktop. Auto-restart SEMPRE com nova instância.
+    // Com continuous:false, onend dispara após cada utterance.
+    // Reiniciamos com nova instância para evitar qualquer estado residual.
     rec.onend = () => {
       if (sessionId !== sessionIdRef.current) return;
       setInterimText("");
       if (!isRecordingRef.current) return;
 
-      // Nova sessão → novo ID → nova instância
       const nextId = sessionId + 1;
       sessionIdRef.current = nextId;
 
-      // Pequeno delay para evitar loop de restart imediato no Android
+      // 600ms de pausa antes de reiniciar — dá tempo para o buffer de áudio
+      // do Chrome ser liberado e evita restart em loop rápido no Android
       setTimeout(() => {
         if (isRecordingRef.current && sessionIdRef.current === nextId) {
           createAndStart(nextId);
         }
-      }, 300);
+      }, 600);
     };
 
     try {
       rec.start();
     } catch {
-      // Se já estava iniciando (race condition), ignora
+      // Race condition na inicialização — ignora
     }
   }
 

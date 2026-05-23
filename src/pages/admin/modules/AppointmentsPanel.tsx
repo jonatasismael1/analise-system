@@ -307,7 +307,9 @@ export function AppointmentsPanel({
       const [hour, minute] = drawerForm.horario.split(":").map(Number);
       const startDate = new Date(year, month - 1, day, hour, minute);
       const durationMin = services.find((s) => s.id === drawerForm.servicoId)?.duracaoMin ?? 60;
-      const endDate = new Date(startDate.getTime() + (durationMin + 30) * 60 * 1000);
+      const appointmentEndMs = startDate.getTime() + (durationMin + 30) * 60 * 1000;
+      // Whereby exige endDate no futuro — se o agendamento já passou, usa agora + 31 min
+      const endDate = new Date(Math.max(appointmentEndMs, Date.now() + 31 * 60 * 1000));
 
       const professionalId = professionals.find((p) => p.id === drawerForm.profissionalId)?.id ?? null;
 
