@@ -15,6 +15,7 @@ import {
   Plus,
   RefreshCw,
   Trash2,
+  User,
   Video,
   X,
 } from "lucide-react";
@@ -209,6 +210,9 @@ export function AppointmentsPanel({
   const [instName, setInstName] = useState(DEFAULT_INSTANCE_NAME);
   // Cache em memória: evita re-buscar do banco ao fechar e reabrir o drawer
   const teleCache = useRef<Map<string, TeleconsultaData>>(new Map());
+
+  // Modal de dados do paciente/agendamento
+  const [patientModal, setPatientModal] = useState<{ appointment: Appointment; patient: Patient | null } | null>(null);
 
   useEffect(() => {
     supabase
@@ -699,7 +703,16 @@ export function AppointmentsPanel({
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-ink">{appointment.pacienteNome}</p>
+                        <button
+                          type="button"
+                          className="text-left transition hover:text-primary"
+                          onClick={() => setPatientModal({
+                            appointment,
+                            patient: patients.find((p) => p.id === appointment.pacienteId) ?? null,
+                          })}
+                        >
+                          <p className="font-medium text-ink hover:text-primary">{appointment.pacienteNome}</p>
+                        </button>
                         {appointment.pacienteId && (
                           <ProgramBadge
                             membership={memberships.find((m) => m.patientId === appointment.pacienteId) ?? null}
@@ -782,6 +795,143 @@ export function AppointmentsPanel({
           professionals={professionals}
           onClickAppointment={openEdit}
         />
+      )}
+
+      {/* ── Modal de dados do paciente/agendamento ─────────────────────────── */}
+      {patientModal && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setPatientModal(null)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md overflow-hidden rounded-3xl border border-border bg-white shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                <div className="flex items-center gap-3">
+                  {patientModal.patient?.fotoUrl ? (
+                    <img src={patientModal.patient.fotoUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Paciente</p>
+                    <h2 className="text-base font-semibold text-ink">{patientModal.appointment.pacienteNome}</h2>
+                  </div>
+                </div>
+                <button
+                  className="rounded-xl p-2 text-ink-muted transition hover:bg-surface-low hover:text-ink"
+                  type="button"
+                  onClick={() => setPatientModal(null)}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="max-h-[65vh] overflow-y-auto p-5 space-y-4">
+                {/* Dados cadastrais */}
+                {patientModal.patient ? (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">Dados cadastrais</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                      {[
+                        { label: "CPF", value: patientModal.patient.cpf },
+                        { label: "WhatsApp", value: patientModal.patient.whatsapp },
+                        { label: "E-mail", value: patientModal.patient.email },
+                        { label: "Nascimento", value: patientModal.patient.dataNascimento
+                          ? new Date(`${patientModal.patient.dataNascimento}T12:00:00`).toLocaleDateString("pt-BR")
+                          : null },
+                        { label: "Convênio", value: patientModal.patient.convenio },
+                        { label: "Status", value: patientModal.patient.status === "ativo"
+                          ? "Ativo"
+                          : patientModal.patient.status === "inativo"
+                          ? "Inativo"
+                          : "Retorno pendente" },
+                      ].filter((item): item is { label: string; value: string } => Boolean(item.value)).map(({ label, value }) => (
+                        <div key={label}>
+                          <p className="text-[10px] font-semibold text-ink-muted">{label}</p>
+                          <p className="mt-0.5 text-sm text-ink">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {patientModal.patient.endereco && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-ink-muted">Endereço</p>
+                        <p className="mt-0.5 text-sm text-ink">{patientModal.patient.endereco}</p>
+                      </div>
+                    )}
+                    {patientModal.patient.observacoes && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-ink-muted">Observações</p>
+                        <p className="mt-0.5 text-sm text-ink">{patientModal.patient.observacoes}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm italic text-ink-muted">Paciente avulso — sem cadastro no sistema.</p>
+                )}
+
+                {/* Dados do agendamento */}
+                <div className="space-y-3 rounded-2xl border border-border-divider bg-surface-low p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">Agendamento</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <p className="text-[10px] font-semibold text-ink-muted">Data</p>
+                      <p className="mt-0.5 text-sm text-ink">
+                        {new Date(`${patientModal.appointment.data}T12:00:00`).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-ink-muted">Horário</p>
+                      <p className="mt-0.5 font-mono text-sm text-ink">{patientModal.appointment.horario}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-ink-muted">Profissional</p>
+                      <p className="mt-0.5 text-sm text-ink">{patientModal.appointment.profissional}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-ink-muted">Serviço</p>
+                      <p className="mt-0.5 text-sm text-ink">{patientModal.appointment.servico || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-ink-muted">Tipo</p>
+                      <p className="mt-0.5 text-sm capitalize text-ink">
+                        {patientModal.appointment.tipoAtendimento ?? "presencial"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-ink-muted">Status</p>
+                      <div className="mt-0.5">
+                        <ApptStatus status={patientModal.appointment.status} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between border-t border-border px-5 py-4">
+                <button
+                  className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink-secondary transition hover:bg-surface-low"
+                  type="button"
+                  onClick={() => setPatientModal(null)}
+                >
+                  Fechar
+                </button>
+                <button
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
+                  type="button"
+                  onClick={() => { setPatientModal(null); openEdit(patientModal.appointment); }}
+                >
+                  Editar agendamento
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Drawer ─────────────────────────────────────────────────────────── */}
