@@ -28,6 +28,7 @@ import {
   type TeleconsultaData,
 } from "../../../services/teleconsultaService";
 import { DEFAULT_INSTANCE_NAME, sendWhatsAppText } from "../../../services/quickActionService";
+import { checkAvailability, loadClinicSchedules, type ProfessionalSchedule } from "../../../services/professionalScheduleService";
 import { supabase } from "../../../lib/supabaseClient";
 import type { UserRole } from "../../../types/clinic";
 import { ClinicCalendar } from "../components/ClinicCalendar";
@@ -214,6 +215,9 @@ export function AppointmentsPanel({
   // Modal de dados do paciente/agendamento
   const [patientModal, setPatientModal] = useState<{ appointment: Appointment; patient: Patient | null } | null>(null);
 
+  // Horários de disponibilidade dos profissionais
+  const [clinicSchedules, setClinicSchedules] = useState<ProfessionalSchedule[]>([]);
+
   useEffect(() => {
     supabase
       .from("whatsapp_instances")
@@ -223,6 +227,11 @@ export function AppointmentsPanel({
       .limit(1)
       .single()
       .then(({ data }) => { if (data?.instance_name) setInstName(data.instance_name); });
+  }, [clinicId]);
+
+  // Carrega horários de todos os profissionais da clínica para verificação de disponibilidade
+  useEffect(() => {
+    loadClinicSchedules(clinicId).then(setClinicSchedules).catch(() => {});
   }, [clinicId]);
 
   // Pré-carrega teleconsultas de todos os agendamentos tipo "teleconsulta"
@@ -1045,14 +1054,31 @@ export function AppointmentsPanel({
                         {services.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
                       </select>
                     </Field>
-                    <Field label="Data *">
-                      <input
-                        className={inputClass()}
-                        type="date"
-                        value={drawerForm.data}
-                        onChange={(e) => setDrawerForm({ ...drawerForm, data: e.target.value })}
-                      />
-                    </Field>
+                    <div>
+                      <Field label="Data *">
+                        <input
+                          className={inputClass()}
+                          type="date"
+                          value={drawerForm.data}
+                          onChange={(e) => setDrawerForm({ ...drawerForm, data: e.target.value })}
+                        />
+                      </Field>
+                      {/* Aviso de disponibilidade do profissional */}
+                      {drawerForm.data && drawerForm.profissionalId && (() => {
+                        const available = checkAvailability(drawerForm.data, drawerForm.profissionalId, clinicSchedules);
+                        if (available === null) return null; // sem horários cadastrados = sem restrição
+                        if (available) return (
+                          <p className="mt-1 text-[11px] font-medium text-emerald-600">
+                            ✓ Profissional tem agenda neste dia.
+                          </p>
+                        );
+                        return (
+                          <p className="mt-1 text-[11px] font-medium text-amber-600">
+                            ⚠ Este profissional normalmente não atende neste dia. Confirme antes de salvar.
+                          </p>
+                        );
+                      })()}
+                    </div>
                     <Field label="Horário *">
                       <input
                         className={inputClass()}
