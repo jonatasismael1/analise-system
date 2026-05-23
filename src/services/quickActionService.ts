@@ -98,9 +98,17 @@ export async function setInstanceWebhook(instanceName: string, clinicId: string)
   await callQuickAction({ action: "set_webhook", instanceName, webhookUrl });
 }
 
+// Garante formato E.164 para o Brasil: adiciona "55" se ainda não estiver presente.
+// Aceita qualquer entrada (com ou sem máscara) e não duplica o prefixo.
+function normalizePhoneBR(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("55") && digits.length >= 12) return digits;
+  return "55" + digits;
+}
+
 // Retorna o wamid (ID da mensagem no WhatsApp) para deduplicação com o webhook
 export async function sendWhatsAppText(instanceName: string, phone: string, text: string): Promise<string | null> {
-  const data = await callQuickAction<Record<string, unknown>>({ action: "send_text", instanceName, number: phone, text });
+  const data = await callQuickAction<Record<string, unknown>>({ action: "send_text", instanceName, number: normalizePhoneBR(phone), text });
   const wamid = (data as any)?.key?.id ?? null;
   return typeof wamid === "string" ? wamid : null;
 }
@@ -117,7 +125,7 @@ export async function sendWhatsAppMedia(input: {
   const data = await callQuickAction<Record<string, unknown>>({
     action: "send_media",
     instanceName: input.instanceName,
-    number: input.phone,
+    number: normalizePhoneBR(input.phone),
     mediaUrl: input.mediaUrl,
     mediaType: input.mediaType,
     caption: input.caption ?? "",
