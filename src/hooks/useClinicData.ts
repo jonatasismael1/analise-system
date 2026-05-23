@@ -55,6 +55,7 @@ function mapPatient(row: PatientRow): Patient {
     valorTotalGasto: Number(row.valor_total_gasto),
     observacoes: row.observacoes,
     fotoUrl: (row as Record<string, unknown>).foto_url as string | null ?? null,
+    convenio: (row as Record<string, unknown>).convenio as string | null ?? null,
   };
 }
 

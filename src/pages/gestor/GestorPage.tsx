@@ -7,6 +7,7 @@ import {
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../lib/toast";
+import { createInstance, setInstanceWebhook } from "../../services/quickActionService";
 import type { Database } from "../../types/database";
 
 type Clinic = Database["public"]["Tables"]["clinicas"]["Row"];
@@ -36,13 +37,16 @@ export function GestorPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingClinic, setEditingClinic] = useState<ClinicSummary | null>(null);
 
-  if (!authLoading && !isSuperAdmin) {
-    return <Navigate to="/login" replace />;
-  }
-
+  // O carregamento das clínicas precisa ficar ANTES de qualquer retorno condicional.
+  // Caso contrário, o early-return abaixo faria o useEffect ser chamado de forma
+  // inconsistente entre renders, violando as Rules of Hooks do React.
   useEffect(() => {
     void loadClinics();
   }, []);
+
+  if (!authLoading && !isSuperAdmin) {
+    return <Navigate to="/login" replace />;
+  }
 
   async function loadClinics() {
     setLoading(true);
@@ -220,6 +224,25 @@ function NewClinicModal({ onClose, onCreated }: { onClose: () => void; onCreated
       });
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
+
+      // Auto-criar instância Evolution para a nova clínica
+      const clinicaId = data?.clinicaId as string | undefined;
+      if (clinicaId) {
+        const instanceName = `clinica-${clinicaId.replace(/-/g, "").slice(0, 12)}`;
+        try {
+          await createInstance(instanceName);
+          await setInstanceWebhook(instanceName, clinicaId);
+          await supabase.from("whatsapp_instances").insert({
+            clinic_id: clinicaId,
+            instance_name: instanceName,
+            status: "close",
+            raw_payload: {},
+          });
+        } catch {
+          // Falha silenciosa — admin pode conectar manualmente pelo painel WhatsApp
+        }
+      }
+
       toast.success(`Clínica "${clinicaNome}" criada com sucesso!`);
       onCreated();
     } catch (err: any) {

@@ -3,6 +3,7 @@ import { Bot, ChevronDown, ChevronUp, FileText, Plus, Clock, Edit2, Send, X, Loa
 import { ProntuarioEditor, type ProntuarioData } from "./ProntuarioEditor";
 import { ConsultationListener, type DraftResult } from "./ConsultationListener";
 import { ConsultationDraft, draftToProntuarioData } from "./ConsultationDraft";
+import { SignedImage } from "../ui/SignedImage";
 import {
   DEFAULT_INSTANCE_NAME,
   sendWhatsAppText
@@ -397,15 +398,14 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
                       </span>
                       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                         {item.imagens.map((url, i) => (
-                          <a
+                          <SignedImage
                             key={url}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="aspect-square overflow-hidden rounded-lg border border-surface-variant transition hover:opacity-80"
-                          >
-                            <img src={url} alt={`Imagem ${i + 1}`} className="h-full w-full object-cover" />
-                          </a>
+                            bucket="prontuarios"
+                            source={url}
+                            alt={`Imagem ${i + 1}`}
+                            linkClassName="block aspect-square overflow-hidden rounded-lg border border-surface-variant transition hover:opacity-80"
+                            imgClassName="h-full w-full object-cover"
+                          />
                         ))}
                       </div>
                     </div>

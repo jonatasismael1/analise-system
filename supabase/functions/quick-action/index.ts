@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -11,6 +13,64 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
+/**
+ * Garante que quem está chamando o gateway do WhatsApp é um usuário autenticado
+ * e membro (equipe) de alguma clínica. Retorna uma Response de erro quando o
+ * acesso deve ser negado, ou null quando está liberado.
+ *
+ * Observação: o frontend chama esta função via supabase.functions.invoke, que
+ * envia o JWT do usuário no header Authorization automaticamente — portanto a
+ * adição desta verificação NÃO quebra o fluxo atual da equipe.
+ */
+async function denyIfNotStaff(req: Request): Promise<Response | null> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    return jsonResponse({ ok: false, error: "Configuração de autenticação ausente no servidor." }, 500);
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader) return jsonResponse({ ok: false, error: "Não autenticado." }, 401);
+
+  // Valida o token do usuário
+  const supabaseUser = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: userData, error: userError } = await supabaseUser.auth.getUser();
+  if (userError || !userData.user) return jsonResponse({ ok: false, error: "Não autenticado." }, 401);
+
+  const userId = userData.user.id;
+
+  // Verifica vínculo com clínica usando service role (ignora RLS apenas para a checagem)
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  // Dono de alguma clínica?
+  const { data: ownedClinic } = await supabaseAdmin
+    .from("clinicas")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  if (ownedClinic) return null;
+
+  // Ou membro ativo (equipe) de alguma clínica?
+  const { data: staff } = await supabaseAdmin
+    .from("usuarios")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("ativo", true)
+    .limit(1)
+    .maybeSingle();
+  if (staff) return null;
+
+  return jsonResponse({ ok: false, error: "Acesso restrito à equipe da clínica." }, 403);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -18,6 +78,10 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return jsonResponse({ ok: false, error: "Use POST." }, 405);
   }
+
+  // Gate de autenticação/autorização antes de qualquer chamada à Evolution API
+  const authDenied = await denyIfNotStaff(req);
+  if (authDenied) return authDenied;
 
   const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
   const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");

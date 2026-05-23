@@ -29,7 +29,7 @@ import { ProfilePanel } from "./ProfilePanel";
 const iconByModule: Record<string, React.ComponentType<{ className?: string }>> = {
   Dashboard: LayoutDashboard,
   Profissionais: Stethoscope,
-  "Serviços": Activity,
+  "Procedimentos": Activity,
   Agendamentos: CalendarDays,
   Pacientes: Users,
   Leads: UserSearch,
@@ -39,7 +39,7 @@ const iconByModule: Record<string, React.ComponentType<{ className?: string }>> 
   Orçamentos: FileText,
   Caixa: HandCoins,
   Financeiro: CreditCard,
-  "Programas de Descontos": Percent,
+  "Programas de Vantagens": Percent,
   Relatórios: BarChart3,
   Acessos: KeyRound,
 };

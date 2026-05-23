@@ -26,7 +26,7 @@ export function ServicesPanel({ services, professionals, onSave, onDelete, canMa
   });
 
   return (
-    <SectionCard title="Serviços" description="Procedimentos e consultas oferecidos pela clínica.">
+    <SectionCard title="Procedimentos" description="Procedimentos e consultas oferecidos pela clínica.">
       <div className="mb-4 grid gap-3 md:grid-cols-[1fr_240px]">
         <Field label="Filtrar serviços">
           <input className={inputClass()} placeholder="Nome ou profissional" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} />

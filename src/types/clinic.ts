@@ -56,6 +56,7 @@ export interface Patient {
   kanbanStage?: "novo" | "agendado" | "atendido" | "retorno" | "faltou" | "inativo" | null;
   observacoes?: string | null;
   fotoUrl?: string | null;
+  convenio?: string | null;
 }
 
 export type UserRole = "admin" | "profissional" | "secretaria";

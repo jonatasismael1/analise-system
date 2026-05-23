@@ -57,7 +57,8 @@ function blankPatient(professionalId?: string | null): PatientForm {
     status: "ativo",
     valorTotalGasto: 0,
     profissionalId: professionalId ?? null,
-    observacoes: ""
+    observacoes: "",
+    convenio: ""
   };
 }
 
@@ -103,6 +104,7 @@ function patientPayload(form: PatientForm): Patient {
     kanbanStage: form.kanbanStage ?? null,
     observacoes: form.observacoes || null,
     fotoUrl: form.fotoUrl ?? null,
+    convenio: form.convenio || null,
   };
 }
 
@@ -472,6 +474,7 @@ export function PatientsPanel({
                   </select>
                 </Field>
                 <Field label="Valor total"><input className={inputClass()} type="number" value={form.valorTotalGasto} onChange={(e) => setForm({ ...form, valorTotalGasto: Number(e.target.value) })} /></Field>
+                <Field label="Convênio"><input className={inputClass()} placeholder="Ex: Unimed, Indicação, Particular" value={form.convenio ?? ""} onChange={(e) => setForm({ ...form, convenio: e.target.value })} /></Field>
                 <Field label="Observações"><input className={inputClass()} value={form.observacoes ?? ""} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></Field>
               </div>
 
@@ -608,6 +611,12 @@ export function PatientsPanel({
                     <div className="flex justify-between">
                       <span className="text-secondary">Fase</span>
                       <span className="text-ink">{KANBAN_LABEL[detailPatient.kanbanStage] ?? detailPatient.kanbanStage}</span>
+                    </div>
+                  )}
+                  {detailPatient.convenio && (
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Convênio</span>
+                      <span className="text-ink">{detailPatient.convenio}</span>
                     </div>
                   )}
                 </div>

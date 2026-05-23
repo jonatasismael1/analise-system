@@ -273,7 +273,7 @@ export function OrcamentosPanel({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-secondary">Gere orçamentos profissionais para pacientes com serviços individuais ou Programas de Descontos.</p>
+        <p className="text-sm text-secondary">Gere orçamentos profissionais para pacientes com serviços individuais ou Programas de Vantagens.</p>
         <button className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark" type="button" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           Novo orçamento

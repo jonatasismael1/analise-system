@@ -371,7 +371,7 @@ export function PatientProgramSection({
           ) : programas.length === 0 ? (
             <p className="text-sm text-ink-muted">
               Nenhum programa cadastrado ainda. Acesse{" "}
-              <span className="font-medium text-ink">Programas de Descontos</span>{" "}
+              <span className="font-medium text-ink">Programas de Vantagens</span>{" "}
               no menu para criar o primeiro.
             </p>
           ) : (

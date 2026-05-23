@@ -18,6 +18,7 @@ export function savePatientRecord(clinicId: string, values: Patient & { id?: str
     valor_total_gasto: values.valorTotalGasto,
     observacoes: values.observacoes ?? null,
     foto_url: values.fotoUrl ?? null,
+    convenio: values.convenio ?? null,
   };
 
   return values.id ? supabase.from("pacientes").update(payload).eq("id", values.id) : supabase.from("pacientes").insert(payload);

@@ -1116,6 +1116,8 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
   const [connStatus, setConnStatus] = useState<ConnStatus>("checking");
   const [qr, setQr] = useState<{ code: string; b64: string | null } | null>(null);
   const [notice, setNotice] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
+  // Nome da instância Evolution desta clínica (carregado do banco; fallback para a instância global)
+  const [instName, setInstName] = useState(DEFAULT_INSTANCE_NAME);
 
   // ── Dados ────────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
@@ -1191,6 +1193,20 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
     [conversations]
   );
 
+  // Carrega a instância Evolution específica desta clínica
+  useEffect(() => {
+    supabase
+      .from("whatsapp_instances")
+      .select("instance_name")
+      .eq("clinic_id", clinicId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.instance_name) setInstName(data.instance_name);
+      });
+  }, [clinicId]);
+
   // ── Loaders ──────────────────────────────────────────────────────────────────
 
   const loadInboxData = useCallback(async () => {
@@ -1201,7 +1217,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
         loadAiAgents(clinicId).catch(() => [] as AiAgent[]),
         loadLeads(clinicId).catch(() => [] as Lead[]),
         loadLeadStages(clinicId).catch(() => [] as LeadStage[]),
-        loadWhatsAppContacts(clinicId, DEFAULT_INSTANCE_NAME).catch(() => [] as WhatsAppContactRecord[]),
+        loadWhatsAppContacts(clinicId, instName).catch(() => [] as WhatsAppContactRecord[]),
       ]);
       setConversations(convs);
       setAgents(agts);
@@ -1212,13 +1228,13 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
     } finally {
       setConvsLoading(false);
     }
-  }, [clinicId]);
+  }, [clinicId, instName]);
 
   // ── Status inicial ────────────────────────────────────────────────────────────
 
   const checkStatus = useCallback(async () => {
     try {
-      const state = await getInstanceStatus(DEFAULT_INSTANCE_NAME);
+      const state = await getInstanceStatus(instName);
       if (state === "open") {
         stopQrPoll();
         setQr(null);
@@ -1230,7 +1246,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
     } catch {
       setConnStatus("disconnected");
     }
-  }, [loadInboxData]);
+  }, [loadInboxData, instName]);
 
   useEffect(() => {
     void checkStatus();
@@ -1370,7 +1386,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
     if (c.profilePicUrl) return; // já tem foto
 
     const phone = c.phone.replace(/\D/g, "");
-    fetchContactProfilePicture(DEFAULT_INSTANCE_NAME, phone)
+    fetchContactProfilePicture(instName, phone)
       .then(url => {
         if (!url) return;
         // Persiste no banco
@@ -1403,7 +1419,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
     stopQrPoll();
     qrPollRef.current = setInterval(async () => {
       try {
-        const state = await getInstanceStatus(DEFAULT_INSTANCE_NAME);
+        const state = await getInstanceStatus(instName);
         if (state === "open") {
           stopQrPoll();
           setQr(null);
@@ -1420,9 +1436,9 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
     setConnStatus("connecting");
     setNotice(null);
     try {
-      await createInstance(DEFAULT_INSTANCE_NAME).catch(() => null);
-      setInstanceWebhook(DEFAULT_INSTANCE_NAME, clinicId).catch(() => null);
-      const result = await connectInstance(DEFAULT_INSTANCE_NAME);
+      await createInstance(instName).catch(() => null);
+      setInstanceWebhook(instName, clinicId).catch(() => null);
+      const result = await connectInstance(instName);
       const code = result.base64 || result.code;
       if (code) {
         setQr({ code, b64: result.base64 });
@@ -1440,7 +1456,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
   async function handleDisconnect() {
     if (!window.confirm("Desconectar o WhatsApp da clínica?")) return;
     stopQrPoll(); stopMsgPoll();
-    try { await logoutInstance(DEFAULT_INSTANCE_NAME); } catch { /* ignora */ }
+    try { await logoutInstance(instName); } catch { /* ignora */ }
     setQr(null);
     setConnStatus("disconnected");
     setConversations([]);
@@ -1471,13 +1487,13 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
           : "document";
         textoEnviado = reply.trim() || `[${mediaType}]`;
         wamid = await sendWhatsAppMedia({
-          instanceName: DEFAULT_INSTANCE_NAME, phone,
+          instanceName: instName, phone,
           mediaUrl: uploadedMediaUrl, mediaType,
           caption: reply.trim(), fileName: file.name,
           mimeType: file.type || "application/octet-stream",
         });
       } else {
-        wamid = await sendWhatsAppText(DEFAULT_INSTANCE_NAME, phone, textoEnviado);
+        wamid = await sendWhatsAppText(instName, phone, textoEnviado);
       }
 
       const { data: inserted, error: insertErr } = await supabase
@@ -1657,7 +1673,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
       const chatId = `${selected.contact.phone.replace(/\D/g, "")}@s.whatsapp.net`;
       await deleteWhatsAppMessage({
         clinicId, messageId: msg.id, wahaMessageId: msg.wahaMessageId,
-        instanceName: DEFAULT_INSTANCE_NAME, chatId, forEveryone,
+        instanceName: instName, chatId, forEveryone,
       });
     } catch (e) {
       setMessages(prev =>
@@ -1677,7 +1693,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
       const chatId = `${selected.contact.phone.replace(/\D/g, "")}@s.whatsapp.net`;
       await editWhatsAppMessage({
         clinicId, messageId: msg.id, wahaMessageId: msg.wahaMessageId,
-        instanceName: DEFAULT_INSTANCE_NAME, chatId, newText, oldText,
+        instanceName: instName, chatId, newText, oldText,
       });
     } catch (e) {
       setMessages(prev =>
@@ -1708,7 +1724,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
         telefone: newConvForm.telefone.trim(),
       });
       await handleStartConversation(contact);
-      const ctts = await loadWhatsAppContacts(clinicId, DEFAULT_INSTANCE_NAME);
+      const ctts = await loadWhatsAppContacts(clinicId, instName);
       setContacts(ctts);
       setShowNewConvModal(false);
       setNewConvForm({ nome: "", telefone: "" });
@@ -1746,8 +1762,8 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
                 : connStatus === "connecting" ? "Iniciando conexão..."
                 : connStatus === "qr" ? "Aguardando leitura do QR Code"
                 : connStatus === "connected"
-                  ? `${DEFAULT_INSTANCE_NAME} · Conectado${unreadTotal > 0 ? ` · ${unreadTotal} não lida${unreadTotal > 1 ? "s" : ""}` : ""}`
-                : `${DEFAULT_INSTANCE_NAME} · Desconectado`}
+                  ? `${instName} · Conectado${unreadTotal > 0 ? ` · ${unreadTotal} não lida${unreadTotal > 1 ? "s" : ""}` : ""}`
+                : `${instName} · Desconectado`}
               </span>
             </div>
           </div>
@@ -1913,7 +1929,7 @@ export function WhatsAppPanel({ clinicId, onNavigateToAppointments }: { readonly
             </button>
 
             <p className="mt-3 text-center font-mono text-[11px] text-ink-muted">
-              Instância: {DEFAULT_INSTANCE_NAME}
+              Instância: {instName}
             </p>
           </div>
         </div>

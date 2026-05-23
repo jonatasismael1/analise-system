@@ -245,7 +245,7 @@ export function DiscountProgramsPanel({
           <div className="relative w-full max-w-2xl rounded-xl border border-surface-variant bg-surface shadow-xl">
             <div className="flex items-center justify-between border-b border-surface-variant px-5 py-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Programas de Descontos</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Programas de Vantagens</p>
                 <h2 className="text-lg font-bold text-ink">{form.id ? "Editar programa" : "Novo programa"}</h2>
               </div>
               <button className="rounded-md p-1.5 text-secondary hover:bg-surface-low" type="button" onClick={() => setShowForm(false)}>
@@ -358,7 +358,7 @@ export function DiscountProgramsPanel({
 
       {/* Lista */}
       {filtered.length === 0 ? (
-        <SectionCard title="Programas de Descontos">
+        <SectionCard title="Programas de Vantagens">
           <EmptyState
             title="Nenhum programa cadastrado"
             message="Crie programas comerciais com múltiplos serviços para facilitar a geração de orçamentos."

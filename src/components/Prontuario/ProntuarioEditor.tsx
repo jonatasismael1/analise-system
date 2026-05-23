@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Bold, Italic, List, Check, X, ImagePlus, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
+import { SignedImage } from "../ui/SignedImage";
 
 export interface ProntuarioData {
   id?: string;
@@ -177,14 +178,13 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel,
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {imagens.map((url, i) => (
                 <div key={url} className="flex flex-col gap-1">
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block aspect-square overflow-hidden rounded-lg border border-outline-variant"
-                  >
-                    <img src={url} alt={`Imagem ${i + 1}`} className="h-full w-full object-cover" />
-                  </a>
+                  <SignedImage
+                    bucket="prontuarios"
+                    source={url}
+                    alt={`Imagem ${i + 1}`}
+                    linkClassName="block aspect-square overflow-hidden rounded-lg border border-outline-variant"
+                    imgClassName="h-full w-full object-cover"
+                  />
                   <button
                     type="button"
                     className="flex w-full items-center justify-center gap-1 rounded-md border border-red-200 bg-red-50 py-1 text-[10px] font-medium text-red-600 transition hover:bg-red-100"
