@@ -176,25 +176,23 @@ export function ProntuarioEditor({ initialData, professionals, onSave, onCancel,
           {imagens.length > 0 ? (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {imagens.map((url, i) => (
-                <div key={url} className="group relative aspect-square overflow-hidden rounded-lg border border-outline-variant">
-                  <img src={url} alt={`Imagem ${i + 1}`} className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    className="absolute right-1 top-1 rounded-full bg-red-500 p-1 text-white opacity-0 transition group-hover:opacity-100"
-                    onClick={() => setImagens((prev) => prev.filter((u) => u !== url))}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                <div key={url} className="flex flex-col gap-1">
                   <a
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="absolute inset-0 flex items-end justify-center bg-black/0 pb-1 transition group-hover:bg-black/20"
+                    className="block aspect-square overflow-hidden rounded-lg border border-outline-variant"
                   >
-                    <span className="rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white opacity-0 group-hover:opacity-100">
-                      Ver original
-                    </span>
+                    <img src={url} alt={`Imagem ${i + 1}`} className="h-full w-full object-cover" />
                   </a>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center gap-1 rounded-md border border-red-200 bg-red-50 py-1 text-[10px] font-medium text-red-600 transition hover:bg-red-100"
+                    onClick={() => setImagens((prev) => prev.filter((u) => u !== url))}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Excluir
+                  </button>
                 </div>
               ))}
             </div>
