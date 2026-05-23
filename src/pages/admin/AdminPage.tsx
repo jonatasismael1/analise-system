@@ -119,7 +119,7 @@ export function AdminPage() {
       userRole={role ?? undefined}
       profissionalId={profile?.profissionalId ?? null}
     >
-      {activeModule !== "WhatsApp" && (
+      {activeModule !== "Atendimento" && (
         <div className="mb-6 rounded-3xl border border-border bg-surface p-5 shadow-card md:p-6">
           {isSuperAdmin && (
             <button
