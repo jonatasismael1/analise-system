@@ -207,6 +207,8 @@ export function AppointmentsPanel({
   const [sendingWpp, setSendingWpp] = useState(false);
   const [wppSent, setWppSent] = useState(false);
   const [instName, setInstName] = useState(DEFAULT_INSTANCE_NAME);
+  // Cache em memória: evita re-buscar do banco ao fechar e reabrir o drawer
+  const teleCache = useRef<Map<string, TeleconsultaData>>(new Map());
 
   useEffect(() => {
     supabase
@@ -219,15 +221,52 @@ export function AppointmentsPanel({
       .then(({ data }) => { if (data?.instance_name) setInstName(data.instance_name); });
   }, [clinicId]);
 
+  // Pré-carrega teleconsultas de todos os agendamentos tipo "teleconsulta"
+  useEffect(() => {
+    const ids = appointments.filter(a => a.tipoAtendimento === "teleconsulta").map(a => a.id);
+    if (ids.length === 0) return;
+    supabase
+      .from("teleconsultations")
+      .select("*")
+      .in("appointment_id", ids)
+      .then(({ data }) => {
+        if (!data) return;
+        data.forEach((row: Record<string, unknown>) => {
+          teleCache.current.set(row.appointment_id as string, {
+            id: row.id as string,
+            appointmentId: row.appointment_id as string,
+            wherebyRoomUrl: row.whereby_room_url as string | null,
+            wherebyHostRoomUrl: row.whereby_host_room_url as string | null,
+            status: row.status as string,
+            consentStatus: row.consent_status as string,
+            patientAccessToken: row.patient_access_token as string,
+            patientAccessUrl: row.patient_access_url as string | null,
+            tokenExpiresAt: row.token_expires_at as string | null,
+            linkSentAt: row.link_sent_at as string | null,
+            errorMessage: row.error_message as string | null,
+          });
+        });
+      });
+  }, [appointments]);
+
   useEffect(() => {
     if (!drawerOpen || !drawerForm.id || drawerForm.tipoAtendimento !== "teleconsulta") {
       setTeleconsulta(null);
       setTeleError(null);
       return;
     }
+    // Usa cache local antes de buscar no banco
+    const cached = teleCache.current.get(drawerForm.id);
+    if (cached) {
+      setTeleconsulta(cached);
+      return;
+    }
     setLoadingTele(true);
     void getTeleconsultaByAppointment(drawerForm.id)
-      .then((data) => setTeleconsulta(data))
+      .then((data) => {
+        if (data) teleCache.current.set(drawerForm.id, data);
+        setTeleconsulta(data);
+      })
       .finally(() => setLoadingTele(false));
   }, [drawerOpen, drawerForm.id, drawerForm.tipoAtendimento]);
 
@@ -339,8 +378,7 @@ export function AppointmentsPanel({
       });
 
       const refreshed = await getTeleconsultaByAppointment(drawerForm.id);
-      // Fallback: usa dados da resposta direto caso o RLS bloqueie a leitura
-      setTeleconsulta(refreshed ?? {
+      const roomData: TeleconsultaData = refreshed ?? {
         id: drawerForm.id,
         appointmentId: drawerForm.id,
         wherebyRoomUrl: result.roomUrl,
@@ -352,7 +390,10 @@ export function AppointmentsPanel({
         tokenExpiresAt: result.tokenExpiresAt,
         linkSentAt: null,
         errorMessage: null,
-      });
+      };
+      // Persiste no cache para sobreviver ao fechar/reabrir o drawer
+      teleCache.current.set(drawerForm.id, roomData);
+      setTeleconsulta(roomData);
     } catch (e: unknown) {
       setTeleError((e as { message?: string })?.message ?? "Erro ao criar sala. Tente novamente.");
     } finally {
