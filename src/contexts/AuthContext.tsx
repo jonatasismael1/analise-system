@@ -137,18 +137,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setSession(nextSession);
 
-      if (event === "SIGNED_IN" && nextSession?.user) {
-        setTimeout(() => {
-          if (!mounted) return;
-          setLoading(true);
-          void loadClinicData(nextSession.user.email ?? undefined).finally(() => {
-            if (mounted) setLoading(false);
-          });
-        }, 0);
-      } else if (event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT") {
         setClinic(null);
         setProfile(null);
         setLoading(false);
+        return;
+      }
+
+      // SIGNED_IN e TOKEN_REFRESHED: recarrega dados da clínica silenciosamente,
+      // sem setLoading(true), para não desmontar a página e perder estado de formulários.
+      // O carregamento inicial já é feito por initialize() acima.
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && nextSession?.user) {
+        if (!isInitialLoad.current) {
+          void loadClinicData(nextSession.user.email ?? undefined);
+        }
       }
     });
 
