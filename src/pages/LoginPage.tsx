@@ -38,6 +38,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const { login, registerClinic, session, clinic, loading: authLoading, isSuperAdmin } = useAuth();
 
   if (session && !authLoading) {
@@ -54,6 +55,11 @@ export function LoginPage() {
       if (isRegistering) {
         if (!allowPublicSignup) {
           setError("Acesso exclusivo para clínicas cadastradas.");
+          setFormLoading(false);
+          return;
+        }
+        if (!acceptedTerms) {
+          setError("Você precisa aceitar os Termos de Uso e a Política de Privacidade para continuar.");
           setFormLoading(false);
           return;
         }
@@ -204,9 +210,30 @@ export function LoginPage() {
               </div>
             )}
 
+            {isRegistering && allowPublicSignup && (
+              <label className="flex items-start gap-2.5 text-sm text-ink-secondary">
+                <input
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-strong text-primary focus:ring-2 focus:ring-blue-200"
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                />
+                <span>
+                  Li e aceito os{" "}
+                  <a href="/termos" target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
+                    Termos de Uso
+                  </a>{" "}
+                  e a{" "}
+                  <a href="/privacidade" target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
+                    Política de Privacidade
+                  </a>.
+                </span>
+              </label>
+            )}
+
             <button
               className="group mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-primary-dark active:-translate-y-px active:shadow-primary-press disabled:opacity-60"
-              disabled={isLoading}
+              disabled={isLoading || (isRegistering && allowPublicSignup && !acceptedTerms)}
               type="submit"
             >
               {isLoading ? (
@@ -238,6 +265,12 @@ export function LoginPage() {
           <p className="mt-8 text-center text-[10px] font-medium uppercase tracking-[0.15em] text-ink-muted">
             Deby Saúde · Operação clínica integrada
           </p>
+
+          <div className="mt-3 flex items-center justify-center gap-3 text-[11px] text-ink-muted">
+            <a href="/privacidade" className="transition hover:text-primary">Privacidade</a>
+            <span aria-hidden>·</span>
+            <a href="/termos" className="transition hover:text-primary">Termos de Uso</a>
+          </div>
         </div>
       </div>
     </div>

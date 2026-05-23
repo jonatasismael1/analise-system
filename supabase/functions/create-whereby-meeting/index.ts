@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const apiKey = env("WHEREBY_API_KEY");
     const baseUrl = (Deno.env.get("WHEREBY_BASE_URL") ?? "https://api.whereby.dev/v1").replace(/\/$/, "");
     const roomNamePrefix = Deno.env.get("WHEREBY_ROOM_NAME_PREFIX") ?? "deby-saude";
-    const appBaseUrl = (Deno.env.get("APP_BASE_URL") ?? "https://analise-system.netlify.app").replace(/\/$/, "");
+    const appBaseUrl = (Deno.env.get("APP_BASE_URL") ?? "https://debysaude.dbe.digital").replace(/\/$/, "");
 
     // Cria sala no Whereby
     const wherebyResp = await fetch(`${baseUrl}/meetings`, {

@@ -6,6 +6,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { OrcamentoPublicPage } from "./pages/OrcamentoPublicPage";
 import { TeleconsultaPage } from "./pages/TeleconsultaPage";
 import { GestorPage } from "./pages/gestor/GestorPage";
+import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage";
+import { TermsOfUsePage } from "./pages/legal/TermsOfUsePage";
 
 export function App() {
   return (
@@ -17,6 +19,8 @@ export function App() {
       <Route path="/agendar/:slug" element={<BookingPage />} />
       <Route path="/orcamento/:token" element={<OrcamentoPublicPage />} />
       <Route path="/teleconsulta/:token" element={<TeleconsultaPage />} />
+      <Route path="/privacidade" element={<PrivacyPolicyPage />} />
+      <Route path="/termos" element={<TermsOfUsePage />} />
     </Routes>
   );
 }
