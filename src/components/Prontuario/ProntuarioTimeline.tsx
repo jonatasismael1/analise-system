@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Bot, ChevronDown, ChevronUp, FileText, Plus, Clock, Edit2, Send, X, Loader2, Printer, ShieldCheck } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, FileText, Plus, Clock, Edit2, Send, X, Loader2, Printer, ShieldCheck, Trash2 } from "lucide-react";
 import { ProntuarioEditor, type ProntuarioData } from "./ProntuarioEditor";
 import { ConsultationListener, type DraftResult } from "./ConsultationListener";
 import { ConsultationDraft, draftToProntuarioData } from "./ConsultationDraft";
@@ -9,11 +9,13 @@ import {
   sendWhatsAppText
 } from "../../services/quickActionService";
 import {
+  deleteProntuario,
   fetchProntuarioAccessLogs,
   loadProntuarios,
   saveProntuario,
   type ProntuarioAccessLogEntry,
 } from "../../services/prontuarioService";
+import { confirmDangerAction } from "../../lib/confirmDangerAction";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Patient, Professional } from "../../types/clinic";
 
@@ -213,6 +215,19 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
     }
   };
 
+  const handleDelete = async (item: ProntuarioData) => {
+    if (!item.id) return;
+    const ok = await confirmDangerAction("Excluir esta evolução do prontuário? Essa ação não pode ser desfeita.");
+    if (!ok) return;
+    setError(null);
+    try {
+      await deleteProntuario(clinicId, patient.id, item.id);
+      setHistorico((current) => current.filter((record) => record.id !== item.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao excluir prontuario.");
+    }
+  };
+
   function openReceita(item: ProntuarioData) {
     const professional = professionals.find((p) => p.id === item.profissionalId);
     setReceitaTexto(buildReceita(patient, professional, item));
@@ -362,6 +377,13 @@ export function ProntuarioTimeline({ clinicId, patient, professionals }: Prontua
                       }}
                     >
                       <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      aria-label="Excluir evolução"
+                      className="p-1.5 text-secondary hover:text-error hover:bg-red-50 rounded"
+                      onClick={() => void handleDelete(item)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

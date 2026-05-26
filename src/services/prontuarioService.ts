@@ -135,3 +135,20 @@ export async function saveProntuario(
   const record = mapProntuarioRow(data as ProntuarioRow);
   return record;
 }
+
+export async function deleteProntuario(
+  clinicId: string,
+  patientId: string,
+  prontuarioId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("prontuarios")
+    .delete()
+    .eq("id", prontuarioId)
+    .eq("clinica_id", clinicId)
+    .eq("paciente_id", patientId);
+
+  if (error) {
+    throw error;
+  }
+}
