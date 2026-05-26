@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Bot, Check, Copy, Trash2 } from "lucide-react";
+import { Bot, Check, Copy, Plus, Trash2, X } from "lucide-react";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
@@ -87,6 +87,7 @@ export function FinancePanel({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentForm>({ id: "", descricao: "", valor: 180, status: "pago", formaPagamento: "manual", data: todayISO(), profissionalId: "", servicoId: "" });
   const [expense, setExpense] = useState<ExpenseForm>({ id: "", descricao: "", valor: 90, categoria: "Operacional", status: "pendente", data: todayISO() });
+  const [financeModal, setFinanceModal] = useState<"payment" | "expense" | null>(null);
   const [filters, setFilters] = useState({ search: "", status: "todos", tipo: "todos" });
   const [debyOutput, setDebyOutput] = useState("");
   const [page, setPage] = useState(0);
@@ -156,6 +157,64 @@ export function FinancePanel({
     setExpense({ id: "", descricao: "", valor: 90, categoria: "Operacional", status: "pendente", data: todayISO() });
   }
 
+  function openNewPayment() {
+    resetPayment();
+    setFinanceModal("payment");
+  }
+
+  function openNewExpense() {
+    resetExpense();
+    setFinanceModal("expense");
+  }
+
+  function openEditEntry(entry: FinanceEntry) {
+    if (entry.tipo === "despesa") {
+      setExpense({
+        id: entry.id,
+        descricao: entry.descricao,
+        valor: entry.valor,
+        categoria: entry.categoria ?? "",
+        status: entry.status,
+        data: entry.data ?? todayISO()
+      });
+      setFinanceModal("expense");
+      return;
+    }
+
+    setPayment({
+      id: entry.id,
+      descricao: entry.descricao,
+      valor: entry.valor,
+      status: entry.status,
+      formaPagamento: entry.formaPagamento ?? "manual",
+      data: entry.data ?? todayISO(),
+      profissionalId: entry.profissionalId ?? "",
+      servicoId: entry.servicoId ?? ""
+    });
+    setFinanceModal("payment");
+  }
+
+  function closeFinanceModal() {
+    setFinanceModal(null);
+  }
+
+  async function submitPayment(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const payload = { ...payment, profissionalId: payment.profissionalId || null, servicoId: payment.servicoId || null };
+    if (payment.id) await onUpdatePayment(payment.id, payload);
+    else await onPayment(payload);
+    resetPayment();
+    closeFinanceModal();
+  }
+
+  async function submitExpense(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (expense.id) await onUpdateExpense(expense.id, expense);
+    else await onExpense(expense);
+    resetExpense();
+    closeFinanceModal();
+  }
+
   async function analyzeFinanceWithDeby() {
     const lines = entries.slice(0, 80).map((entry) => `${entry.data ?? "-"} | ${entry.tipo ?? "pagamento"} | ${entry.status} | ${entry.descricao} | ${brl.format(entry.valor)}`).join("\n");
     const output = await askDeby({
@@ -189,6 +248,112 @@ export function FinancePanel({
 
       {activeTab === "lancamentos" ? (
         <>
+          {financeModal && (
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-10 backdrop-blur-sm">
+              <div className="relative w-full max-w-2xl rounded-xl border border-surface-variant bg-surface shadow-xl">
+                <div className="flex items-center justify-between border-b border-surface-variant px-5 py-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Financeiro</p>
+                    <h2 className="text-lg font-bold text-ink">
+                      {financeModal === "payment"
+                        ? payment.id ? "Editar receita" : "Nova receita"
+                        : expense.id ? "Editar despesa" : "Nova despesa"}
+                    </h2>
+                  </div>
+                  <button className="rounded-md p-1.5 text-secondary hover:bg-surface-low" type="button" onClick={closeFinanceModal}>
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {financeModal === "payment" ? (
+                  <form className="space-y-4 p-5" onSubmit={(event) => void submitPayment(event)}>
+                    <Field label="Descrição *">
+                      <input className={inputClass()} placeholder="Ex: Consulta paga" value={payment.descricao} onChange={(event) => setPayment({ ...payment, descricao: event.target.value })} required />
+                    </Field>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Valor da receita *">
+                        <input className={inputClass()} min={0.01} step="0.01" type="number" value={payment.valor} onChange={(event) => setPayment({ ...payment, valor: Number(event.target.value) })} />
+                      </Field>
+                      <Field label="Data">
+                        <input className={inputClass()} type="date" value={payment.data} onChange={(event) => setPayment({ ...payment, data: event.target.value })} />
+                      </Field>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Status">
+                        <select className={inputClass()} value={payment.status} onChange={(event) => setPayment({ ...payment, status: event.target.value as FinanceEntry["status"] })}>
+                          <option value="pago">Pago</option>
+                          <option value="pendente">Pendente</option>
+                          <option value="atrasado">Atrasado</option>
+                          <option value="cancelado">Cancelado</option>
+                        </select>
+                      </Field>
+                      <Field label="Forma de pagamento">
+                        <select className={inputClass()} value={payment.formaPagamento} onChange={(event) => setPayment({ ...payment, formaPagamento: event.target.value })}>
+                          <option value="manual">Manual</option>
+                          <option value="pix">Pix</option>
+                          <option value="cartao_credito">Cartão de crédito</option>
+                          <option value="cartao_debito">Cartão de débito</option>
+                          <option value="dinheiro">Dinheiro</option>
+                          <option value="boleto">Boleto</option>
+                          <option value="transferencia">Transferência</option>
+                        </select>
+                      </Field>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Profissional">
+                        <select className={inputClass()} value={payment.profissionalId} onChange={(event) => setPayment({ ...payment, profissionalId: event.target.value })}>
+                          <option value="">Não vincular</option>
+                          {professionals.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Serviço">
+                        <select className={inputClass()} value={payment.servicoId} onChange={(event) => setPayment({ ...payment, servicoId: event.target.value })}>
+                          <option value="">Não vincular</option>
+                          {services.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}
+                        </select>
+                      </Field>
+                    </div>
+                    <div className="flex justify-end gap-3 border-t border-surface-variant pt-4">
+                      <button className="rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium hover:border-error hover:text-error" type="button" onClick={closeFinanceModal}>Cancelar</button>
+                      <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark" type="submit">{payment.id ? "Atualizar receita" : "Criar receita"}</button>
+                    </div>
+                  </form>
+                ) : (
+                  <form className="space-y-4 p-5" onSubmit={(event) => void submitExpense(event)}>
+                    <Field label="Despesa *">
+                      <input className={inputClass()} value={expense.descricao} onChange={(event) => setExpense({ ...expense, descricao: event.target.value })} required />
+                    </Field>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Valor *">
+                        <input className={inputClass()} min={0.01} step="0.01" type="number" value={expense.valor} onChange={(event) => setExpense({ ...expense, valor: Number(event.target.value) })} />
+                      </Field>
+                      <Field label="Data">
+                        <input className={inputClass()} type="date" value={expense.data} onChange={(event) => setExpense({ ...expense, data: event.target.value })} />
+                      </Field>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Categoria">
+                        <input className={inputClass()} value={expense.categoria} onChange={(event) => setExpense({ ...expense, categoria: event.target.value })} placeholder="Ex: Operacional" />
+                      </Field>
+                      <Field label="Status">
+                        <select className={inputClass()} value={expense.status} onChange={(event) => setExpense({ ...expense, status: event.target.value as FinanceEntry["status"] })}>
+                          <option value="pago">Pago</option>
+                          <option value="pendente">Pendente</option>
+                          <option value="atrasado">Atrasado</option>
+                          <option value="cancelado">Cancelado</option>
+                        </select>
+                      </Field>
+                    </div>
+                    <div className="flex justify-end gap-3 border-t border-surface-variant pt-4">
+                      <button className="rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium hover:border-error hover:text-error" type="button" onClick={closeFinanceModal}>Cancelar</button>
+                      <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark" type="submit">{expense.id ? "Atualizar despesa" : "Criar despesa"}</button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
+
           <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
             {[
               { label: "Receita realizada", value: decision.realized },
@@ -257,23 +422,17 @@ export function FinancePanel({
               <Field label="Status"><select className={inputClass()} value={filters.status} onChange={(event) => updateFilter({ status: event.target.value })}><option value="todos">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></Field>
               <Field label="Tipo"><select className={inputClass()} value={filters.tipo} onChange={(event) => updateFilter({ tipo: event.target.value })}><option value="todos">Todos</option><option value="pagamento">Pagamentos</option><option value="despesa">Despesas</option></select></Field>
             </div>
-            <div className="mb-5 grid gap-3 md:grid-cols-2">
-              <form className="rounded-lg border border-surface-variant p-3" onSubmit={(event) => { event.preventDefault(); const payload = { ...payment, profissionalId: payment.profissionalId || null, servicoId: payment.servicoId || null }; payment.id ? void onUpdatePayment(payment.id, payload) : void onPayment(payload); resetPayment(); }}>
-                <Field label="Descrição"><input className={inputClass()} placeholder="Ex: Consulta paga" value={payment.descricao} onChange={(event) => setPayment({ ...payment, descricao: event.target.value })} required /></Field>
-                <Field label="Valor da receita"><input className={inputClass()} min={0.01} step="0.01" type="number" value={payment.valor} onChange={(event) => setPayment({ ...payment, valor: Number(event.target.value) })} /></Field>
-                <Field label="Status"><select className={inputClass()} value={payment.status} onChange={(event) => setPayment({ ...payment, status: event.target.value as FinanceEntry["status"] })}><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></Field>
-                <Field label="Profissional"><select className={inputClass()} value={payment.profissionalId} onChange={(event) => setPayment({ ...payment, profissionalId: event.target.value })}><option value="">Não vincular</option>{professionals.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></Field>
-                <Field label="Serviço"><select className={inputClass()} value={payment.servicoId} onChange={(event) => setPayment({ ...payment, servicoId: event.target.value })}><option value="">Não vincular</option>{services.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></Field>
-                <button className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm text-white" type="submit">{payment.id ? "Atualizar pagamento" : "Criar pagamento"}</button>
-              </form>
-              <form className="rounded-lg border border-surface-variant p-3" onSubmit={(event) => { event.preventDefault(); expense.id ? void onUpdateExpense(expense.id, expense) : void onExpense(expense); resetExpense(); }}>
-                <Field label="Despesa"><input className={inputClass()} value={expense.descricao} onChange={(event) => setExpense({ ...expense, descricao: event.target.value })} required /></Field>
-                <Field label="Valor"><input className={inputClass()} min={0.01} step="0.01" type="number" value={expense.valor} onChange={(event) => setExpense({ ...expense, valor: Number(event.target.value) })} /></Field>
-                <Field label="Status"><select className={inputClass()} value={expense.status} onChange={(event) => setExpense({ ...expense, status: event.target.value as FinanceEntry["status"] })}><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="atrasado">Atrasado</option><option value="cancelado">Cancelado</option></select></Field>
-                <button className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm text-white" type="submit">{expense.id ? "Atualizar despesa" : "Criar despesa"}</button>
-              </form>
+            <div className="mb-5 flex flex-wrap justify-end gap-2">
+              <button className="inline-flex items-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium hover:border-primary hover:text-primary transition" type="button" onClick={openNewExpense}>
+                <Plus className="h-4 w-4" />
+                Nova despesa
+              </button>
+              <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-dark transition" type="button" onClick={openNewPayment}>
+                <Plus className="h-4 w-4" />
+                Nova receita
+              </button>
             </div>
-            {filteredEntries.length === 0 ? <EmptyState title="Nenhum lançamento" message="Você ainda não possui lançamentos financeiros." /> : <RefinedTable headers={["Descrição", "Tipo", "Status", "Valor", "Ações"]}>{paginatedEntries.items.map((entry) => <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={entry.id}><td className="px-4 py-3 font-medium"><span>{entry.descricao}</span>{entry.pacienteId && memberships.some((m) => m.patientId === entry.pacienteId) && <div className="mt-0.5"><ProgramBadge membership={memberships.find((m) => m.patientId === entry.pacienteId) ?? null} programas={programas} patients={patients} compact /></div>}</td><td className="px-4 py-3 capitalize text-secondary">{entry.tipo === "despesa" ? "Despesa" : "Receita"}</td><td className="px-4 py-3"><StatusPill value={entry.status} /></td><td className="px-4 py-3 text-right font-semibold text-on-surface">{brl.format(entry.valor)}</td><td className="px-4 py-3 text-right"><button className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary transition" onClick={() => entry.tipo === "despesa" ? setExpense({ id: entry.id, descricao: entry.descricao, valor: entry.valor, categoria: entry.categoria ?? "", status: entry.status, data: entry.data ?? todayISO() }) : setPayment({ id: entry.id, descricao: entry.descricao, valor: entry.valor, status: entry.status, formaPagamento: entry.formaPagamento ?? "manual", data: entry.data ?? todayISO(), profissionalId: entry.profissionalId ?? "", servicoId: entry.servicoId ?? "" })} type="button">Editar</button><button aria-label={`Excluir lançamento ${entry.descricao}`} className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition" onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este lançamento financeiro ${entry.descricao}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) entry.tipo === "despesa" ? onDeleteExpense(entry.id) : onDeletePayment(entry.id); })} type="button"><Trash2 className="h-4 w-4" /></button></td></tr>)}</RefinedTable>}
+            {filteredEntries.length === 0 ? <EmptyState title="Nenhum lançamento" message="Você ainda não possui lançamentos financeiros." /> : <RefinedTable headers={["Descrição", "Tipo", "Status", "Valor", "Ações"]}>{paginatedEntries.items.map((entry) => <tr className="border-b border-surface-variant hover:bg-teal-50/60 transition" key={entry.id}><td className="px-4 py-3 font-medium"><span>{entry.descricao}</span>{entry.pacienteId && memberships.some((m) => m.patientId === entry.pacienteId) && <div className="mt-0.5"><ProgramBadge membership={memberships.find((m) => m.patientId === entry.pacienteId) ?? null} programas={programas} patients={patients} compact /></div>}</td><td className="px-4 py-3 capitalize text-secondary">{entry.tipo === "despesa" ? "Despesa" : "Receita"}</td><td className="px-4 py-3"><StatusPill value={entry.status} /></td><td className="px-4 py-3 text-right font-semibold text-on-surface">{brl.format(entry.valor)}</td><td className="px-4 py-3 text-right"><button className="mr-2 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary transition" onClick={() => openEditEntry(entry)} type="button">Editar</button><button aria-label={`Excluir lançamento ${entry.descricao}`} className="rounded-lg p-1.5 text-secondary hover:bg-red-50 hover:text-error transition" onClick={() => void confirmDangerAction(`Tem certeza que deseja excluir este lançamento financeiro ${entry.descricao}? Essa ação não pode ser desfeita.`).then((ok) => { if (ok) entry.tipo === "despesa" ? onDeleteExpense(entry.id) : onDeletePayment(entry.id); })} type="button"><Trash2 className="h-4 w-4" /></button></td></tr>)}</RefinedTable>}
             {filteredEntries.length > 0 && (
               <Pagination
                 total={filteredEntries.length}

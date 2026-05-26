@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   CalendarRange,
@@ -50,6 +50,53 @@ const STATUS_CONFIG: Record<Appointment["status"], { label: string; cls: string 
   cancelado:  { label: "Cancelado",  cls: "bg-slate-100 text-slate-500 border-slate-200" },
   faltou:     { label: "Faltou",     cls: "bg-red-50 text-red-600 border-red-200" },
 };
+
+type AttendanceQueueStatus = "aguardando" | "em_atendimento" | "finalizado" | "faltou" | "cancelado";
+
+type AttendanceQueueItem = {
+  id: string;
+  agendamento_id: string | null;
+  paciente_id: string | null;
+  profissional_id: string | null;
+  servico_id: string | null;
+  paciente_nome: string;
+  paciente_whatsapp: string | null;
+  profissional_nome: string | null;
+  servico_nome: string | null;
+  data: string;
+  ordem: number;
+  chegada_em: string;
+  status: AttendanceQueueStatus;
+  prioridade: boolean;
+  observacoes: string | null;
+};
+
+type WalkInForm = {
+  pacienteId: string;
+  pacienteNome: string;
+  pacienteWhatsapp: string;
+  profissionalId: string;
+  servicoId: string;
+  observacoes: string;
+  prioridade: boolean;
+};
+
+const QUEUE_STATUS_CONFIG: Record<AttendanceQueueStatus, { label: string; cls: string }> = {
+  aguardando: { label: "Aguardando", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  em_atendimento: { label: "Em atendimento", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  finalizado: { label: "Finalizado", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  faltou: { label: "Faltou", cls: "bg-red-50 text-red-600 border-red-200" },
+  cancelado: { label: "Cancelado", cls: "bg-slate-100 text-slate-500 border-slate-200" },
+};
+
+function QueueStatusBadge({ status }: { readonly status: AttendanceQueueStatus }) {
+  const { label, cls } = QUEUE_STATUS_CONFIG[status] ?? QUEUE_STATUS_CONFIG.aguardando;
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
+}
 
 function ApptStatus({ status }: { readonly status: Appointment["status"] }) {
   const { label, cls } = STATUS_CONFIG[status] ?? STATUS_CONFIG.pendente;
@@ -143,6 +190,24 @@ const EMPTY_FORM = (professionals: Professional[], services: Service[]) => ({
   recorrenciaOccurrences: 4,
 });
 
+const EMPTY_WALK_IN_FORM = (professionals: Professional[], services: Service[]): WalkInForm => ({
+  pacienteId: "",
+  pacienteNome: "",
+  pacienteWhatsapp: "",
+  profissionalId: professionals[0]?.id ?? "",
+  servicoId: services[0]?.id ?? "",
+  observacoes: "",
+  prioridade: false,
+});
+
+function formatQueueTime(value: string) {
+  return new Date(value).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function errorMessage(error: unknown, fallback = "Nao foi possivel concluir a acao.") {
+  return (error as { message?: string } | null)?.message ?? fallback;
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export function AppointmentsPanel({
@@ -183,11 +248,18 @@ export function AppointmentsPanel({
   readonly onDeleteSeries: (recorrenciaId: string) => Promise<void>;
 }) {
   // ── State ──────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"lista" | "calendario">("lista");
+  const [activeTab, setActiveTab] = useState<"lista" | "calendario" | "ordem">("lista");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerForm, setDrawerForm] = useState(() => EMPTY_FORM(professionals, services));
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [queueDate, setQueueDate] = useState(todayISO());
+  const [queueItems, setQueueItems] = useState<AttendanceQueueItem[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueSaving, setQueueSaving] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [showWalkInForm, setShowWalkInForm] = useState(false);
+  const [walkInForm, setWalkInForm] = useState(() => EMPTY_WALK_IN_FORM(professionals, services));
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
@@ -320,6 +392,212 @@ export function AppointmentsPanel({
   [appointments, filters, professionals]);
 
   const paginatedAppointments = usePagination(filteredAppointments, page, pageSize);
+
+  const queuedAppointmentIds = useMemo(
+    () => new Set(queueItems.map((item) => item.agendamento_id).filter(Boolean)),
+    [queueItems]
+  );
+
+  const appointmentsForQueueDate = useMemo(
+    () =>
+      appointments
+        .filter((appointment) => appointment.data === queueDate && appointment.status !== "cancelado")
+        .sort((a, b) => a.horario.localeCompare(b.horario)),
+    [appointments, queueDate]
+  );
+
+  const waitingAppointments = useMemo(
+    () => appointmentsForQueueDate.filter((appointment) => !queuedAppointmentIds.has(appointment.id)),
+    [appointmentsForQueueDate, queuedAppointmentIds]
+  );
+
+  const orderedQueueItems = useMemo(
+    () => [...queueItems].sort((a, b) => a.ordem - b.ordem || a.chegada_em.localeCompare(b.chegada_em)),
+    [queueItems]
+  );
+
+  const queueSummary = useMemo(() => ({
+    waiting: queueItems.filter((item) => item.status === "aguardando").length,
+    active: queueItems.filter((item) => item.status === "em_atendimento").length,
+    done: queueItems.filter((item) => item.status === "finalizado").length,
+    total: queueItems.length,
+  }), [queueItems]);
+
+  const loadAttendanceQueue = useCallback(async () => {
+    setQueueLoading(true);
+    setQueueError(null);
+    const { data, error } = await supabase
+      .from("fila_atendimento")
+      .select("*")
+      .eq("clinica_id", clinicId)
+      .eq("data", queueDate)
+      .order("ordem", { ascending: true });
+
+    if (error) {
+      setQueueError(errorMessage(error, "Nao foi possivel carregar a ordem de atendimento."));
+      setQueueItems([]);
+    } else {
+      setQueueItems((data ?? []) as AttendanceQueueItem[]);
+    }
+    setQueueLoading(false);
+  }, [clinicId, queueDate]);
+
+  useEffect(() => {
+    if (activeTab === "ordem") void loadAttendanceQueue();
+  }, [activeTab, loadAttendanceQueue]);
+
+  function nextQueueOrder() {
+    return Math.max(0, ...queueItems.map((item) => item.ordem)) + 1;
+  }
+
+  async function addAppointmentToQueue(appointment: Appointment) {
+    if (queuedAppointmentIds.has(appointment.id)) return;
+    setQueueSaving(true);
+    setQueueError(null);
+
+    const professionalId = appointment.profissionalId ?? professionals.find((p) => p.nome === appointment.profissional)?.id ?? null;
+    const serviceId = appointment.servicoId ?? services.find((s) => s.nome === appointment.servico)?.id ?? null;
+    const { error } = await supabase.from("fila_atendimento").insert({
+      clinica_id: clinicId,
+      agendamento_id: appointment.id,
+      paciente_id: appointment.pacienteId ?? null,
+      profissional_id: professionalId,
+      servico_id: serviceId,
+      paciente_nome: appointment.pacienteNome,
+      paciente_whatsapp: appointment.pacienteWhatsapp ?? null,
+      profissional_nome: appointment.profissional,
+      servico_nome: appointment.servico,
+      data: queueDate,
+      ordem: nextQueueOrder(),
+      status: "aguardando",
+    });
+
+    if (error) setQueueError(errorMessage(error, "Nao foi possivel adicionar o paciente a fila."));
+    else await loadAttendanceQueue();
+    setQueueSaving(false);
+  }
+
+  async function createWalkInAndQueue(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const selectedPatient = patients.find((patient) => patient.id === walkInForm.pacienteId);
+    const patientName = (selectedPatient?.nome ?? walkInForm.pacienteNome).trim();
+    const patientWhatsapp = selectedPatient?.whatsapp ?? walkInForm.pacienteWhatsapp.trim();
+    const professional = professionals.find((item) => item.id === walkInForm.profissionalId);
+    const service = services.find((item) => item.id === walkInForm.servicoId);
+
+    setQueueError(null);
+    if (!professional) { setQueueError("Selecione o profissional para o encaixe."); return; }
+    if (patientName.length < 3) { setQueueError("Informe o nome do paciente para entrar na fila."); return; }
+
+    setQueueSaving(true);
+    const now = new Date();
+    const horario = queueDate === todayISO() ? now.toTimeString().slice(0, 5) : "08:00";
+    const { data: createdAppointment, error: appointmentError } = await supabase
+      .from("agendamentos")
+      .insert({
+        clinica_id: clinicId,
+        profissional_id: professional.id,
+        servico_id: service?.id ?? null,
+        paciente_id: selectedPatient?.id ?? null,
+        paciente_nome: patientName,
+        paciente_whatsapp: patientWhatsapp,
+        data: queueDate,
+        horario,
+        status: "confirmado",
+        tipo_atendimento: "presencial",
+      })
+      .select("id")
+      .single();
+
+    if (appointmentError || !createdAppointment) {
+      setQueueError(errorMessage(appointmentError, "Nao foi possivel criar o encaixe."));
+      setQueueSaving(false);
+      return;
+    }
+
+    const { error: queueInsertError } = await supabase.from("fila_atendimento").insert({
+      clinica_id: clinicId,
+      agendamento_id: createdAppointment.id,
+      paciente_id: selectedPatient?.id ?? null,
+      profissional_id: professional.id,
+      servico_id: service?.id ?? null,
+      paciente_nome: patientName,
+      paciente_whatsapp: patientWhatsapp || null,
+      profissional_nome: professional.nome,
+      servico_nome: service?.nome ?? "Atendimento",
+      data: queueDate,
+      ordem: nextQueueOrder(),
+      status: "aguardando",
+      prioridade: walkInForm.prioridade,
+      observacoes: walkInForm.observacoes.trim() || null,
+    });
+
+    if (queueInsertError) setQueueError(errorMessage(queueInsertError, "Encaixe criado, mas nao entrou na fila."));
+    else {
+      setWalkInForm(EMPTY_WALK_IN_FORM(professionals, services));
+      setShowWalkInForm(false);
+      await loadAttendanceQueue();
+    }
+    setQueueSaving(false);
+  }
+
+  async function updateQueueStatus(item: AttendanceQueueItem, status: AttendanceQueueStatus) {
+    setQueueSaving(true);
+    setQueueError(null);
+    const { error } = await supabase
+      .from("fila_atendimento")
+      .update({ status })
+      .eq("clinica_id", clinicId)
+      .eq("id", item.id);
+
+    if (error) {
+      setQueueError(errorMessage(error, "Nao foi possivel atualizar a fila."));
+      setQueueSaving(false);
+      return;
+    }
+
+    if (item.agendamento_id && ["finalizado", "faltou", "cancelado"].includes(status)) {
+      const appointmentStatus = status === "finalizado" ? "concluido" : status;
+      await supabase.from("agendamentos").update({ status: appointmentStatus }).eq("id", item.agendamento_id);
+    }
+
+    await loadAttendanceQueue();
+    setQueueSaving(false);
+  }
+
+  async function callNextQueueItem() {
+    const next = orderedQueueItems.find((item) => item.status === "aguardando");
+    if (next) await updateQueueStatus(next, "em_atendimento");
+  }
+
+  async function moveQueueItem(item: AttendanceQueueItem, direction: -1 | 1) {
+    const currentIndex = orderedQueueItems.findIndex((current) => current.id === item.id);
+    const target = orderedQueueItems[currentIndex + direction];
+    if (!target) return;
+
+    setQueueSaving(true);
+    setQueueError(null);
+    const [first, second] = await Promise.all([
+      supabase.from("fila_atendimento").update({ ordem: target.ordem }).eq("clinica_id", clinicId).eq("id", item.id),
+      supabase.from("fila_atendimento").update({ ordem: item.ordem }).eq("clinica_id", clinicId).eq("id", target.id),
+    ]);
+
+    const error = first.error ?? second.error;
+    if (error) setQueueError(errorMessage(error, "Nao foi possivel reordenar a fila."));
+    else await loadAttendanceQueue();
+    setQueueSaving(false);
+  }
+
+  async function removeQueueItem(item: AttendanceQueueItem) {
+    const ok = await confirmDangerAction(`Remover ${item.paciente_nome} da ordem de atendimento? O agendamento original sera mantido.`);
+    if (!ok) return;
+    setQueueSaving(true);
+    setQueueError(null);
+    const { error } = await supabase.from("fila_atendimento").delete().eq("clinica_id", clinicId).eq("id", item.id);
+    if (error) setQueueError(errorMessage(error, "Nao foi possivel remover da fila."));
+    else await loadAttendanceQueue();
+    setQueueSaving(false);
+  }
 
   // ── Recurrence ─────────────────────────────────────────────────────────────
   const recurrenceDates = useMemo(() => {
@@ -645,7 +923,7 @@ export function AppointmentsPanel({
       </div>
 
       {/* ── Tabs ───────────────────────────────────────────────────────────── */}
-      <div className="flex gap-0.5 rounded-xl border border-border bg-surface-low p-1 w-fit">
+      <div className="flex w-fit flex-wrap gap-0.5 rounded-xl border border-border bg-surface-low p-1">
         <button
           className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
             activeTab === "lista" ? "bg-primary text-white shadow-sm" : "text-ink-secondary hover:text-ink"
@@ -665,6 +943,16 @@ export function AppointmentsPanel({
         >
           <CalendarRange className="h-3.5 w-3.5" />
           Calendário
+        </button>
+        <button
+          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === "ordem" ? "bg-primary text-white shadow-sm" : "text-ink-secondary hover:text-ink"
+          }`}
+          type="button"
+          onClick={() => setActiveTab("ordem")}
+        >
+          <Clock3 className="h-3.5 w-3.5" />
+          Ordem de atendimento
         </button>
       </div>
 
@@ -798,6 +1086,193 @@ export function AppointmentsPanel({
       )}
 
       {/* ── Aba Calendário ─────────────────────────────────────────────────── */}
+      {activeTab === "ordem" && (
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-border bg-white p-4 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-ink">Ordem de atendimento</p>
+                <p className="text-xs text-ink-secondary">Use esta fila quando a clinica atende pela ordem de chegada.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input className={`${inputClass()} h-10 w-[150px]`} type="date" value={queueDate} onChange={(e) => setQueueDate(e.target.value || todayISO())} />
+                <button className="h-10 rounded-xl border border-border px-3 text-xs font-semibold text-ink-secondary transition hover:border-primary hover:text-primary" type="button" onClick={() => setQueueDate(todayISO())}>
+                  Hoje
+                </button>
+                <button className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-semibold text-ink-secondary transition hover:border-primary hover:text-primary" type="button" onClick={() => void loadAttendanceQueue()} disabled={queueLoading}>
+                  <RefreshCw className={`h-3.5 w-3.5 ${queueLoading ? "animate-spin" : ""}`} />
+                  Atualizar
+                </button>
+                <button className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60" type="button" onClick={() => setShowWalkInForm((value) => !value)} disabled={queueSaving}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Encaixe
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+              {[
+                { label: "Aguardando", value: queueSummary.waiting },
+                { label: "Em atendimento", value: queueSummary.active },
+                { label: "Finalizados", value: queueSummary.done },
+                { label: "Na fila", value: queueSummary.total },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-border bg-surface-low p-3">
+                  <p className="text-[11px] font-medium text-ink-muted">{item.label}</p>
+                  <p className="mt-1 text-2xl font-bold text-ink">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {queueError && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{queueError}</div>}
+          </div>
+
+          {showWalkInForm && (
+            <form className="rounded-3xl border border-border bg-white p-4 shadow-card" onSubmit={createWalkInAndQueue}>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">Novo encaixe na fila</p>
+                  <p className="text-xs text-ink-secondary">Cria um agendamento presencial e adiciona o paciente na ordem do dia.</p>
+                </div>
+                <button className="rounded-xl p-2 text-ink-muted transition hover:bg-surface-low hover:text-ink" type="button" onClick={() => setShowWalkInForm(false)}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <Field label="Paciente cadastrado">
+                  <select
+                    className={inputClass()}
+                    value={walkInForm.pacienteId}
+                    onChange={(e) => {
+                      const patient = patients.find((item) => item.id === e.target.value);
+                      setWalkInForm((prev) => ({
+                        ...prev,
+                        pacienteId: e.target.value,
+                        pacienteNome: patient?.nome ?? prev.pacienteNome,
+                        pacienteWhatsapp: patient?.whatsapp ?? prev.pacienteWhatsapp,
+                      }));
+                    }}
+                  >
+                    <option value="">Paciente avulso</option>
+                    {patients.map((patient) => <option key={patient.id} value={patient.id}>{patient.nome}</option>)}
+                  </select>
+                </Field>
+                <Field label="Nome do paciente">
+                  <input
+                    className={inputClass()}
+                    value={walkInForm.pacienteNome}
+                    onChange={(e) => setWalkInForm((prev) => ({ ...prev, pacienteNome: e.target.value, pacienteId: "" }))}
+                    placeholder="Nome completo"
+                  />
+                </Field>
+                <Field label="WhatsApp">
+                  <input className={inputClass()} value={walkInForm.pacienteWhatsapp} onChange={(e) => setWalkInForm((prev) => ({ ...prev, pacienteWhatsapp: e.target.value }))} placeholder="(00) 00000-0000" />
+                </Field>
+                <Field label="Profissional">
+                  <select className={inputClass()} value={walkInForm.profissionalId} onChange={(e) => setWalkInForm((prev) => ({ ...prev, profissionalId: e.target.value }))} required>
+                    {professionals.map((professional) => <option key={professional.id} value={professional.id}>{professional.nome}</option>)}
+                  </select>
+                </Field>
+                <Field label="Servico">
+                  <select className={inputClass()} value={walkInForm.servicoId} onChange={(e) => setWalkInForm((prev) => ({ ...prev, servicoId: e.target.value }))}>
+                    <option value="">Atendimento</option>
+                    {services.map((service) => <option key={service.id} value={service.id}>{service.nome}</option>)}
+                  </select>
+                </Field>
+                <Field label="Observacoes">
+                  <input className={inputClass()} value={walkInForm.observacoes} onChange={(e) => setWalkInForm((prev) => ({ ...prev, observacoes: e.target.value }))} placeholder="Ex.: retorno rapido" />
+                </Field>
+                <label className="flex h-10 items-center gap-2 self-end rounded-xl border border-border px-3 text-sm text-ink-secondary">
+                  <input type="checkbox" checked={walkInForm.prioridade} onChange={(e) => setWalkInForm((prev) => ({ ...prev, prioridade: e.target.checked }))} />
+                  Prioridade
+                </label>
+                <button className="h-10 self-end rounded-xl bg-primary px-4 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60" type="submit" disabled={queueSaving}>
+                  {queueSaving ? "Adicionando..." : "Adicionar a fila"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="grid gap-4 lg:grid-cols-[0.95fr_1.35fr]">
+            <div className="rounded-3xl border border-border bg-white shadow-card">
+              <div className="border-b border-border px-4 py-3">
+                <p className="text-sm font-semibold text-ink">Agendados do dia</p>
+                <p className="text-xs text-ink-secondary">{waitingAppointments.length} fora da fila</p>
+              </div>
+              <div className="max-h-[560px] space-y-2 overflow-y-auto p-4">
+                {appointmentsForQueueDate.length === 0 && <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-ink-secondary">Nenhum agendamento para esta data.</div>}
+                {appointmentsForQueueDate.map((appointment) => {
+                  const isQueued = queuedAppointmentIds.has(appointment.id);
+                  return (
+                    <div key={appointment.id} className="rounded-2xl border border-border p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-mono text-xs font-semibold text-primary">{appointment.horario}</p>
+                          <p className="mt-1 truncate text-sm font-semibold text-ink">{appointment.pacienteNome}</p>
+                          <p className="truncate text-xs text-ink-secondary">{appointment.profissional} - {appointment.servico}</p>
+                        </div>
+                        <ApptStatus status={appointment.status} />
+                      </div>
+                      <button className="mt-3 h-9 w-full rounded-xl border border-border text-xs font-semibold text-ink-secondary transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:bg-surface-low disabled:text-ink-muted" type="button" disabled={isQueued || queueSaving} onClick={() => void addAppointmentToQueue(appointment)}>
+                        {isQueued ? "Ja esta na fila" : "Adicionar a fila"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-border bg-white shadow-card">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">Fila do atendimento</p>
+                  <p className="text-xs text-ink-secondary">Ordenada pela chegada, com ajuste manual quando necessario.</p>
+                </div>
+                <button className="h-9 rounded-xl bg-ink px-3 text-xs font-semibold text-white transition hover:bg-ink/90 disabled:opacity-50" type="button" onClick={() => void callNextQueueItem()} disabled={queueSaving || !orderedQueueItems.some((item) => item.status === "aguardando")}>
+                  Chamar proximo
+                </button>
+              </div>
+
+              <div className="max-h-[560px] space-y-2 overflow-y-auto p-4">
+                {queueLoading && (
+                  <div className="flex items-center justify-center gap-2 rounded-2xl border border-border p-6 text-sm text-ink-secondary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Carregando fila...
+                  </div>
+                )}
+                {!queueLoading && orderedQueueItems.length === 0 && <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-ink-secondary">Nenhum paciente na ordem de atendimento desta data.</div>}
+                {!queueLoading && orderedQueueItems.map((item, index) => (
+                  <div key={item.id} className="rounded-2xl border border-border p-3 transition hover:bg-surface-low">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-wash text-sm font-bold text-primary">{item.ordem}</div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-ink">{item.paciente_nome}</p>
+                            <QueueStatusBadge status={item.status} />
+                            {item.prioridade && <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600">Prioridade</span>}
+                          </div>
+                          <p className="mt-1 text-xs text-ink-secondary">Chegada {formatQueueTime(item.chegada_em)} - {item.profissional_nome ?? "Profissional"} - {item.servico_nome ?? "Atendimento"}</p>
+                          {item.observacoes && <p className="mt-1 text-xs text-ink-muted">{item.observacoes}</p>}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <button className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink-secondary transition hover:border-primary hover:text-primary disabled:opacity-35" type="button" disabled={index === 0 || queueSaving} onClick={() => void moveQueueItem(item, -1)} aria-label="Subir na fila"><ChevronUp className="h-3.5 w-3.5" /></button>
+                        <button className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink-secondary transition hover:border-primary hover:text-primary disabled:opacity-35" type="button" disabled={index === orderedQueueItems.length - 1 || queueSaving} onClick={() => void moveQueueItem(item, 1)} aria-label="Descer na fila"><ChevronDown className="h-3.5 w-3.5" /></button>
+                        {item.status === "aguardando" && <button className="h-8 rounded-lg border border-blue-200 px-2.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-50" type="button" disabled={queueSaving} onClick={() => void updateQueueStatus(item, "em_atendimento")}>Chamar</button>}
+                        {item.status === "em_atendimento" && <button className="h-8 rounded-lg border border-emerald-200 px-2.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50" type="button" disabled={queueSaving} onClick={() => void updateQueueStatus(item, "finalizado")}>Finalizar</button>}
+                        {item.status !== "finalizado" && item.status !== "faltou" && <button className="h-8 rounded-lg border border-red-200 px-2.5 text-xs font-semibold text-red-600 transition hover:bg-red-50" type="button" disabled={queueSaving} onClick={() => void updateQueueStatus(item, "faltou")}>Faltou</button>}
+                        <button className="h-8 rounded-lg border border-border px-2.5 text-xs font-semibold text-ink-secondary transition hover:border-error hover:text-error" type="button" disabled={queueSaving} onClick={() => void removeQueueItem(item)}>Remover</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === "calendario" && (
         <ClinicCalendar
           appointments={appointments}

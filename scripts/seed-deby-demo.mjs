@@ -100,21 +100,21 @@ const patients = [
 ];
 
 const appointmentPlan = [
-  ["2026-06-26", "08:00", 0, 6, "presencial"],
-  ["2026-06-26", "09:00", 1, 2, "teleconsulta"],
-  ["2026-06-26", "10:00", 2, 4, "presencial"],
-  ["2026-06-26", "14:00", 3, 7, "teleconsulta"],
-  ["2026-06-27", "08:30", 4, 8, "presencial"],
-  ["2026-06-27", "09:30", 5, 12, "presencial"],
-  ["2026-06-27", "10:30", 6, 10, "teleconsulta"],
-  ["2026-06-27", "15:00", 7, 14, "presencial"],
-  ["2026-06-28", "08:00", 8, 16, "teleconsulta"],
-  ["2026-06-28", "09:00", 9, 18, "presencial"],
-  ["2026-06-28", "11:00", 10, 0, "presencial"],
-  ["2026-06-28", "16:00", 11, 3, "presencial"],
-  ["2026-06-29", "08:30", 12, 5, "presencial"],
-  ["2026-06-29", "10:00", 13, 6, "teleconsulta"],
-  ["2026-06-29", "14:30", 14, 8, "presencial"],
+  ["2026-05-26", "08:00", 0, 6, "presencial"],
+  ["2026-05-26", "09:00", 1, 2, "teleconsulta"],
+  ["2026-05-26", "10:00", 2, 4, "presencial"],
+  ["2026-05-26", "14:00", 3, 7, "teleconsulta"],
+  ["2026-05-27", "08:30", 4, 8, "presencial"],
+  ["2026-05-27", "09:30", 5, 12, "presencial"],
+  ["2026-05-27", "10:30", 6, 10, "teleconsulta"],
+  ["2026-05-27", "15:00", 7, 14, "presencial"],
+  ["2026-05-28", "08:00", 8, 16, "teleconsulta"],
+  ["2026-05-28", "09:00", 9, 18, "presencial"],
+  ["2026-05-28", "11:00", 10, 0, "presencial"],
+  ["2026-05-28", "16:00", 11, 3, "presencial"],
+  ["2026-05-29", "08:30", 12, 5, "presencial"],
+  ["2026-05-29", "10:00", 13, 6, "teleconsulta"],
+  ["2026-05-29", "14:30", 14, 8, "presencial"],
 ];
 
 function cpf(index) {
@@ -226,7 +226,7 @@ async function main() {
         `Rua das Acácias, ${120 + i} - São Paulo/SP`,
         prof.id,
         i < 10 ? "2026-05-20" : null,
-        i < 15 ? "2026-06-26" : null,
+        i < 15 ? "2026-05-26" : null,
         stage,
         i < 15 ? 180 + (i % 6) * 70 : 0,
         `${marker}. Paciente fictício para demonstração operacional do Deby Saúde. Queixa base: ${queixa}.`,
@@ -288,8 +288,8 @@ async function main() {
         appt?.profissional_id ?? profRows[patient.profIndex].id,
         patient.queixa,
         `<p><strong>Histórico:</strong> ${marker}. Paciente relata ${patient.queixa.toLowerCase()}.</p><p><strong>Exame/avaliação:</strong> sinais estáveis, sem intercorrências no atendimento de demonstração.</p>`,
-        `Plano inicial registrado para demonstração: orientar sinais de alerta, manter acompanhamento e retornar conforme agendamento. ${i < 15 ? "Consulta vinculada à agenda de 26 a 29/06/2026." : "Paciente sem agendamento futuro nesta carga."}`,
-        i < 15 ? "2026-06-20 12:00:00-03" : "2026-05-24 12:00:00-03",
+        `Plano inicial registrado para demonstração: orientar sinais de alerta, manter acompanhamento e retornar conforme agendamento. ${i < 15 ? "Consulta vinculada à agenda de 26 a 29/05/2026." : "Paciente sem agendamento futuro nesta carga."}`,
+        i < 15 ? "2026-05-20 12:00:00-03" : "2026-05-24 12:00:00-03",
       ],
     );
   }
@@ -356,7 +356,7 @@ async function main() {
       union all select 'servicos_demo', count(*)::int from public.servicos where clinica_id = $1 and nome = any($2::text[])
       union all select 'programas_demo', count(*)::int from public.programas_desconto where clinica_id = $1 and descricao ilike '%' || $3 || '%'
       union all select 'pacientes_demo', count(*)::int from public.pacientes where clinica_id = $1 and email like 'paciente.demo+%@deby.local'
-      union all select 'agendamentos_26_29_jun', count(*)::int from public.agendamentos where clinica_id = $1 and data between '2026-06-26' and '2026-06-29' and paciente_id in (select id from public.pacientes where clinica_id = $1 and email like 'paciente.demo+%@deby.local')
+      union all select 'agendamentos_26_29_mai', count(*)::int from public.agendamentos where clinica_id = $1 and data between '2026-05-26' and '2026-05-29' and paciente_id in (select id from public.pacientes where clinica_id = $1 and email like 'paciente.demo+%@deby.local')
       union all select 'teleconsultas_demo', count(*)::int from public.teleconsultations where clinica_id = $1 and appointment_id in (select id from public.agendamentos where clinica_id = $1 and paciente_id in (select id from public.pacientes where clinica_id = $1 and email like 'paciente.demo+%@deby.local'))
       union all select 'prontuarios_demo', count(*)::int from public.prontuarios where clinica_id = $1 and paciente_id in (select id from public.pacientes where clinica_id = $1 and email like 'paciente.demo+%@deby.local')
       union all select 'pagamentos_demo', count(*)::int from public.pagamentos where clinica_id = $1 and descricao ilike '%' || $3 || '%'
